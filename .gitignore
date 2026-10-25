@@ -10,8 +10,8 @@ proxy_trace.*
 # YOU MUST uncomment those after project is initialized with this template:
 # AFTER that, remove the files from git but keep them locally: git rm --cached gitsync.* README.cmd gitpush.cmd gitget.cmd
 #----------
-#gitsync.*
-#README.cmd
+gitsync.*
+README.cmd
 #----------
 
 # always excluded:
