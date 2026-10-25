@@ -69,7 +69,9 @@ npm run status
 ## Pacing
 
 Moderate defaults: 2-5s between actions, 30-60s pause after every 10 deletions.
-Override with `--action-min`, `--action-max`, `--batch-min`, `--batch-max`.
+Override on the command line with `--action-min`, `--action-max`, `--batch-min`,
+`--batch-max`, or edit `config.json` (created on first run) to persist your
+preferred values.
 
 ## Safety
 

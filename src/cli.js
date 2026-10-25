@@ -3,7 +3,7 @@ import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 
-import { URLS, TIMING, PATHS } from "./config.js";
+import { URLS, TIMING, PATHS, loadConfig } from "./config.js";
 import { launchBrowser, injectDomHelpers, findChromiumBinary, connectCDP, blockHeavyResources } from "./browser.js";
 import { loadCheckpoint, saveCheckpoint, resetCheckpoint } from "./checkpoint.js";
 import { log, warn, err } from "./logger.js";
@@ -13,6 +13,10 @@ const DOM_HELPER = path.join(__dirname, "linkedin-dom.js");
 
 const args = process.argv.slice(2);
 const command = args[0] || "help";
+
+const config = loadConfig();
+const cfgTiming = (config && config.timing) || TIMING;
+const cfgPaths = (config && config.paths) || {};
 
 function getFlag(name, defaultVal) {
   const idx = args.indexOf(`--${name}`);
@@ -29,6 +33,7 @@ function getIntFlag(name, defaultVal) {
 }
 
 function defaultProfileDir() {
+  if (cfgPaths.profileDir) return cfgPaths.profileDir;
   const candidates = [
     ".profile-chromium",
     "E:/wintools/PortableApps/chromium-win64/profile",
@@ -42,15 +47,20 @@ function defaultProfileDir() {
 const profileDir = path.resolve(getFlag("profile-dir", defaultProfileDir()));
 const dataDir = path.resolve(getFlag("data-dir", PATHS.dataDir));
 const typeArg = getFlag("type", "all");
-const chromiumPath = getFlag("chromium-path", null);
+const chromiumPath = getFlag("chromium-path", cfgPaths.chromiumPath || null);
 const cdpEndpoint = getFlag("cdp", null);
 const limitArg = getIntFlag("limit", 0);
 
 const timing = {
-  actionMin: getIntFlag("action-min", TIMING.actionMin),
-  actionMax: getIntFlag("action-max", TIMING.actionMax),
-  batchMin: getIntFlag("batch-min", TIMING.batchMin),
-  batchMax: getIntFlag("batch-max", TIMING.batchMax),
+  actionMin: getIntFlag("action-min", cfgTiming.actionMin),
+  actionMax: getIntFlag("action-max", cfgTiming.actionMax),
+  batchMin: getIntFlag("batch-min", cfgTiming.batchMin),
+  batchMax: getIntFlag("batch-max", cfgTiming.batchMax),
+  scrollWait: cfgTiming.scrollWait,
+  maxEmptyScrolls: cfgTiming.maxEmptyScrolls,
+  maxRetries: cfgTiming.maxRetries,
+  backoffBase: cfgTiming.backoffBase,
+  batchSize: cfgTiming.batchSize,
 };
 
 const headless = Boolean(getFlag("headless", false));
@@ -93,9 +103,9 @@ async function collectAllKeys(page) {
     for (const k of batch) keys.add(k);
 
     const clicked = await page.evaluate(() => window.LP.clickShowMoreIfPresent());
-    await page.waitForTimeout(clicked ? 1200 : 800);
+    await page.waitForTimeout(clicked ? timing.scrollWait + 400 : timing.scrollWait);
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(timing.scrollWait);
 
     if (keys.size === lastSize) stable++;
     else {
@@ -281,12 +291,12 @@ async function runPurge() {
         report.push({ key: result.key, ts: new Date().toISOString() });
         log(`deleted ${result.key} (${deleted} this run, ${cp.processed.size} total)`);
 
-        if (deleted % TIMING.batchSize === 0) {
+        if (deleted % timing.batchSize === 0) {
           saveCheckpoint(dataDir, t, cp.processed);
           log(`  checkpoint saved (${cp.processed.size} processed)`);
         }
 
-        if (deleted % TIMING.batchSize === 0) {
+        if (deleted % timing.batchSize === 0) {
           const pause = rand(timing.batchMin, timing.batchMax);
           log(`  batch pause ${Math.round(pause / 1000)}s`);
           await page.waitForTimeout(pause);
@@ -314,7 +324,7 @@ async function runPurge() {
         const hasPending = currentKeys.some((k) => !cp.processed.has(k));
         if (!hasPending) {
           emptyScrolls++;
-          if (emptyScrolls >= TIMING.maxEmptyScrolls) {
+          if (emptyScrolls >= timing.maxEmptyScrolls) {
             log("No more items found.");
             break;
           }
@@ -327,11 +337,11 @@ async function runPurge() {
       // retryable failure
       retries++;
       warn(`  failed: ${result ? result.error : "unknown"} (retry ${retries})`);
-      if (retries > TIMING.maxRetries) {
+      if (retries > timing.maxRetries) {
         err("Too many consecutive failures; stopping this run.");
         break;
       }
-      const backoff = TIMING.backoffBase * Math.pow(2, retries - 1);
+      const backoff = timing.backoffBase * Math.pow(2, retries - 1);
       log(`  backoff ${Math.round(backoff / 1000)}s`);
       await page.waitForTimeout(backoff);
     }

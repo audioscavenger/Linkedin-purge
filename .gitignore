@@ -4,6 +4,7 @@ proxy_trace.*
 # linkedin-purge runtime data (sessions, checkpoints, reports)
 .profile*/
 data/
+config.json
 
 # dynamic subfolders example:
 # **/folder*/
