@@ -69,7 +69,7 @@ npm run status
 
 ## Configuration
 
-On first run, `linkedin-purge` writes `settings.json` in the project root with all
+On first run, `linkedin-purge` writes `config.json` in the project root with all
 timing and path defaults. Edit it to override — changes apply on the next run.
 CLI flags always take precedence.
 
