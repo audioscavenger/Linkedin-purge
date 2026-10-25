@@ -48,3 +48,14 @@ export async function injectDomHelpers(page, helperPath) {
   const code = fsMod.readFileSync(helperPath, "utf8");
   await page.addInitScript(code);
 }
+
+export async function blockHeavyResources(page) {
+  await page.route("**/*", (route) => {
+    const type = route.request().resourceType();
+    if (type === "image" || type === "media" || type === "font") {
+      route.abort();
+    } else {
+      route.continue();
+    }
+  });
+}

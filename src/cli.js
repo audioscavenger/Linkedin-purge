@@ -4,7 +4,7 @@ import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 
 import { URLS, TIMING, PATHS } from "./config.js";
-import { launchBrowser, injectDomHelpers, findChromiumBinary, connectCDP } from "./browser.js";
+import { launchBrowser, injectDomHelpers, findChromiumBinary, connectCDP, blockHeavyResources } from "./browser.js";
 import { loadCheckpoint, saveCheckpoint, resetCheckpoint } from "./checkpoint.js";
 import { log, warn, err } from "./logger.js";
 
@@ -160,6 +160,7 @@ async function runScan() {
   }
   const page = await context.newPage();
   await injectDomHelpers(page, DOM_HELPER);
+  await blockHeavyResources(page);
 
   // Resolve the real profile base URL (LinkedIn redirects /in/me/ to /in/<username>/).
   await page.goto("https://www.linkedin.com/in/me/", { waitUntil: "domcontentloaded" });
@@ -204,6 +205,7 @@ async function runPurge() {
   }
   const page = await context.newPage();
   await injectDomHelpers(page, DOM_HELPER);
+  await blockHeavyResources(page);
 
   await page.goto("https://www.linkedin.com/in/me/", { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(3000);
