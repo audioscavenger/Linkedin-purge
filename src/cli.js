@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
+import { fileURLToPath } from "node:url";
 
 import { URLS, loadConfig, PATHS, TIMING } from "./config.js";
 import { launchBrowser, injectDomHelpers, findChromiumBinary, connectCDP, blockHeavyResources } from "./browser.js";
-import { loadCheckpoint, saveCheckpoint, resetCheckpoint } from "./checkpoint.js";
+import { loadCheckpoint, resetCheckpoint } from "./checkpoint.js";
 import { log, warn, err } from "./logger.js";
 import { PurgeRunner, PageAdapter, CheckpointAdapter, ReporterAdapter, ConfirmAdapter } from "./purge.js";
 
@@ -60,27 +61,9 @@ async function ensureLoggedIn(page) {
   return true;
 }
 
-// --- Browser-side setup: navigate to /in/me/ and resolve profile base URL ---
+// --- Browser-side setup: shared by scan and purge ---
 
-async function resolveBaseUrl(page) {
-  await page.goto("https://www.linkedin.com/in/me/", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(3000);
-  const meUrl = page.url();
-  const usernameMatch = meUrl.match(/linkedin\.com\/in\/([^/]+)/);
-  const username = usernameMatch ? usernameMatch[1] : "me";
-  const baseUrl = `https://www.linkedin.com/in/${username}/recent-activity/`;
-  await page.goto(baseUrl + "all/", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(5000);
-  return baseUrl;
-}
-
-async function openPageAndInject(page) {
-  await injectDomHelpers(page, path.join(__dirname, "linkedin-dom.js"));
-  await blockHeavyResources(page);
-  return resolveBaseUrl(page);
-}
-
-export async function runPurge() {
+async function openPage() {
   let context, ownsBrowser = true;
   if (cdpEndpoint) {
     const res = await connectCDP(cdpEndpoint);
@@ -90,23 +73,44 @@ export async function runPurge() {
     context = await launchBrowser({ profileDir, headless: false, chromiumPath });
   }
   const page = await context.newPage();
-  await openPageAndInject(page);
+  await injectDomHelpers(page, path.join(__dirname, "linkedin-dom.js"));
+  await blockHeavyResources(page);
+
+  // Resolve the real profile base URL (LinkedIn redirects /in/me/ to /in/<username>/).
+  await page.goto("https://www.linkedin.com/in/me/", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(3000);
+  const meUrl = page.url();
+  const usernameMatch = meUrl.match(/linkedin\.com\/in\/([^/]+)/);
+  const username = usernameMatch ? usernameMatch[1] : "me";
+  const baseUrl = `https://www.linkedin.com/in/${username}/recent-activity/`;
+  await page.goto(baseUrl + "all/", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(5000);
+
+  return { page, context, ownsBrowser, baseUrl };
+}
+
+export async function runPurge() {
+  const { page, context, ownsBrowser, baseUrl } = await openPage();
   if (!(await ensureLoggedIn(page))) {
     if (ownsBrowser) await context.close(); else await page.close();
     return;
   }
 
-  // Build concrete adapters for the Purge Runner
   const pageAdapter = new PageAdapter(page);
   const checkpointAdapter = new CheckpointAdapter(dataDir, typeArg);
   const reporterAdapter = new ReporterAdapter({ dataDir: cfgPaths.dataDir || "data" });
   const confirmAdapter = new ConfirmAdapter();
 
   const runner = new PurgeRunner({ pageAdapter, checkpointAdapter, reporterAdapter, confirmAdapter });
-  const result = await runner.run({ type: typeArg, timeoutMs: cfgTiming.timeout, batchSize: cfgTiming.batchSize });
+  const result = await runner.run({
+    type: typeArg,
+    timeoutMs: cfgTiming.timeout,
+    batchSize: cfgTiming.batchSize,
+    limit: limitArg,
+  });
 
   if (result && result.deleted > 0) {
-    log(`${type}: ${result.deleted} items deleted, ${result.processed} processed`);
+    log(`${result.type}: ${result.deleted} items deleted, ${result.processed} processed`);
     if (result.reportPath) log(`Report written: ${result.reportPath}`);
   } else if (result && result.deleted === 0) {
     log("Purge cancelled or nothing to delete.");
@@ -128,16 +132,7 @@ async function runLogin() {
 }
 
 async function runScan() {
-  let context, ownsBrowser = true;
-  if (cdpEndpoint) {
-    const res = await connectCDP(cdpEndpoint);
-    context = res.context;
-    ownsBrowser = false;
-  } else {
-    context = await launchBrowser({ profileDir, headless: false, chromiumPath });
-  }
-  const page = await context.newPage();
-  await openPageAndInject(page);
+  const { page, context, ownsBrowser, baseUrl } = await openPage();
   if (!(await ensureLoggedIn(page))) {
     if (ownsBrowser) await context.close(); else await page.close();
     return;
@@ -146,7 +141,7 @@ async function runScan() {
   for (const t of typesToRun(typeArg)) {
     log(`=== Scanning ${t} ===`);
     const tab = t === "comments" ? "comments/" : "reactions/";
-    await page.goto(baseUrlForTab(page), { waitUntil: "domcontentloaded" });
+    await page.goto(baseUrl + tab, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(8000);
     if (!(await ensureLoggedIn(page))) {
       if (ownsBrowser) await context.close(); else await page.close();
@@ -159,13 +154,6 @@ async function runScan() {
     log(`${t}: ${keys.length} items found -> ${out}`);
   }
   if (ownsBrowser) await context.close(); else await page.close();
-}
-
-function baseUrlForTab(page) {
-  const meUrl = page.url();
-  const match = meUrl.match(/linkedin\.com\/in\/([^/]+)/);
-  const user = match ? match[1] : "me";
-  return `https://www.linkedin.com/in/${user}/recent-activity/${page.url().includes("comments/") ? "comments/" : "reactions/"}`;
 }
 
 async function runStatus() {
@@ -225,6 +213,39 @@ Flags:
   --batch-min/--batch-max     per-10 batch pause ms (default 30000/60000)
   --reset-checkpoint          delete checkpoint before run (purge only)
 `);
+}
+
+// Top-level config derived from flags (used by openPage above)
+const profileDir = path.resolve(getFlag("profile-dir", defaultProfileDir()));
+const dataDir = path.resolve(getFlag("data-dir", PATHS.dataDir));
+const typeArg = getFlag("type", "all");
+const chromiumPath = getFlag("chromium-path", cfgPaths.chromiumPath || null);
+const cdpEndpoint = getFlag("cdp", null);
+const limitArg = getIntFlag("limit", 0);
+
+const timing = {
+  actionMin: getIntFlag("action-min", cfgTiming.actionMin),
+  actionMax: getIntFlag("action-max", cfgTiming.actionMax),
+  batchMin: getIntFlag("batch-min", cfgTiming.batchMin),
+  batchMax: getIntFlag("batch-max", cfgTiming.batchMax),
+  scrollWait: cfgTiming.scrollWait,
+  maxEmptyScrolls: cfgTiming.maxEmptyScrolls,
+  maxRetries: cfgTiming.maxRetries,
+  backoffBase: cfgTiming.backoffBase,
+  batchSize: cfgTiming.batchSize,
+};
+
+function defaultProfileDir() {
+  if (cfgPaths.profileDir) return cfgPaths.profileDir;
+  const candidates = [
+    ".profile-chromium",
+    "E:/wintools/PortableApps/chromium-win64/profile",
+    PATHS.profileDir,
+  ];
+  for (const c of candidates) {
+    try { if (fs.existsSync(c)) return c; } catch {}
+  }
+  return PATHS.profileDir;
 }
 
 (async () => {

@@ -23,17 +23,37 @@ export class PurgeRunner {
     const type = options.type || "comments";
     const timeoutMs = options.timeoutMs || 3600000;
     const batchSize = options.batchSize || 10;
+    const maxRetries = options.maxRetries || 4;
+    const backoffBase = options.backoffBase || 10000;
 
     // Load existing checkpoint
-    await this.checkpointAdapter.load();
+    const cpResult = await this.checkpointAdapter.load();
 
-    // Confirm before destructive action
-    const pendingCount = this.checkpointAdapter.processed.size; // will be verified against actual keys in loop
+    // Collect keys and filter by checkpoint
+    const keys = await this.pageAdapter.collectKeys();
+    const processedSet = cpResult.processed;
+    const pendingCount = keys.filter(k => !processedSet.has(k)).length;
+
+    if (pendingCount === 0) {
+      // Nothing to do
+      await this.reporterAdapter.open(type);
+      const reportPath = await this.reporterAdapter.close();
+      return {
+        type,
+        deleted: 0,
+        processed: processedSet.size,
+        durationMs: Date.now() - startTime,
+        reportPath,
+      };
+    }
+
     const confirmed = await this.confirmAdapter.confirm(
       `Delete ${pendingCount} ${type} items? Type YES to proceed: `
     );
     if (!confirmed) {
-      return { type, deleted: 0, processed: this.checkpointAdapter.processed.size, durationMs: 0, reportPath: null };
+      await this.reporterAdapter.open(type);
+      const reportPath = await this.reporterAdapter.close();
+      return { type, deleted: 0, processed: processedSet.size, durationMs: Date.now() - startTime, reportPath };
     }
 
     // Initialize report
@@ -50,29 +70,27 @@ export class PurgeRunner {
         break;
       }
 
-      // Collect current eligible items
       const keys = await this.pageAdapter.collectKeys();
-      const pending = keys.filter(k => !this.checkpointAdapter.processed.has(k));
+      const pending = keys.filter(k => !processedSet.has(k));
 
       if (pending.length === 0) {
         emptyScrolls++;
         if (emptyScrolls >= (options.maxEmptyScrolls || 8)) {
-          break; // No more items found
+          break;
         }
         await this.pageAdapter.waitForTimeout(1200);
         continue;
       }
       emptyScrolls = 0;
 
-      // Deletion loop
       const result = await this.pageAdapter.deleteFirstEligible(
-        Array.from(this.checkpointAdapter.processed)
+        Array.from(processedSet)
       );
 
       if (result && result.ok) {
         deleted++;
         retries = 0;
-        await this.checkpointAdapter.add(result.key);
+        processedSet.add(result.key);
         await this.reporterAdapter.write({
           key: result.key,
           ts: new Date().toISOString(),
@@ -82,20 +100,28 @@ export class PurgeRunner {
           dateTime: result.dateTime || null,
         });
 
-        // Periodic checkpoint save
         if (deleted % batchSize === 0) {
           await this.checkpointAdapter.save();
         }
+
+        if (deleted % batchSize === 0) {
+          const pause = Math.floor(Math.random() * (options.batchMax - options.batchMin + 1)) + options.batchMin;
+          await this.pageAdapter.waitForTimeout(pause);
+        } else {
+          const actionMin = options.actionMin || 2000;
+          const actionMax = options.actionMax || 5000;
+          const pause = Math.floor(Math.random() * (actionMax - actionMin + 1)) + actionMin;
+          await this.pageAdapter.waitForTimeout(pause);
+        }
       } else {
         // No eligible item right now — treat as empty scroll iteration
+        retries = 0;
         emptyScrolls++;
         if (emptyScrolls >= (options.maxEmptyScrolls || 8)) {
           break;
         }
+        await this.pageAdapter.waitForTimeout(1200);
       }
-
-      // Brief pause between actions
-      await this.pageAdapter.waitForTimeout(1500);
     }
 
     // Final save and close
@@ -105,7 +131,7 @@ export class PurgeRunner {
     return {
       type,
       deleted,
-      processed: this.checkpointAdapter.processed.size,
+      processed: processedSet.size,
       durationMs: Date.now() - startTime,
       reportPath,
     };
@@ -162,6 +188,10 @@ export class CheckpointAdapter {
 
   async add(key) {
     this.processed.add(key);
+  }
+
+  async size() {
+    return this.processed.size;
   }
 
   async save() {
