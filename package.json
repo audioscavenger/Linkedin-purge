@@ -1,0 +1,22 @@
+{
+  "name": "linkedin-purge",
+  "version": "0.1.0",
+  "description": "Purge your own LinkedIn comments and likes via Playwright with randomized pacing.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "linkedin-purge": "src/cli.js"
+  },
+  "scripts": {
+    "login": "node src/cli.js login",
+    "copy-chromium-profile": "node src/cli.js copy-chromium-profile",
+    "scan": "node src/cli.js scan",
+    "purge": "node src/cli.js purge",
+    "status": "node src/cli.js status"
+  },
+  "dependencies": {
+    "playwright": "^1.52.0",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}

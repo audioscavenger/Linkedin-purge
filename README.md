@@ -1,76 +1,84 @@
-# template-windows
-Description
+# linkedin-purge
 
-![template-windows screenshot](https://gitea.derewonko.com/audioscavenger/template-windows/raw/branch/main/assets/template-windows-screenshot-01.png "template-windows screenshot")
+Purge your own LinkedIn comments and reactions (likes) using a real browser
+(Playwright) with randomized pacing, checkpointing, and dry-run confirmation.
 
+## Setup (bundled Chromium)
 
-Windows template for batch scripts etc
-## :scroll: template-windows: Table of Contents
-- [template-windows](#template-windows)
-  - [:scroll: template-windows: Table of Contents](#scroll-template-windows-Table-of-Contents)
-- [Presentation](#Presentation)
-  - [:sparkles: Features](#sparkles-Features)
-  - [:memo: Compatibility](#memo-Compatibility)
-- [:question: How To Use](#question-How-To-Use)
-  - [Install](#Install)
-- [:clipboard: TODO List](#clipboard-TODO-List)
-- [:unamused: Thoughts](#unamused-Thoughts)
-- [:mag: Highlights](#mag-Highlights)
-  - [listFunctions](#listFunctions)
-- [:ribbon: License (is-GNU-AGPLv3)](#ribbon-License-is-GNU-AGPLv3)
+```sh
+npm install
+npx playwright install chromium
+npm run login
+```
 
-# Presentation
+`npm run login` opens a headed browser; log in to LinkedIn, then press Enter in the
+terminal. The session is saved under `.profile/`.
 
-## :sparkles: Features
-* 100+ aliases
-> Covers common slips and uber-used commands:
-> * **ll = lla** =ls -lAq
+## Setup (reuse chrlauncher Chromium profile)
 
-## :memo: Compatibility
-* System V
-  * SunOS
+Your existing profile is at `E:/wintools/PortableApps/chromium-win64/profile`
+and is already logged in. Close Chromium first (so its profile files are not
+locked), then either use it directly:
 
-# :question: How To Use
+```sh
+npm run scan -- --profile-dir "E:/wintools/PortableApps/chromium-win64/profile" --chromium-path "E:/wintools/PortableApps/chromium-win64/bin/chrome.exe"
+```
 
-## Install
-git clone https://gitea.derewonko.com/audioscavenger/template-windows
+or copy it into the project (recommended, avoids lock issues) and run against
+the copy:
 
-# :clipboard: TODO List
+```sh
+npm run copy-chromium-profile
+npm run scan
+npm run purge
+```
 
-* Todo
-- [ ] Stop appending todo list
+The copy lives under `.profile-chromium/`.
 
-* Releases
-- [x] create releases excluding opt/docs
-- [ ] create installer because of non-empty profile folder
+## Option C: attach to your running Chromium (no close, no copy)
 
-# :unamused: Thoughts
+Enable remote debugging in chrlauncher.ini by adding to ChromiumCommandLine:
 
-# :mag: Highlights
+```
+--remote-debugging-port=9222
+```
 
-## listFunctions
+Restart Chromium, then attach:
 
-**listFunctions** is the usage/functions listing script you want to try first.
+```sh
+npm run scan -- --cdp http://localhost:9222
+npm run purge -- --cdp http://localhost:9222
+```
 
-* `listFunctions -h`
+## Usage
 
-  Usage: 
-  
-  ![listFunctions -h](https://www.it-cooking.com/listFunctions-help-oq10/ "listFunctions -h")
+```sh
+# Count items without deleting
+npm run scan -- --type comments
 
+# Delete comments + reactions, with dry-run confirmation
+npm run purge
 
-# :ribbon: License (is GNU AGPLv3)
-This project is distributed under [GNU Affero General Public License, Version 3][AGPLv3].
+# Only reactions, reset prior checkpoint
+npm run purge -- --type likes --reset-checkpoint
 
-                    GNU GENERAL PUBLIC LICENSE
-                       Version 3, 29 June 2007
+# Progress
+npm run status
+```
 
- Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
- Everyone is permitted to copy and distribute verbatim copies
- of this license document, but changing it is not allowed.
+## Pacing
 
-install-rkit-portable  Copyright (C) 2019, Eric Derewonko
-This program comes with ABSOLUTELY NO WARRANTY;
-This is free software, and you are welcome to redistribute it
-under certain conditions; https://www.gnu.org/licenses/agpl-3.0.html
+Moderate defaults: 2-5s between actions, 30-60s pause after every 10 deletions.
+Override with `--action-min`, `--action-max`, `--batch-min`, `--batch-max`.
 
+## Safety
+
+- Dry-run scan + explicit `YES` confirmation before any deletion.
+- Checkpoint saved every 10 deletions; Ctrl+C stops after the current item.
+- JSON report written per run under `data/`.
+
+## Disclaimer
+
+Unofficial. Automating LinkedIn may violate its Terms of Service and can trigger
+rate limits or temporary account restrictions. Use conservative pacing for
+large histories.

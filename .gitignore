@@ -1,6 +1,9 @@
 # -------------------------------- custom
 *.jsonl
 proxy_trace.*
+# linkedin-purge runtime data (sessions, checkpoints, reports)
+.profile*/
+data/
 
 # dynamic subfolders example:
 # **/folder*/
