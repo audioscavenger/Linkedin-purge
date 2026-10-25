@@ -67,6 +67,50 @@ npm run purge -- --type likes --reset-checkpoint
 npm run status
 ```
 
+## Configuration
+
+On first run, `linkedin-purge` writes `settings.json` in the project root with all
+timing and path defaults. Edit it to override — changes apply on the next run.
+CLI flags always take precedence.
+
+```json
+{
+  "timing": {
+    "actionMin": 2000,
+    "actionMax": 5000,
+    "batchMin": 30000,
+    "batchMax": 60000,
+    "scrollWait": 800,
+    "maxEmptyScrolls": 8,
+    "maxRetries": 4,
+    "backoffBase": 60000,
+    "batchSize": 10,
+    "timeout": 3600000
+  },
+  "paths": { "profileDir": null, "chromiumPath": null }
+}
+```
+
+`timeout` (ms) caps how long a scan or purge run may take before checkpointing
+and stopping. Set to `null` to disable.
+
+## Reports
+
+Every purge run writes a JSON report under `data/report-<type>-<timestamp>.json`.
+Each entry includes metadata so you can filter later:
+
+```jsonc
+{ "type": "likes", "deleted": 1, "items": [
+  { "key": "reaction:0",
+    "ts": "2026-10-25T21:03:05.874Z",
+    "state": "Like",            // reaction type (Like, Funny, Celebrate, Love)
+    "author": "Eric Derewonko", // target user or company name
+    "postHref": "https://www.linkedin.com/feed/update/urn:li:activity:7507971921796456448/",
+    "dateTime": "2026-04-20T15:09:00Z"
+  }
+] }
+```
+
 ## Pacing
 
 Moderate defaults: 2-5s between actions, 30-60s pause after every 10 deletions.
