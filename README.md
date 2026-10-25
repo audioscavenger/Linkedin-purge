@@ -55,6 +55,7 @@ npm run purge -- --cdp http://localhost:9222
 ```sh
 # Count items without deleting
 npm run scan -- --type comments
+npm run scan -- --type likes
 
 # Delete comments + reactions, with dry-run confirmation
 npm run purge

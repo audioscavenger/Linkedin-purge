@@ -54,13 +54,12 @@ function reactionState(btn) {
 }
 
 function reactionKeyForButton(btn) {
-  let node = btn;
-  for (let i = 0; i < 25 && node; i++) {
-    const link = node.querySelector ? node.querySelector("a[href*='/feed/update/']") : null;
-    if (link) return link.getAttribute("href");
-    node = node.parentElement;
-  }
-  return null;
+  // The activity list keeps unliked items in place (state "no reaction"), so the
+  // button's index among all reaction buttons is stable across runs and serves
+  // as a checkpoint key (permalinks are not reachable per item in this UI).
+  const all = reactionButtons();
+  const idx = all.indexOf(btn);
+  return idx >= 0 ? `reaction:${idx}` : null;
 }
 
 function collectReactionKeys() {

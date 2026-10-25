@@ -7,6 +7,7 @@
 ## Unreleased
 
 * Added config.json, generated on first run, to persist timing and path settings.
+* Fixed reactions scan undercounting (only 6 of N were collected) by using stable per-item index keys instead of shared permalink links.
 
 ## Released
 
