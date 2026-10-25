@@ -1,0 +1,12 @@
+* text=auto
+.gitattributes export-ignore
+.gitignore export-ignore
+.svnignore export-ignore
+CHANGELOG.md export-ignore
+CHANGELOG.cmd export-ignore
+README.cmd export-ignore
+# Local Agent FIX: CRLF required for Windows script/config types regardless of clone config (LF breaks .bat/.cmd execution); everything else stays * text=auto
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ini text eol=crlf
+*.txt text eol=crlf
