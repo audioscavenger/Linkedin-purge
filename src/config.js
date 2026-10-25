@@ -10,7 +10,7 @@ export const TIMING = {
   actionMax: 5000,
   batchMin: 30000,
   batchMax: 60000,
-  scrollWait: 1500,
+  scrollWait: 800,
   maxEmptyScrolls: 8,
   maxRetries: 4,
   backoffBase: 10000,

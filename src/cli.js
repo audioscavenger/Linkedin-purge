@@ -93,9 +93,9 @@ async function collectAllKeys(page) {
     for (const k of batch) keys.add(k);
 
     const clicked = await page.evaluate(() => window.LP.clickShowMoreIfPresent());
-    await page.waitForTimeout(clicked ? 2000 : 1200);
+    await page.waitForTimeout(clicked ? 1200 : 800);
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(800);
 
     if (keys.size === lastSize) stable++;
     else {
