@@ -95,11 +95,16 @@ async function ensureLoggedIn(page) {
   return true;
 }
 
-async function collectAllKeys(page) {
+async function collectAllKeys(page, timeoutMs) {
   const keys = new Set();
   let stable = 0;
   let lastSize = 0;
+  const start = Date.now();
   while (stable < 10) {
+    if (timeoutMs && Date.now() - start > timeoutMs) {
+      log(`Timeout reached after ${Math.round(timeoutMs / 1000)}s; stopping scan.`);
+      break;
+    }
     const batch = await page.evaluate(() => window.LP.collectKeys());
     for (const k of batch) keys.add(k);
 
@@ -198,7 +203,7 @@ async function runScan() {
       if (ownsBrowser) await context.close(); else await page.close();
       return;
     }
-    const keys = await collectAllKeys(page);
+    const keys = await collectAllKeys(page, cfgTiming.timeout);
     const out = path.join(dataDir, `scan-${t}.json`);
     fs.mkdirSync(dataDir, { recursive: true });
     fs.writeFileSync(out, JSON.stringify({ type: t, count: keys.length, keys, scannedAt: new Date().toISOString() }, null, 2));
@@ -251,7 +256,7 @@ async function runPurge() {
 
     // Collect candidates
     log("Collecting items...");
-    const keys = await collectAllKeys(page);
+    const keys = await collectAllKeys(page, cfgTiming.timeout);
     log(`${t}: ${keys.length} items collected.`);
 
     const cp = loadCheckpoint(dataDir, t);
@@ -273,8 +278,14 @@ async function runPurge() {
     let deleted = 0;
     let retries = 0;
     let emptyScrolls = 0;
+    const purgeStart = Date.now();
 
     while (!stopped) {
+      if (cfgTiming.timeout && Date.now() - purgeStart > cfgTiming.timeout) {
+        warn(`Timeout reached after ${Math.round(cfgTiming.timeout / 1000)}s; stopping purge.`);
+        saveCheckpoint(dataDir, t, cp.processed);
+        break;
+      }
       let result;
       try {
         result = await page.evaluate((skipArr) => window.LP.deleteFirstEligible(skipArr), [...cp.processed]);

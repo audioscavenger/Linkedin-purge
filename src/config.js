@@ -12,6 +12,7 @@ export const DEFAULT_CONFIG = {
     maxRetries: 4,
     backoffBase: 10000,
     batchSize: 10,
+    timeout: 3600000, // 1 hour in ms (default)
   },
   paths: {
     profileDir: null,
