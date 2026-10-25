@@ -187,19 +187,77 @@ async function deleteFirstEligible(skipArr) {
     if (!targetBtn) {
       return { ok: false, key: null, skip: false, error: "no eligible item" };
     }
+    // Click to toggle to "no reaction"
     targetBtn.click();
     await sleep(1500);
-    // verify state changed to no reaction
+    // Verify state changed to no reaction
     const newState = reactionState(targetBtn);
     if (newState.toLowerCase() !== "no reaction") {
-      return { ok: false, key: targetKey, skip: false, error: "reaction not removed (possible rate limit)" };
+      // Failed to remove; return metadata about what we tried to delete
+      return { 
+        ok: false, 
+        key: targetKey, 
+        skip: false, 
+        error: "reaction not removed (possible rate limit)",
+        state: newState,
+        postHref: null,
+        author: null,
+        dateTime: null
+      };
     }
-    return { ok: true, key: targetKey };
+    // Gather metadata about the deleted item
+    // Find post href and author/date info from the container
+    let postHref = null;
+    let author = null;
+    let dateTime = null;
+    let state = newState;
+    
+    // The targetBtn was clicked and is now "no reaction", but we can still extract metadata
+    // from the DOM before it changes. Let's find the container and relevant info.
+    let container = targetBtn;
+    for (let i = 0; i < 30; i++) {
+      if (container.querySelector && container.querySelector("a[href*='/feed/update/']")) break;
+      container = container.parentElement;
+    }
+    const feedLink = container.querySelector("a[href*='/feed/update/']");
+    if (feedLink) {
+      postHref = feedLink.getAttribute("href");
+    }
+    
+    // Get author name
+    const authorLinks = [...container.querySelectorAll("a[href*='/in/'], a[href*='/company/']")];
+    for (const link of authorLinks) {
+      const name = (link.getAttribute("aria-label") || link.textContent || "").trim();
+      if (name && !name.includes("...") && name.length > 2) {
+        author = name;
+        break;
+      }
+    }
+    
+    // Get date/time
+    const times = [...container.querySelectorAll("time")];
+    for (const t of times) {
+      dateTime = t.dateTime;
+      if (dateTime) break;
+    }
+    if (!dateTime) {
+      const dateElements = [...container.querySelectorAll("[aria-label]")];
+      for (const el of dateElements) {
+        const al = el.getAttribute("aria-label") || "";
+        if (/\b\d{4}\b/.test(al) && /ago|on|\b\d+\b/.test(al)) {
+          dateTime = al;
+          break;
+        }
+      }
+    }
+    
+    return { ok: true, key: targetKey, state, author, postHref, dateTime };
   }
 
   return { ok: false, key: null, skip: false, error: "not on a supported page" };
 }
 
+// --- window.LP ---
 window.LP = {
   isCommentsPage,
   isReactionsPage,

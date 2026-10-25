@@ -6,8 +6,10 @@
 
 ## Unreleased
 
-* Added config.json, generated on first run, to persist timing and path settings.
 * Fixed reactions scan undercounting (only 6 of N were collected) by using stable per-item index keys instead of shared permalink links.
+* Added config.json, generated on first run, to persist timing and path settings.
+* Enriched report entries with state, author, postHref and dateTime metadata for selective deletion filtering.
+* Fixed scan: scroll #workspace container instead of window/body; headless default for scan.
 
 ## Released
 

@@ -291,7 +291,14 @@ async function runPurge() {
           log(`Limit of ${limitArg} reached.`);
           stopped = true;
         }
-        report.push({ key: result.key, ts: new Date().toISOString() });
+        report.push({
+        key: result.key,
+        ts: new Date().toISOString(),
+        state: result.state,
+        author: result.author,
+        postHref: result.postHref,
+        dateTime: result.dateTime,
+      });
         log(`deleted ${result.key} (${deleted} this run, ${cp.processed.size} total)`);
 
         if (deleted % timing.batchSize === 0) {
