@@ -28,7 +28,18 @@ function getIntFlag(name, defaultVal) {
   return Number.isFinite(n) ? n : defaultVal;
 }
 
-const profileDir = path.resolve(getFlag("profile-dir", PATHS.profileDir));
+function defaultProfileDir() {
+  const candidates = [
+    ".profile-chromium",
+    "E:/wintools/PortableApps/chromium-win64/profile",
+    PATHS.profileDir,
+  ];
+  for (const c of candidates) {
+    try { if (fs.existsSync(c)) return c; } catch {}
+  }
+  return PATHS.profileDir;
+}
+const profileDir = path.resolve(getFlag("profile-dir", defaultProfileDir()));
 const dataDir = path.resolve(getFlag("data-dir", PATHS.dataDir));
 const typeArg = getFlag("type", "all");
 const chromiumPath = getFlag("chromium-path", null);
@@ -358,7 +369,7 @@ Commands:
 
 Flags:
   --type comments|likes|all   (default all)
-  --profile-dir <dir>         (default .profile)
+  --profile-dir <dir>         (default: .profile-chromium, then chrlauncher profile, then .profile)
   --data-dir <dir>            (default data)
   --chromium-path <path>      (default auto-detect portable Chromium)
   --cdp <endpoint>            Attach to a running Chromium via CDP (e.g. http://localhost:9222)
