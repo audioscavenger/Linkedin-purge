@@ -29,7 +29,11 @@ export async function launchBrowser({ profileDir, headless = false, chromiumPath
     viewport: { width: 1280, height: 900 },
     locale: "en-US",
     timezoneId: "America/New_York",
-    args: ["--disable-blink-features=AutomationControlled"],
+    args: [
+      "--disable-blink-features=AutomationControlled",
+      "--blink-settings=imagesEnabled=false",
+      "--disable-remote-fonts",
+    ],
   };
   if (exe) opts.executablePath = exe;
   const context = await baseChromium.launchPersistentContext(profileDir, opts);

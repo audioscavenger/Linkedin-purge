@@ -63,7 +63,8 @@ const timing = {
   batchSize: cfgTiming.batchSize,
 };
 
-const headless = Boolean(getFlag("headless", false));
+const headlessFlag = args.includes("--headless");
+const headless = headlessFlag ? true : (command === "scan");
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -98,14 +99,16 @@ async function collectAllKeys(page) {
   const keys = new Set();
   let stable = 0;
   let lastSize = 0;
-  while (stable < 5) {
+  while (stable < 10) {
     const batch = await page.evaluate(() => window.LP.collectKeys());
     for (const k of batch) keys.add(k);
 
-    const clicked = await page.evaluate(() => window.LP.clickShowMoreIfPresent());
-    await page.waitForTimeout(clicked ? timing.scrollWait + 400 : timing.scrollWait);
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(timing.scrollWait);
+    // Scroll the LinkedIn workspace container, not the window/body
+    await page.evaluate(() => {
+      const ws = document.getElementById("workspace") || document.querySelector('[role="main"]') || document.body;
+      ws.scrollTo(0, ws.scrollHeight);
+    });
+    await page.waitForTimeout(1500);
 
     if (keys.size === lastSize) stable++;
     else {
