@@ -273,20 +273,21 @@ async function deleteCommentButton(btn) {
 
 // --- Delete first eligible ---
 
-async function deleteFirstEligible(skipArr, allowedArr) {
-  const skipSet = new Set(skipArr || []);
-  // If allowedArr is provided, only keys in this set are eligible. Otherwise all are.
-  const allowedSet = allowedArr ? new Set(allowedArr) : null;
-  const isAllowed = (k) => !skipSet.has(k) && (!allowedSet || allowedSet.has(k));
+async function deleteFirstEligible(eligibleArr) {
+  // Plain membership test only: the runner owns the eligibility rule
+  // (checkpoint-processed excluded, input-set filter) and hands us its
+  // precomputed list. We simply take the first visible item whose key is in it.
+  const eligibleSet = new Set(eligibleArr || []);
+  const isEligible = (k) => eligibleSet.has(k);
 
   if (isCommentsPage()) {
     const buttons = commentMenuButtons();
-    // find first button whose key not skipped (and allowed, if filter set)
+    // find first button whose key is in the eligible list passed in
     let targetBtn = null;
     let targetKey = null;
     for (const btn of buttons) {
       const k = commentKeyForButton(btn);
-      if (k && isAllowed(k)) {
+      if (k && isEligible(k)) {
         targetBtn = btn;
         targetKey = k;
         break;
@@ -322,7 +323,7 @@ async function deleteFirstEligible(skipArr, allowedArr) {
     let targetKey = null;
     for (const btn of buttons) {
       const k = reactionKeyForButton(btn);
-      if (k && isAllowed(k)) {
+      if (k && isEligible(k)) {
         targetBtn = btn;
         targetKey = k;
         break;

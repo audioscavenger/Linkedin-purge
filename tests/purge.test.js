@@ -7,10 +7,11 @@ class FakePageAdapter {
     this.deleteResult = deleteResult;
   }
   async collectKeys() { return [...this.keys]; }
-  // Matches runner's call: deleteFirstEligible(skipKeys, allowedKeys)
-  async deleteFirstEligible(skipKeys, allowedKeys = null) {
-    const allowedSet = allowedKeys ? new Set(allowedKeys) : null;
-    const nextKey = this.keys.find(k => !skipKeys.includes(k) && (!allowedSet || allowedSet.has(k)));
+  // Mirrors the in-page contract: a plain membership check over the
+  // eligible list the runner computes and hands over. No skip/allowed logic here.
+  async deleteFirstEligible(eligibleKeys) {
+    const eligibleSet = new Set(eligibleKeys || []);
+    const nextKey = this.keys.find(k => eligibleSet.has(k));
     if (!nextKey) return { ok: false, key: null, skip: false, error: "no eligible item" };
     return { ok: true, key: nextKey, state: "no reaction", author: "Test Author", postHref: "/feed/update/1", dateTime: "2026-01-01T00:00:00Z" };
   }
@@ -72,6 +73,28 @@ async function testInputKeysFilter() {
   console.log("PASS: inputKeys filter (only k2, k4 deleted)");
 }
 
+// Resume never re-deletes: a checkpoint-processed key is NOT deleted even
+// when present in the input set, while an input-only key IS deleted. The
+// exclusion happens in the runner's eligible list; the fake just does membership.
+async function testCheckpointNotRedeleted() {
+  const page = new FakePageAdapter({ keys: ["k1", "k2"] });
+  const cp = new FakeCheckpointAdapter();
+  cp.processed.add("k1"); // already purged by a previous run
+  const reporter = new FakeReporterAdapter();
+  const confirm = new FakeConfirmAdapter(true);
+
+  const runner = new PurgeRunner({ pageAdapter: page, checkpointAdapter: cp, reporterAdapter: reporter, confirmAdapter: confirm });
+  // k1 is in the input set but checkpoint-processed; only k2 is eligible.
+  const result = await runner.run({ type: "likes", timeoutMs: 3600000, batchSize: 5, inputKeys: ["k1", "k2"] });
+
+  const deletedKeys = reporter.items.map((it) => it.key).sort();
+  if (result.deleted !== 1) throw new Error(`Expected 1 deleted, got ${result.deleted}`);
+  if (deletedKeys.length !== 1 || deletedKeys[0] !== "k2") {
+    throw new Error(`Expected [k2] deleted (k1 checkpoint-processed), got [${deletedKeys.join(", ")}]`);
+  }
+  console.log("PASS: resume never re-deletes (checkpoint key skipped, input-only key deleted)");
+}
+
 async function testConfirmationAbort() {
   const page = new FakePageAdapter({ keys: ["k1"] });
   const cp = new FakeCheckpointAdapter();
@@ -85,7 +108,7 @@ async function testConfirmationAbort() {
   console.log("PASS: confirmation abort");
 }
 
-const tests = { testHappyPath, testInputKeysFilter, testConfirmationAbort };
+const tests = { testHappyPath, testInputKeysFilter, testCheckpointNotRedeleted, testConfirmationAbort };
 
 async function main() {
   let passed = 0;
