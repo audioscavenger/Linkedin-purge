@@ -4,7 +4,7 @@
 
 **Blocked by:** 03: Eligibility single-sited in the runner (same runner/fake seam — sequenced so each lands green)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] The runner passes the Purge Item's fields (key, state, author, postHref, dateTime) to the reporter's write operation; the inline null-normalization is removed
 - [ ] The reporter stamps `ts` and owns the canonical entry field set: key, ts, state, author, postHref, dateTime

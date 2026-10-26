@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] The in-page export list in the module map gains the scan-collection function
 - [ ] The scan command's entry is reworded to its current purpose: collects rich Purge Items (key, state, author, postHref, dateTime), not bare keys

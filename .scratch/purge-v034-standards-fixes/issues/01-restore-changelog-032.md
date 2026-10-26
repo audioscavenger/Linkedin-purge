@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] The 0.3.2 entry exists in the changelog, verbatim as it stood at the v0.3.2 tag (recovered from the tag's changelog via git)
 - [ ] The 0.3.3 entry contains only its two genuine bullets: enriched scan output, and the `--input` feature

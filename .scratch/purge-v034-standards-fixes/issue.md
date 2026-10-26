@@ -1,6 +1,6 @@
 # Issue: v0.3.4 — Standards fixes for the v0.3.3 release
 
-Status: ready-for-agent
+Status: done
 Origin: code-review of v0.3.3 (fixed point v0.3.2), Standards axis, then grilled to a shared decision record (10 accepted decisions).
 
 ## Problem Statement

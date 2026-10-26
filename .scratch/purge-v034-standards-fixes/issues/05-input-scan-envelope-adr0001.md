@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] The input loader accepts only the scan envelope (`items[].key`, fallback `keys[]`); bare key arrays, lone-key objects, and item arrays of strings are rejected with an error that names the expected shape
 - [ ] The four speculative shapes are deleted, not deprecated

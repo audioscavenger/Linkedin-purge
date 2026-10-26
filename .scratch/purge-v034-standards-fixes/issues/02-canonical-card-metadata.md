@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Exactly one card-metadata extraction routine remains in the in-page helpers (the scan path's: post-author control-menu label first, skipping the reactor's own profile link, ordered fallbacks, then date text and the time element)
 - [ ] Both delete flows (reaction and comment) invoke the single extractor on the card *before* the destructive click

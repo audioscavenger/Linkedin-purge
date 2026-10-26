@@ -4,7 +4,7 @@
 
 **Blocked by:** 02: One canonical card-metadata extraction (this ticket's in-page change is inside the same single injected helper file that 02 rewrites — run sequentially, never in parallel sessions, so a full-file write cannot clobber the other ticket's edits)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] The runner computes the eligible list (checkpoint-processed keys excluded, input-set members included when input is given) and passes that one list to the adapter's delete-first-eligible operation
 - [ ] The adapter interface carries one eligible-key list, not a skip-keys/allowed-keys pair (test surface changes with it)
