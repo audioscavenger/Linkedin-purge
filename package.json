@@ -1,6 +1,6 @@
 {
   "name": "linkedin-purge",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Purge your own LinkedIn comments and likes via Playwright with randomized pacing.",
   "type": "module",
   "private": true,
@@ -13,6 +13,7 @@
     "scan": "node src/cli.js scan",
     "purge": "node src/cli.js purge",
     "status": "node src/cli.js status",
+    "help": "node src/cli.js --help",
     "check": "node scripts/check-all.js && node tests/purge.test.js",
     "health": "node scripts/health.js",
     "lint": "echo 'No linter configured; running full check' && npm run check",

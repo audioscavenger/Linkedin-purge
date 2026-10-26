@@ -83,6 +83,7 @@ The following command-line parameters are accepted:
 - `--batch-min` - Minimum per-10 batch pause in ms (default 30000)
 - `--batch-max` - Maximum per-10 batch pause in ms (default 60000)
 - `--reset-checkpoint` - Delete checkpoint before run (purge only)
+- `--help` / `-h` - Show the full usage screen with parameters and examples (works with any command)
 
 ## Configuration
 
@@ -149,6 +150,10 @@ large histories.
 ## Development
 
 ```sh
+# Full usage screen: parameters with defaults + examples
+npm run help
+npm run <command> -- --help     # e.g. npm run purge -- --help
+
 # Check all source files for syntax errors + run unit tests
 npm run check
 
