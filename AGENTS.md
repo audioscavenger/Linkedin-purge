@@ -25,6 +25,18 @@
 - `config.json` (created on first run; persisted, edited by user) holds timing and paths; CLI flags override.
 - Timing fields: actionMin, actionMax, batchMin, batchMax, scrollWait, maxEmptyScrolls, maxRetries, backoffBase, batchSize, timeout.
 
+## Releasing
+
+- A request to **"bump version + commit + push" means the full release**: do these in order, don't stop after the push.
+  1. Bump the `version` in `package.json`.
+  2. Update `CHANGELOG.md`: add the new entry and move it into the **Released** section (keep Bugs/Ideas/Unreleased as-is).
+  3. Update `README.md` if the change affects usage.
+  4. Run `npm run health` and confirm it passes before committing.
+  5. Commit, then push to `main`.
+  6. **Create an annotated git tag `v<version>`** with the release notes, then `git push origin v<version>`.
+- **Tags are the release mechanism.** Do NOT create a Gitea/GitHub "release object" (no API token available here); the pushed tag is what counts.
+- Tag format is `v` + version, e.g. `v0.3.1`. One tag per released version; never retag an existing version.
+
 ## Agent skills
 
 ### Issue tracker
