@@ -1,36 +1,10 @@
 // CLI purge command
-import fs from "node:fs";
 import path from "node:path";
 import { launchBrowser, injectDomHelpers } from "../browser.js";
 import { loadCheckpoint, resetCheckpoint } from "../checkpoint.js";
 import { log, warn } from "../logger.js";
 import { resolveFlag, asBool, asInt, loadConfig } from "./config.js";
-
-// Load a JSON file and extract the list of keys to purge.
-// Accepts:
-//   - { items: [{ key: "..." }] }  (scan output format)
-//   - { keys: ["..."] }            (simplified)
-//   - [{ key: "..." }]             (bare array of items)
-//   - ["..."]                      (bare array of keys)
-function loadInputKeys(file) {
-  const raw = fs.readFileSync(file, "utf8");
-  const data = JSON.parse(raw);
-  if (Array.isArray(data)) {
-    return data.map((x) => (typeof x === "string" ? x : x.key)).filter(Boolean);
-  }
-  if (Array.isArray(data.items)) {
-    return data.items.map((it) => it.key).filter(Boolean);
-  }
-  if (Array.isArray(data.keys)) {
-    return data.keys;
-  }
-  if (typeof data.key === "string") {
-    return [data.key];
-  }
-  throw new Error(
-    `Could not find keys in ${file}. Expected items[].key or keys[] or a bare array.`
-  );
-}
+import { loadInputKeys } from "./input-keys.js";
 
 export async function runPurge(args) {
   // CLI flag > config.json > built-in default.
