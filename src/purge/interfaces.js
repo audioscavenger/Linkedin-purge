@@ -46,7 +46,9 @@ export class CheckpointAdapter {
   async reset() { throw new Error("Not implemented"); }
 }
 
-// Adapter: writes purge report JSON with item metadata
+// Adapter: writes the purge report JSON and owns the Report Entry: stamps
+// the action timestamp itself, pins the canonical field set (key, ts, state,
+// author, postHref, dateTime), and normalizes absent fields to null.
 export class ReporterAdapter {
   constructor({ dataDir = "data" } = {}) {
     // Implementation in concrete adapter

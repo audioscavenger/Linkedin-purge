@@ -99,13 +99,16 @@ export class PurgeRunner {
         deleted++;
         retries = 0;
         processedSet.add(result.key);
+        // The runner only hands over the Purge Item's fields as the page
+        // adapter returned them. The reporter owns the Report Entry: it stamps
+        // ts itself and builds the canonical field set at the writer seam, so
+        // no null-normalization or timestamp lives here.
         await this.reporterAdapter.write({
           key: result.key,
-          ts: new Date().toISOString(),
-          state: result.state || null,
-          author: result.author || null,
-          postHref: result.postHref || null,
-          dateTime: result.dateTime || null,
+          state: result.state,
+          author: result.author,
+          postHref: result.postHref,
+          dateTime: result.dateTime,
         });
 
         if (deleted % batchSize === 0) {
