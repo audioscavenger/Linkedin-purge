@@ -29,7 +29,10 @@ export class PurgeRunner {
     const cpResult = await this.checkpointAdapter.load();
     const processedSet = cpResult.processed;
 
-    // A key is eligible if it's not already processed AND (if inputKeys is set) it's in inputKeys.
+    // The eligibility rule lives only here (single-sited): a key is eligible
+    // if it's not already processed (checkpoint) AND (if inputKeys is set) it's
+    // in inputKeys. The runner computes the eligible list and hands it to the
+    // page adapter, which does a plain membership test over the passed list.
     const eligible = (k) => !processedSet.has(k) && (!inputKeys || inputKeys.has(k));
 
     // Collect keys and filter by checkpoint + input
@@ -73,9 +76,12 @@ export class PurgeRunner {
       }
 
       const keys = await this.pageAdapter.collectKeys();
-      const pending = keys.filter(eligible);
+      // Eligible list for this round: the runner's rule applied to the keys
+      // currently on the page, already excluding checkpoint-processed and
+      // (when given) non-input keys.
+      const eligibleKeys = keys.filter(eligible);
 
-      if (pending.length === 0) {
+      if (eligibleKeys.length === 0) {
         emptyScrolls++;
         if (emptyScrolls >= (options.maxEmptyScrolls || 8)) {
           break;
@@ -85,10 +91,9 @@ export class PurgeRunner {
       }
       emptyScrolls = 0;
 
-      const result = await this.pageAdapter.deleteFirstEligible(
-        Array.from(processedSet),
-        inputKeys ? Array.from(inputKeys) : null
-      );
+      // Eligibility is decided above (the runner's only copy of the rule);
+      // the adapter receives the precomputed list and checks membership only.
+      const result = await this.pageAdapter.deleteFirstEligible(eligibleKeys);
 
       if (result && result.ok) {
         deleted++;

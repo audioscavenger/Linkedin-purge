@@ -9,11 +9,12 @@ export class PageAdapter {
     return this.page.evaluate(() => window.LP.collectKeys());
   }
 
-  async deleteFirstEligible(skipKeys, allowedKeys = null) {
+  // Takes the runner-precomputed eligible-key list; the in-page side does a
+  // plain membership test over it (the eligibility rule lives in the runner).
+  async deleteFirstEligible(eligibleKeys) {
     return this.page.evaluate(
-      (skipArr, allowedArr) => window.LP.deleteFirstEligible(skipArr, allowedArr),
-      [...(skipKeys || [])],
-      allowedKeys ? [...allowedKeys] : null
+      (eligibleArr) => window.LP.deleteFirstEligible(eligibleArr),
+      [...(eligibleKeys || [])]
     );
   }
 
