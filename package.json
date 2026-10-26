@@ -1,6 +1,6 @@
 {
   "name": "linkedin-purge",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Purge your own LinkedIn comments and likes via Playwright with randomized pacing.",
   "type": "module",
   "private": true,
@@ -12,11 +12,20 @@
     "copy-chromium-profile": "node src/cli.js copy-chromium-profile",
     "scan": "node src/cli.js scan",
     "purge": "node src/cli.js purge",
-    "status": "node src/cli.js status"
+    "status": "node src/cli.js status",
+    "check": "node scripts/check-all.js && node tests/purge.test.js",
+    "health": "node scripts/health.js",
+    "lint": "echo 'No linter configured; running full check' && npm run check",
+    "test": "node tests/purge.test.js",
+    "postinstall": "echo 'No build step needed'",
+    "prepare": "husky"
   },
   "dependencies": {
     "playwright": "^1.52.0",
     "playwright-extra": "^4.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
+  },
+  "devDependencies": {
+    "husky": "^9.0.0"
   }
 }
