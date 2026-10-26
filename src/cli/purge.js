@@ -6,6 +6,32 @@ import { loadCheckpoint, resetCheckpoint } from "../checkpoint.js";
 import { log, warn } from "../logger.js";
 import { resolveFlag, asBool, asInt, loadConfig } from "./config.js";
 
+// Load a JSON file and extract the list of keys to purge.
+// Accepts:
+//   - { items: [{ key: "..." }] }  (scan output format)
+//   - { keys: ["..."] }            (simplified)
+//   - [{ key: "..." }]             (bare array of items)
+//   - ["..."]                      (bare array of keys)
+function loadInputKeys(file) {
+  const raw = fs.readFileSync(file, "utf8");
+  const data = JSON.parse(raw);
+  if (Array.isArray(data)) {
+    return data.map((x) => (typeof x === "string" ? x : x.key)).filter(Boolean);
+  }
+  if (Array.isArray(data.items)) {
+    return data.items.map((it) => it.key).filter(Boolean);
+  }
+  if (Array.isArray(data.keys)) {
+    return data.keys;
+  }
+  if (typeof data.key === "string") {
+    return [data.key];
+  }
+  throw new Error(
+    `Could not find keys in ${file}. Expected items[].key or keys[] or a bare array.`
+  );
+}
+
 export async function runPurge(args) {
   // CLI flag > config.json > built-in default.
   const profileDir = resolveFlag(args, "profile-dir", "paths.profileDir", ".profile-chromium");
@@ -15,6 +41,8 @@ export async function runPurge(args) {
   const limitArg = asInt(resolveFlag(args, "limit", "behavior.limit", 0), 0);
   const resetCheckpointArg = asBool(resolveFlag(args, "reset-checkpoint", "behavior.resetCheckpoint", false), false);
   const headless = asBool(resolveFlag(args, "headless", "behavior.headless", false), false);
+  // Optional: restrict deletion to a specific set of keys (from --input file).
+  const inputFile = getFlag(args, "input", null);
 
   // Timing options, all overridable via CLI.
   const timing = loadConfig().timing || {};
@@ -68,6 +96,13 @@ export async function runPurge(args) {
     return;
   }
 
+  // Load input keys if --input was specified
+  let inputKeys = null;
+  if (inputFile) {
+    inputKeys = loadInputKeys(inputFile);
+    log(`Loaded ${inputKeys.length} keys from ${inputFile}`);
+  }
+
   // Setup and run purge
   const { PurgeRunner, PageAdapter, CheckpointAdapter, ReporterAdapter, ConfirmAdapter } = await import("../purge/index.js");
 
@@ -92,6 +127,7 @@ export async function runPurge(args) {
       batchMin,
       batchMax,
       limit: limitArg,
+      inputKeys,
     });
 
     if (result && result.deleted > 0) {

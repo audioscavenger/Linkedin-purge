@@ -7,8 +7,10 @@ class FakePageAdapter {
     this.deleteResult = deleteResult;
   }
   async collectKeys() { return [...this.keys]; }
-  async deleteFirstEligible(skipKeys) {
-    const nextKey = this.keys.find(k => !skipKeys.includes(k));
+  // Matches runner's call: deleteFirstEligible(skipKeys, allowedKeys)
+  async deleteFirstEligible(skipKeys, allowedKeys = null) {
+    const allowedSet = allowedKeys ? new Set(allowedKeys) : null;
+    const nextKey = this.keys.find(k => !skipKeys.includes(k) && (!allowedSet || allowedSet.has(k)));
     if (!nextKey) return { ok: false, key: null, skip: false, error: "no eligible item" };
     return { ok: true, key: nextKey, state: "no reaction", author: "Test Author", postHref: "/feed/update/1", dateTime: "2026-01-01T00:00:00Z" };
   }
@@ -51,6 +53,25 @@ async function testHappyPath() {
   console.log("PASS: happy path (10 items deleted)");
 }
 
+// Verify that inputKeys restricts deletion to only the keys in the input set.
+async function testInputKeysFilter() {
+  const page = new FakePageAdapter({ keys: ["k1", "k2", "k3", "k4", "k5"] });
+  const cp = new FakeCheckpointAdapter();
+  const reporter = new FakeReporterAdapter();
+  const confirm = new FakeConfirmAdapter(true);
+
+  const runner = new PurgeRunner({ pageAdapter: page, checkpointAdapter: cp, reporterAdapter: reporter, confirmAdapter: confirm });
+  // Only k2 and k4 should be deleted (inputKeys filter)
+  const result = await runner.run({ type: "likes", timeoutMs: 3600000, batchSize: 5, inputKeys: ["k2", "k4"] });
+
+  const deletedKeys = reporter.items.map((it) => it.key).sort();
+  if (deletedKeys.length !== 2) throw new Error(`Expected 2 deleted, got ${deletedKeys.length}`);
+  if (deletedKeys[0] !== "k2" || deletedKeys[1] !== "k4") {
+    throw new Error(`Expected [k2, k4], got [${deletedKeys.join(", ")}]`);
+  }
+  console.log("PASS: inputKeys filter (only k2, k4 deleted)");
+}
+
 async function testConfirmationAbort() {
   const page = new FakePageAdapter({ keys: ["k1"] });
   const cp = new FakeCheckpointAdapter();
@@ -64,7 +85,7 @@ async function testConfirmationAbort() {
   console.log("PASS: confirmation abort");
 }
 
-const tests = { testHappyPath, testConfirmationAbort };
+const tests = { testHappyPath, testInputKeysFilter, testConfirmationAbort };
 
 async function main() {
   let passed = 0;

@@ -22,14 +22,19 @@ export class PurgeRunner {
     const batchSize = options.batchSize || 10;
     const maxRetries = options.maxRetries || 4;
     const backoffBase = options.backoffBase || 10000;
+    // Optional: restrict deletion to a specific set of keys (from --input file).
+    const inputKeys = options.inputKeys ? new Set(options.inputKeys) : null;
 
     // Load existing checkpoint
     const cpResult = await this.checkpointAdapter.load();
-
-    // Collect keys and filter by checkpoint
-    const keys = await this.pageAdapter.collectKeys();
     const processedSet = cpResult.processed;
-    const pendingCount = keys.filter(k => !processedSet.has(k)).length;
+
+    // A key is eligible if it's not already processed AND (if inputKeys is set) it's in inputKeys.
+    const eligible = (k) => !processedSet.has(k) && (!inputKeys || inputKeys.has(k));
+
+    // Collect keys and filter by checkpoint + input
+    const keys = await this.pageAdapter.collectKeys();
+    const pendingCount = keys.filter(eligible).length;
 
     if (pendingCount === 0) {
       // Nothing to do
@@ -68,7 +73,7 @@ export class PurgeRunner {
       }
 
       const keys = await this.pageAdapter.collectKeys();
-      const pending = keys.filter(k => !processedSet.has(k));
+      const pending = keys.filter(eligible);
 
       if (pending.length === 0) {
         emptyScrolls++;
@@ -81,7 +86,8 @@ export class PurgeRunner {
       emptyScrolls = 0;
 
       const result = await this.pageAdapter.deleteFirstEligible(
-        Array.from(processedSet)
+        Array.from(processedSet),
+        inputKeys ? Array.from(inputKeys) : null
       );
 
       if (result && result.ok) {

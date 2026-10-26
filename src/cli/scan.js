@@ -57,11 +57,17 @@ export async function runScan(args) {
       return;
     }
 
-    const keys = await page.evaluate(() => window.LP.collectKeys());
+    const items = await page.evaluate(() => window.LP.collectItems());
     const out = path.join(dataDir, `scan-${t}.json`);
     fs.mkdirSync(dataDir, { recursive: true });
-    fs.writeFileSync(out, JSON.stringify({ type: t, count: keys.length, keys, scannedAt: new Date().toISOString() }, null, 2));
-    log(`${t}: ${keys.length} items found -> ${out}`);
+    fs.writeFileSync(out, JSON.stringify({
+      type: t,
+      count: items.length,
+      keys: items.map((it) => it.key).filter(Boolean),
+      items,
+      scannedAt: new Date().toISOString(),
+    }, null, 2));
+    log(`${t}: ${items.length} items found -> ${out}`);
   }
   await context.close();
 }

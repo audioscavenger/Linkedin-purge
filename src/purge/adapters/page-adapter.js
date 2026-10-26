@@ -9,10 +9,11 @@ export class PageAdapter {
     return this.page.evaluate(() => window.LP.collectKeys());
   }
 
-  async deleteFirstEligible(skipKeys) {
+  async deleteFirstEligible(skipKeys, allowedKeys = null) {
     return this.page.evaluate(
-      (skipArr) => window.LP.deleteFirstEligible(skipArr),
-      [...(skipKeys || [])]
+      (skipArr, allowedArr) => window.LP.deleteFirstEligible(skipArr, allowedArr),
+      [...(skipKeys || [])],
+      allowedKeys ? [...allowedKeys] : null
     );
   }
 

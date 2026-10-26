@@ -72,11 +72,126 @@ function collectReactionKeys() {
   return [...keys];
 }
 
+// Extract post author + date from the reaction/comment card's container.
+// "author" is the post author (not the account that performed the like/comment).
+// container should be the role="listitem" ancestor of the button.
+function extractAuthorAndDate(container) {
+  let author = null;
+  // The "Open control menu for post by X" button has the post author name
+  // in its aria-label. This is the most reliable source.
+  const menuBtn = container.querySelector("button[aria-label*='Open control menu for post by']");
+  if (menuBtn) {
+    const al = menuBtn.getAttribute("aria-label") || "";
+    const m = al.match(/post by (.+)$/i);
+    if (m) author = m[1].trim().replace(/["'’]+$/g, "").trim();
+  }
+  // Fallback: look at /in/ links, skipping my own profile (first /in/ is usually the reactor).
+  if (!author) {
+    const inLinks = [...container.querySelectorAll("a[href*='/in/']")];
+    for (let i = 1; i < inLinks.length; i++) {
+      const text = (inLinks[i].textContent || "").trim();
+      if (text && text.length > 1 && !/^\.\.\.$/.test(text) && !/(?:likes?|reposted|commented on)\s+this$/i.test(text) && !/finds? this (?:funny|love|inspire|celebrate)s?$/i.test(text)) {
+        author = text;
+        break;
+      }
+    }
+  }
+  // Company fallback (for company posts)
+  if (!author) {
+    const companyLinks = [...container.querySelectorAll("a[href*='/company/']")];
+    for (const link of companyLinks) {
+      const text = (link.textContent || "").trim();
+      if (text && !/^\.\.\.$/.test(text)) {
+        author = text;
+        break;
+      }
+    }
+  }
+
+  // Look for a date-like text in the card (Month + day pattern like "Sep 16").
+  // Allow trailing text like " • Edited" or other suffixes - just extract the date part.
+  let dateTime = null;
+  const dateRe = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2}(\s*,\s*\d{4})?/;
+  const candidates = [...container.querySelectorAll("span, p, div")];
+  for (const el of candidates) {
+    const t = (el.textContent || "").trim();
+    const m = t.match(dateRe);
+    if (m) {
+      dateTime = m[0].trim();
+      break;
+    }
+  }
+  // Fallback: <time> element
+  if (!dateTime) {
+    const timeEl = container.querySelector("time");
+    if (timeEl && timeEl.dateTime) dateTime = timeEl.dateTime;
+  }
+  return { author, dateTime };
+}
+
+// Find the nearest role="listitem" ancestor (the card) from a button.
+function findCard(btn) {
+  let el = btn;
+  for (let i = 0; i < 30 && el; i++) {
+    if (el.getAttribute && el.getAttribute("role") === "listitem") return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
+// Collect rich metadata for each reaction item (state, author, postHref, dateTime).
+function collectReactionItems() {
+  const items = [];
+  for (const btn of reactionButtons()) {
+    const state = reactionState(btn);
+    if (state.toLowerCase() === "no reaction") continue;
+    const key = reactionKeyForButton(btn);
+    if (!key) continue;
+    const card = findCard(btn);
+    let postHref = null;
+    const meta = { author: null, dateTime: null };
+    if (card) {
+      const feedLink = card.querySelector("a[href*='/feed/update/']");
+      if (feedLink) postHref = feedLink.getAttribute("href");
+      Object.assign(meta, extractAuthorAndDate(card));
+    }
+    items.push({ key, state, author: meta.author, postHref, dateTime: meta.dateTime });
+  }
+  return items;
+}
+
+// Collect rich metadata for each comment item (author, postHref, dateTime).
+function collectCommentItems() {
+  const items = [];
+  const seenKeys = new Set();
+  for (const btn of commentMenuButtons()) {
+    const key = commentKeyForButton(btn);
+    if (!key || seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    const card = findCard(btn);
+    let postHref = null;
+    const meta = { author: null, dateTime: null };
+    if (card) {
+      const feedLink = card.querySelector("a[href*='/feed/update/']");
+      if (feedLink) postHref = feedLink.getAttribute("href");
+      Object.assign(meta, extractAuthorAndDate(card));
+    }
+    items.push({ key, author: meta.author, postHref, dateTime: meta.dateTime });
+  }
+  return items;
+}
+
 // --- Shared ---
 
 function collectKeys() {
   if (isCommentsPage()) return collectCommentKeys();
   if (isReactionsPage()) return collectReactionKeys();
+  return [];
+}
+
+function collectItems() {
+  if (isCommentsPage()) return collectCommentItems();
+  if (isReactionsPage()) return collectReactionItems();
   return [];
 }
 
@@ -149,17 +264,20 @@ async function deleteCommentButton(btn) {
 
 // --- Delete first eligible ---
 
-async function deleteFirstEligible(skipArr) {
+async function deleteFirstEligible(skipArr, allowedArr) {
   const skipSet = new Set(skipArr || []);
+  // If allowedArr is provided, only keys in this set are eligible. Otherwise all are.
+  const allowedSet = allowedArr ? new Set(allowedArr) : null;
+  const isAllowed = (k) => !skipSet.has(k) && (!allowedSet || allowedSet.has(k));
 
   if (isCommentsPage()) {
     const buttons = commentMenuButtons();
-    // find first button whose key not skipped
+    // find first button whose key not skipped (and allowed, if filter set)
     let targetBtn = null;
     let targetKey = null;
     for (const btn of buttons) {
       const k = commentKeyForButton(btn);
-      if (k && !skipSet.has(k)) {
+      if (k && isAllowed(k)) {
         targetBtn = btn;
         targetKey = k;
         break;
@@ -178,7 +296,7 @@ async function deleteFirstEligible(skipArr) {
     let targetKey = null;
     for (const btn of buttons) {
       const k = reactionKeyForButton(btn);
-      if (k && !skipSet.has(k)) {
+      if (k && isAllowed(k)) {
         targetBtn = btn;
         targetKey = k;
         break;
@@ -262,6 +380,7 @@ window.LP = {
   isCommentsPage,
   isReactionsPage,
   collectKeys,
+  collectItems,
   deleteFirstEligible,
   clickShowMoreIfPresent,
 };

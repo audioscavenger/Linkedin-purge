@@ -71,6 +71,7 @@ Parameters:
   --batch-min <ms>                Min batch pause                      (default: 30000)
   --batch-max <ms>                Max batch pause                      (default: 60000)
   --reset-checkpoint              Clear checkpoint before running      (purge only)
+  --input <file>                  Only purge keys found in this JSON file (purge only)
   --headless                      Run the browser headless
   -h, --help                      Show this help (works with any command)
 

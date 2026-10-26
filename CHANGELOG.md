@@ -6,9 +6,17 @@
 
 ## Unreleased
 
+* [x] Enriched scan output with rich per-item metadata
+  - Each like/comment in `data/scan-<type>.json` now includes `state` (for likes), `author` (post author), `postHref` (when available), and `dateTime` (post date).
+  - New `window.LP.collectItems()` helper in `linkedin-dom.js` walks each list-item card and extracts its metadata (author from the "Open control menu for post by X" button aria-label, date from the Month+Day text inside the card).
+* [x] Added `purge --input <file>` to purge only keys from a filtered scan JSON file.
+  - PurgeRunner now accepts `inputKeys` and restricts deletion to the provided set (in addition to checkpoint filtering).
+  - PageAdapter.deleteFirstEligible accepts `allowedKeys` and skips any key not in that set.
+  - LoadInputKeys supports scan output shape (`items[].key`, `keys[]`, bare arrays).
+
 ## Released
 
-* [x] 0.3.2 - Fixed status.js `path` error, scan.js linkedin-dom.js not-found, `/me/` username detection, `--headless` default for each command; wired CLI parameters (profile-dir, data-dir, chromium-path, limit, headless, action-min/max, batch-min/max, reset-checkpoint) to config.json with CLI > config.json > built-in default precedence.
+* [x] 0.3.3 - Enriched scan output with rich per-item metadata (state/author/postHref/dateTime via collectItems); added `purge --input <file>` to purge only from a filtered scan JSON file (PurgeRunner inputKeys + PageAdapter allowedKeys).
     * New src/cli/config.js centralizes flag resolution.
     * config.json now includes paths.dataDir and a behavior section (headless, limit, resetCheckpoint).
     * purge.js passes all timing options (actionMin/Max, batchMin/Max, timeoutMs, batchSize, maxRetries, maxEmptyScrolls, backoffBase) through to PurgeRunner.
