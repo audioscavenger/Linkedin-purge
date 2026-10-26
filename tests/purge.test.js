@@ -1,4 +1,7 @@
-// Unit tests for PurgeRunner using in-memory adapters (no browser/FS/TTY).
+// Unit tests for PurgeRunner using in-memory adapters (no browser/FS/TTY),
+// plus one writer-seam test against the real ReporterAdapter (temp dir).
+import fs from "node:fs";
+import path from "node:path";
 import { PurgeRunner, PageAdapter, CheckpointAdapter, ReporterAdapter, ConfirmAdapter } from "../src/purge.js";
 
 class FakePageAdapter {
@@ -28,6 +31,9 @@ class FakeCheckpointAdapter {
   async reset() { this.processed.clear(); }
 }
 
+// Fake stands in at the runner seam, so it keeps the hand-off shape as-is:
+// the runner's Purge Item fields and nothing more (no ts, no normalization).
+// The Report Entry construction is the real writer's job, tested below.
 class FakeReporterAdapter {
   constructor() { this.items = []; }
   async open(type) { this.type = type; this.items = []; this.opened = true; }
@@ -108,7 +114,55 @@ async function testConfirmationAbort() {
   console.log("PASS: confirmation abort");
 }
 
-const tests = { testHappyPath, testInputKeysFilter, testCheckpointNotRedeleted, testConfirmationAbort };
+// Writer seam: the real ReporterAdapter owns the Report Entry. It stamps its
+// own ts, normalizes absent fields to null, and always writes the glossary's
+// canonical field set - so a partially present item still yields all six
+// fields, and a caller-supplied ts is not what lands in the report.
+async function testReporterOwnsEntry() {
+  const dir = path.join("E:/TEMP/eric/opencode", `report-entry-test-${Date.now()}`);
+  const bogusTs = "1970-01-01T00:00:00.000Z"; // caller's own stamp: never written
+  const reporter = new ReporterAdapter({ dataDir: dir });
+  try {
+    await reporter.open("likes");
+    await reporter.write({
+      key: "k1",
+      state: "no reaction",
+      // author, postHref, dateTime intentionally absent
+      ts: bogusTs,
+    });
+    await reporter.write({ key: "k2" }); // everything else absent
+    const filePath = await reporter.close();
+
+    const report = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    if (report.items.length !== 2) throw new Error(`Expected 2 entries, got ${report.items.length}`);
+
+    const canonical = ["author", "dateTime", "key", "postHref", "state", "ts"].sort();
+    for (const entry of report.items) {
+      const fields = Object.keys(entry).sort();
+      if (JSON.stringify(fields) !== JSON.stringify(canonical)) {
+        throw new Error(`Entry does not carry exactly the canonical field set: [${fields.join(", ")}]`);
+      }
+    }
+
+    const [e1, e2] = report.items;
+    if (e1.key !== "k1" || e1.state !== "no reaction") throw new Error("Present item fields not preserved");
+    if (e1.author !== null || e1.postHref !== null || e1.dateTime !== null) {
+      throw new Error("Absent item fields not normalized to null");
+    }
+    if (e1.ts === bogusTs) throw new Error("Caller-supplied ts was written; reporter must stamp its own");
+    if (isNaN(Date.parse(e1.ts))) throw new Error(`ts is not a valid timestamp: ${e1.ts}`);
+
+    if (e2.state !== null || e2.author !== null || e2.postHref !== null || e2.dateTime !== null) {
+      throw new Error("Fully absent item fields not normalized to null");
+    }
+    if (e2.ts === bogusTs || isNaN(Date.parse(e2.ts))) throw new Error("ts is not the reporter's own stamp");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  console.log("PASS: reporter owns the Report Entry (canonical fields, writer-stamped ts)");
+}
+
+const tests = { testHappyPath, testInputKeysFilter, testCheckpointNotRedeleted, testConfirmationAbort, testReporterOwnsEntry };
 
 async function main() {
   let passed = 0;
