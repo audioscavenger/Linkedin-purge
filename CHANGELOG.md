@@ -15,7 +15,9 @@
     * `purge --input` accepts exactly the scan JSON envelope (items[].key, falling back to keys[]) and fails loudly with a named-shape error on anything else; recorded as ADR 0001.
     * Changelog history corrected: the 0.3.2 entry is restored verbatim above a 0.3.3 entry trimmed to its own two bullets.
     * GLOSSARY.md and NAVIGATION.md refreshed: Purge Item carries its card metadata, Report Entry and Author are defined, and the in-page export list is complete.
-* [x] 0.3.3 - Enriched scan output with rich per-item metadata (state/author/postHref/dateTime via collectItems); added `purge --input <file>` to purge only from a filtered scan JSON file (PurgeRunner inputKeys + PageAdapter allowedKeys).
+* [x] 0.3.3 - Enriched scan output with per-item card metadata and added purge-from-a-filtered-file.
+    * Enriched scan output with rich per-item metadata (state/author/postHref/dateTime via collectItems).
+    * Added `purge --input <file>` to purge only from a filtered scan JSON file.
 * [x] 0.3.2 - Fixed status.js `path` error, scan.js linkedin-dom.js not-found, `/me/` username detection, `--headless` default for each command; wired CLI parameters (profile-dir, data-dir, chromium-path, limit, headless, action-min/max, batch-min/max, reset-checkpoint) to config.json with CLI > config.json > built-in default precedence.
     * New src/cli/config.js centralizes flag resolution.
     * config.json now includes paths.dataDir and a behavior section (headless, limit, resetCheckpoint).

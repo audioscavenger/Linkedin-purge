@@ -1,8 +1,12 @@
 // Unit tests for PurgeRunner using in-memory adapters (no browser/FS/TTY),
 // plus one writer-seam test against the real ReporterAdapter (temp dir).
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { PurgeRunner, PageAdapter, CheckpointAdapter, ReporterAdapter, ConfirmAdapter } from "../src/purge.js";
+// The canonical Report Entry field set, named once in the module that owns
+// the entry: import it here instead of re-listing the six names.
+import { REPORT_ENTRY_FIELDS } from "../src/purge/adapters/reporter-adapter.js";
 
 class FakePageAdapter {
   constructor({ keys = [], deleteResult = { ok: false, key: null, skip: false } } = {}) {
@@ -119,7 +123,9 @@ async function testConfirmationAbort() {
 // canonical field set - so a partially present item still yields all six
 // fields, and a caller-supplied ts is not what lands in the report.
 async function testReporterOwnsEntry() {
-  const dir = path.join("E:/TEMP/eric/opencode", `report-entry-test-${Date.now()}`);
+  // Unique temp dir under the OS temp root (no machine-specific paths);
+  // created fresh by mkdtemp and cleaned up in the finally below.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lp-report-entry-test-"));
   const bogusTs = "1970-01-01T00:00:00.000Z"; // caller's own stamp: never written
   const reporter = new ReporterAdapter({ dataDir: dir });
   try {
@@ -136,7 +142,9 @@ async function testReporterOwnsEntry() {
     const report = JSON.parse(fs.readFileSync(filePath, "utf8"));
     if (report.items.length !== 2) throw new Error(`Expected 2 entries, got ${report.items.length}`);
 
-    const canonical = ["author", "dateTime", "key", "postHref", "state", "ts"].sort();
+    // Expected field set imported from the reporter (the entry's owner), so
+    // it is named in exactly one module.
+    const canonical = [...REPORT_ENTRY_FIELDS].sort();
     for (const entry of report.items) {
       const fields = Object.keys(entry).sort();
       if (JSON.stringify(fields) !== JSON.stringify(canonical)) {

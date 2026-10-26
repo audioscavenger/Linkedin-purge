@@ -142,6 +142,23 @@ function findCard(btn) {
   return null;
 }
 
+// The one card-metadata reader: resolve the pristine card, pick up its post
+// link, then hand the card to extractAuthorAndDate (still the sole
+// author/date extractor). Returns { postHref, author, dateTime } with null
+// fallbacks when the card or its pieces are absent. The scan path and both
+// delete flows read through here, so every record for the same card comes
+// from one place.
+function readCardMeta(btn) {
+  const meta = { postHref: null, author: null, dateTime: null };
+  const card = findCard(btn);
+  if (card) {
+    const feedLink = card.querySelector("a[href*='/feed/update/']");
+    if (feedLink) meta.postHref = feedLink.getAttribute("href");
+    Object.assign(meta, extractAuthorAndDate(card));
+  }
+  return meta;
+}
+
 // Collect rich metadata for each reaction item (state, author, postHref, dateTime).
 function collectReactionItems() {
   const items = [];
@@ -150,15 +167,8 @@ function collectReactionItems() {
     if (state.toLowerCase() === "no reaction") continue;
     const key = reactionKeyForButton(btn);
     if (!key) continue;
-    const card = findCard(btn);
-    let postHref = null;
-    const meta = { author: null, dateTime: null };
-    if (card) {
-      const feedLink = card.querySelector("a[href*='/feed/update/']");
-      if (feedLink) postHref = feedLink.getAttribute("href");
-      Object.assign(meta, extractAuthorAndDate(card));
-    }
-    items.push({ key, state, author: meta.author, postHref, dateTime: meta.dateTime });
+    const meta = readCardMeta(btn);
+    items.push({ key, state, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
   }
   return items;
 }
@@ -171,15 +181,8 @@ function collectCommentItems() {
     const key = commentKeyForButton(btn);
     if (!key || seenKeys.has(key)) continue;
     seenKeys.add(key);
-    const card = findCard(btn);
-    let postHref = null;
-    const meta = { author: null, dateTime: null };
-    if (card) {
-      const feedLink = card.querySelector("a[href*='/feed/update/']");
-      if (feedLink) postHref = feedLink.getAttribute("href");
-      Object.assign(meta, extractAuthorAndDate(card));
-    }
-    items.push({ key, author: meta.author, postHref, dateTime: meta.dateTime });
+    const meta = readCardMeta(btn);
+    items.push({ key, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
   }
   return items;
 }
@@ -273,11 +276,12 @@ async function deleteCommentButton(btn) {
 
 // --- Delete first eligible ---
 
-async function deleteFirstEligible(eligibleArr) {
+async function deleteFirstEligible(eligibleKeys) {
   // Plain membership test only: the runner owns the eligibility rule
   // (checkpoint-processed excluded, input-set filter) and hands us its
   // precomputed list. We simply take the first visible item whose key is in it.
-  const eligibleSet = new Set(eligibleArr || []);
+  // Contract: the runner always passes an array - no null-guards here.
+  const eligibleSet = new Set(eligibleKeys);
   const isEligible = (k) => eligibleSet.has(k);
 
   if (isCommentsPage()) {
@@ -298,23 +302,16 @@ async function deleteFirstEligible(eligibleArr) {
     }
     // Record card metadata from the pristine card BEFORE the destructive
     // menu -> delete -> confirm sequence: once the comment is gone, the card is
-    // gone too. The canonical extractor (the same one the scan path uses) reads
-    // the post author from the "Open control menu for post by" label first,
-    // skipping the commenter's own profile link, with ordered fallbacks, then
-    // the date text and the <time> element. ("author" is the post author,
-    // never the account being purged.)
-    const card = findCard(targetBtn);
-    let postHref = null;
-    const meta = { author: null, dateTime: null };
-    if (card) {
-      const feedLink = card.querySelector("a[href*='/feed/update/']");
-      if (feedLink) postHref = feedLink.getAttribute("href");
-      Object.assign(meta, extractAuthorAndDate(card));
-    }
+    // gone too. readCardMeta reads through the canonical extractor (the same
+    // one the scan path uses), which takes the post author from the "Open
+    // control menu for post by" label first, skipping the commenter's own
+    // profile link, with ordered fallbacks, then the date text and the <time>
+    // element. ("author" is the post author, never the account being purged.)
+    const meta = readCardMeta(targetBtn);
     const res = await deleteCommentButton(targetBtn);
     // Same result shape as reaction deletions on every path (success and
     // failure alike): ok, key, skip, state, author, postHref, dateTime.
-    return { ...res, key: res.key || targetKey, state: COMMENTS_STATE, author: meta.author, postHref, dateTime: meta.dateTime };
+    return { ...res, key: res.key || targetKey, state: COMMENTS_STATE, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime };
   }
 
   if (isReactionsPage()) {
@@ -333,21 +330,15 @@ async function deleteFirstEligible(eligibleArr) {
       return { ok: false, key: null, skip: false, error: "no eligible item" };
     }
     // Record card metadata from the pristine card BEFORE the destructive
-    // toggle click: the canonical extractor (the same one the scan path uses)
-    // reads the post author from the "Open control menu for post by" label
-    // first, skipping the reactor's own profile link, with ordered fallbacks,
-    // then the date text and the <time> element. ("author" is the post author,
-    // never the account being purged.) The old post-click walk that took the
-    // first /in/ or /company/ link could record the purged account's own name;
-    // extraction now happens before the click and never after.
-    const card = findCard(targetBtn);
-    let postHref = null;
-    const meta = { author: null, dateTime: null };
-    if (card) {
-      const feedLink = card.querySelector("a[href*='/feed/update/']");
-      if (feedLink) postHref = feedLink.getAttribute("href");
-      Object.assign(meta, extractAuthorAndDate(card));
-    }
+    // toggle click: readCardMeta reads through the canonical extractor (the
+    // same one the scan path uses), which takes the post author from the
+    // "Open control menu for post by" label first, skipping the reactor's own
+    // profile link, with ordered fallbacks, then the date text and the <time>
+    // element. ("author" is the post author, never the account being purged.)
+    // The old post-click walk that took the first /in/ or /company/ link could
+    // record the purged account's own name; extraction now happens before the
+    // click and never after.
+    const meta = readCardMeta(targetBtn);
     // Click to toggle to "no reaction"
     targetBtn.click();
     await sleep(1500);
@@ -362,11 +353,11 @@ async function deleteFirstEligible(eligibleArr) {
         error: "reaction not removed (possible rate limit)",
         state: newState,
         author: meta.author,
-        postHref,
+        postHref: meta.postHref,
         dateTime: meta.dateTime
       };
     }
-    return { ok: true, key: targetKey, state: newState, author: meta.author, postHref, dateTime: meta.dateTime };
+    return { ok: true, key: targetKey, state: newState, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime };
   }
 
   return { ok: false, key: null, skip: false, error: "not on a supported page" };

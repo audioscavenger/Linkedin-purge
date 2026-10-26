@@ -78,11 +78,66 @@ function testMalformedJson() {
   console.log("PASS: malformed JSON fails loudly");
 }
 
+// Items made of strings carry no usable key: rejected instead of being
+// silently dropped into an empty run (US16).
+function testStringItemsRejection() {
+  const file = fixture("string-items.json", JSON.stringify({ items: ["a", "b"] }));
+  expectRejection(
+    () => loadInputKeys(file),
+    "Invalid purge input",
+    "items[].key",   // names the expected shape
+    "object with a non-empty string key"
+  );
+  console.log("PASS: string items rejected with named-shape error");
+}
+
+// An items entry without a usable key (object, but no key field) is
+// rejected the same way: no silent empty run.
+function testItemWithoutKeyRejection() {
+  const file = fixture("item-without-key.json", JSON.stringify({ items: [{ state: "no reaction" }] }));
+  expectRejection(
+    () => loadInputKeys(file),
+    "Invalid purge input",
+    "items[].key",
+    "object with a non-empty string key"
+  );
+  console.log("PASS: item entry without a key rejected");
+}
+
+// An envelope listing zero keys must fail loudly, naming the file - it
+// would otherwise run zero deletions with no explanation.
+function testEmptyItemsRejection() {
+  const file = fixture("empty-items.json", JSON.stringify({ type: "likes", count: 0, items: [], keys: [] }));
+  expectRejection(
+    () => loadInputKeys(file),
+    "Empty purge input",
+    "empty-items.json", // names the file
+    "no keys"
+  );
+  console.log("PASS: empty items list rejected with the no-keys error");
+}
+
+// keys[] is the fallback envelope: its entries must be non-empty strings.
+function testNonStringKeysRejection() {
+  const file = fixture("non-string-keys.json", JSON.stringify({ keys: ["a", 42] }));
+  expectRejection(
+    () => loadInputKeys(file),
+    "Invalid purge input",
+    "keys[]",
+    "non-empty string"
+  );
+  console.log("PASS: non-string keys entry rejected");
+}
+
 const tests = [
   testItemsEnvelope,
   testKeysFallback,
   testBareArrayRejection,
   testMalformedJson,
+  testStringItemsRejection,
+  testItemWithoutKeyRejection,
+  testEmptyItemsRejection,
+  testNonStringKeysRejection,
 ];
 
 async function main() {

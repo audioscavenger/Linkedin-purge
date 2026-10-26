@@ -11,10 +11,12 @@ export class PageAdapter {
 
   // Takes the runner-precomputed eligible-key list; the in-page side does a
   // plain membership test over it (the eligibility rule lives in the runner).
+  // The contract is one list: the runner always passes an array, so no
+  // defensive copy or null-guard here.
   async deleteFirstEligible(eligibleKeys) {
     return this.page.evaluate(
-      (eligibleArr) => window.LP.deleteFirstEligible(eligibleArr),
-      [...(eligibleKeys || [])]
+      (keys) => window.LP.deleteFirstEligible(keys),
+      eligibleKeys
     );
   }
 

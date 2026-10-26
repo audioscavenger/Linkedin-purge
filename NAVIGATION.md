@@ -18,6 +18,7 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 |--------|---------|
 | `src/cli/login.js` | `runLogin()` — opens headed browser for LinkedIn login |
 | `src/cli/scan.js` | `runScan()` — collects rich Purge Items (key, state, author, postHref, dateTime) per type, written as the scan envelope `data/scan-<type>.json` |
+| `src/cli/input-keys.js` | `loadInputKeys()` — loads the `--input` file, validates it is the scan JSON envelope (items[].key, falling back to keys[]), and returns its key list; anything else rejected with a named-shape error |
 | `src/cli/purge.js` | `runPurge()` — full purge lifecycle (browser + `PurgeRunner`) |
 | `src/cli/status.js` | `runStatus()` — reports processed-key counts |
 | `src/cli/copy-chromium-profile.js` | `runCopyChromiumProfile()` — copies Chromium profile files |
@@ -51,13 +52,14 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 | Path | Purpose |
 |------|---------|
 | `tests/purge.test.js` | In-memory adapter tests for `PurgeRunner` (no browser/FS/TTY) |
+| `tests/input-keys.test.js` | `--input` loader tests over fixture files: the scan JSON envelope contract (items[].key, keys[] fallback, rejections) |
 | `scripts/check-all.js` | Recursive `node --check` across `src/` and `tests/` |
 | `data/checkpoint-<type>.json` | Persisted processed-key set (resumes across runs) |
 | `data/report-<type>-<timestamp>.json` | Purge run reports with item metadata |
 
 ## Domain Vocabulary
 
-See `GLOSSARY.md` for canonical terms: **Purge Run**, **Purge Item**, **Key**, **Checkpoint**, **ConfirmAdapter**.
+See `GLOSSARY.md` for canonical terms: **Purge Run**, **Purge Item**, **Key**, **Checkpoint**, **ConfirmAdapter**, **Report Entry**, **Author**.
 
 ## Automated Checks
 
