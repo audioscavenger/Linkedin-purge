@@ -67,6 +67,23 @@ npm run purge -- --type likes --reset-checkpoint
 npm run status
 ```
 
+## Parameters
+
+The following command-line parameters are accepted:
+
+- `--type` - Type of items to process: `comments`, `likes`, or `all` (default)
+- `--profile-dir` - Chromium profile directory path  
+- `--data-dir` - Data directory for reports/checkpoints (default: data)
+- `--chromium-path` - Path to Chromium binary
+- `--cdp` - Attach to running Chromium via CDP endpoint (e.g. http://localhost:9222)
+- `--limit` - Stop after deleting n items (0 = unlimited)
+- `--headless` - Run browser headless
+- `--action-min` - Minimum per-action delay in ms (default 2000)
+- `--action-max` - Maximum per-action delay in ms (default 5000) 
+- `--batch-min` - Minimum per-10 batch pause in ms (default 30000)
+- `--batch-max` - Maximum per-10 batch pause in ms (default 60000)
+- `--reset-checkpoint` - Delete checkpoint before run (purge only)
+
 ## Configuration
 
 On first run, `linkedin-purge` writes `config.json` in the project root with all
@@ -109,7 +126,6 @@ Each entry includes metadata so you can filter later:
     "dateTime": "2026-04-20T15:09:00Z"
   }
 ] }
-```
 
 ## Pacing
 
@@ -129,3 +145,16 @@ preferred values.
 Unofficial. Automating LinkedIn may violate its Terms of Service and can trigger
 rate limits or temporary account restrictions. Use conservative pacing for
 large histories.
+
+## Development
+
+```sh
+# Check all source files for syntax errors + run unit tests
+npm run check
+
+# Quick health check: syntax + tests + pre-commit hook status
+npm run health
+```
+
+The repo includes a Husky pre-commit hook that automatically runs `npm run check`
+before every commit. If it's not active after cloning, run `npx husky install`.

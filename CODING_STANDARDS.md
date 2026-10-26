@@ -2,6 +2,8 @@
 
 This repo uses a **small-surface / deep-implementation** module philosophy (from `/codebase-design`). Standards enforce depth and testability, not formatting.
 
+> **Where to find the modules**: see [`NAVIGATION.md`](NAVIGATION.md) for the current module layout and entry points.
+
 ## Module Depth Target
 
 - **Target**: ~100 lines per module (exceed only when the module genuinely owns a single concept end-to-end).
@@ -31,6 +33,7 @@ A module may legitimately exceed 100 lines when:
 - It owns a complete lifecycle end-to-end (e.g., `PurgeRunner` with its four adapters).
 - The complexity truly concentrates — deleting it would require rewriting dependent code.
 - No reasonable split preserves the depth property.
+- **Browser-injected script**: `src/linkedin-dom.js` is injected into the page via `page.addInitScript()`, which requires a single self-contained file — ES module imports are unavailable in that context. Do not split it into submodules without adding a build/bundle step first.
 
 **Disagreements** with this standard are recorded as ADRs in `docs/adr/`.
 

@@ -6,6 +6,12 @@
 
 ## Unreleased
 
+* [x] 0.3.0 - Refactored large files (cli.js, purge.js, linkedin-dom.js) into smaller, more manageable modules with separation of concerns for better maintainability and testability.
+    * Added `npm run health` to check syntax, tests, and pre-commit hook status at a glance.
+    * Added comprehensive syntax check (`scripts/check-all.js`) covering all files under `src/` and `tests/` automatically.
+    * Wired Husky pre-commit hook: `npm run check` + `npm run test` now run automatically before each commit.
+    * Updated `NAVIGATION.md` and `CODING_STANDARDS.md` with cross-references for easier onboarding and standards enforcement.
+
 ## Released
 
 * [x] 0.2.0 - Enriched reports with state/author/dateTime/postHref metadata for selective deletion filtering; added configurable timeout to scan/purge; headless scan by default; scroll #workspace container instead of window/body; stable index keys for reactions scan.
