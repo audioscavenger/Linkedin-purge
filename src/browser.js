@@ -69,25 +69,35 @@ async function launchAfterRecovery({ profileDir, opts, exe }) {
     );
   }
 
+  let killedPids = [];
   if (recovery.pids.length) {
     // A previous run of this tool left a headless/CDP instance holding the
     // profile lock: kill it, give it a beat to release, then try again.
     warn(`Leftover browser process holding the profile (PID ${recovery.pids.join(", ")}) -- killing it and retrying the launch.`);
     killProcesses(recovery.pids);
+    killedPids = recovery.pids;
   } else {
     // Nothing live holds the profile: a stale lock file from a crashed or
     // force-closed run is the usual suspect.
     warn("No live browser holds the profile; clearing stale lock files and retrying the launch.");
     removeStaleLockFiles(profileDir);
   }
-  await wait(recovery.pids.length ? 750 : 300);
+  await wait(killedPids.length ? 750 : 300);
 
   try {
     return await baseChromium.launchPersistentContext(profileDir, opts);
-  } catch {
+  } catch (retryError) {
+    // The retry failed: re-scan for whoever still holds the profile so the
+    // message can name them (typically a browser window the user has open),
+    // and keep the first line of the underlying error as the diagnosis.
+    const stillHolding = classifyHolders(listChromeProcesses(), profileDir);
     throw new ProfileInUseError(
-      `The profile ${profileDir} could not be opened after the recovery attempt. ` +
-        `Make sure no other browser (including a window you have open) is using it, wait a few seconds, and re-run the same command.`
+      finalFailureMessage({
+        killedPids,
+        interactivePids: stillHolding.interactive.map((row) => row.pid),
+        originalError: retryError,
+        profileDir,
+      })
     );
   }
 }

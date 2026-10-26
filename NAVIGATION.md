@@ -40,7 +40,7 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 | Module | Purpose | Key Exports |
 |--------|---------|-------------|
 | `src/browser.js` | Chromium launch (with profile-lock recovery), CDP attach, DOM-helper injection, resource blocking | `launchBrowser()`, `connectCDP()`, `injectDomHelpers()`, `blockHeavyResources()`, `findChromiumBinary()` |
-| `src/browser-recovery.js` | Launch-recovery decisions when the profile is locked: classify the failure, match profile-holder processes, pick the kill / retry / ask-user action | `isProfileLockFailure()`, `matchesProfile()`, `classifyHolders()`, `pickRecovery()`, `ProfileInUseError` |
+| `src/browser-recovery.js` | Launch-recovery decisions when the profile is locked: classify the failure, match profile-holder processes, pick the kill / retry / ask-user action | `isProfileLockFailure()`, `matchesProfile()`, `classifyHolders()`, `pickRecovery()`, `finalFailureMessage()`, `ProfileInUseError` |
 | `src/linkedin-dom.js` | In-page helpers exposed as `window.LP` — scan collection & deletion flows | `window.LP.isCommentsPage`, `window.LP.isReactionsPage`, `window.LP.collectKeys`, `window.LP.collectItems`, `window.LP.deleteFirstEligible`, `window.LP.clickShowMoreIfPresent` |
 | `src/config.js` | Defaults + file load + deep merge for timing & paths | `loadConfig()`, `saveConfig()`, `URLS`, `PATHS`, `TIMING` |
 | `src/checkpoint.js` | Legacy checkpoint I/O (absorbed into `CheckpointAdapter`) | `loadCheckpoint()`, `saveCheckpoint()`, `resetCheckpoint()` |

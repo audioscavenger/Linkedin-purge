@@ -31,11 +31,30 @@ export function isProfileLockFailure(error) {
 // A chrome process "holds" the profile when its command line references the
 // profile directory (chrome records it in --user-data-dir). The launcher may
 // have passed forward-slash or backslash paths and Windows matches case
-// insensitively, so both sides are normalized before the substring test.
+// insensitively, so both sides are normalized before the test.
+//
+// The occurrence must END at the path: a sibling directory
+// (…/chromium-win64/profile2, …/profile-backup) or a subdirectory
+// (…/profile/session) merely contains the target path and is NOT the
+// profile. Treating those as holders would let killProcesses() force-kill a
+// browser that never touched this profile, so the path must be followed by
+// end-of-string, whitespace, a quote, or another flag, not by a path name
+// character.
 export function matchesProfile(commandLine, profileDir) {
-  if (!commandLine || !profileDir) return false;
-  const normalize = (value) => String(value).toLowerCase().replace(/\\/g, "/");
-  return normalize(commandLine).includes(normalize(profileDir));
+  const normalize = (value) =>
+    String(value).toLowerCase().replace(/\\/g, "/").replace(/\/+$/, "");
+  const command = normalize(commandLine);
+  const dir = normalize(profileDir);
+  if (!command || !dir) return false;
+  const BOUNDARY = /[^a-z0-9._\-/]/;
+  let from = 0;
+  for (;;) {
+    const at = command.indexOf(dir, from);
+    if (at < 0) return false;
+    const next = command[at + dir.length];
+    if (!next || BOUNDARY.test(next)) return true;
+    from = at + dir.length + 1;
+  }
 }
 
 // Split lock holders into the two kinds that need different handling:
@@ -70,6 +89,41 @@ export function pickRecovery({ stragglers = [], interactive = [] } = {}) {
     return { action: "ask-user-close", pids: interactive.map((row) => row.pid) };
   }
   return { action: "retry", pids: [] };
+}
+
+// The user-facing summary for the final failure after a recovery attempt:
+// what was already done (which leftover PIDs were killed), who else may still
+// hold the profile (the PIDs from a fresh scan, so a user-open browser is
+// named, not just mentioned), and the FIRST LINE of the underlying error --
+// the real diagnosis, without the multi-kilobyte Playwright launch log.
+export function finalFailureMessage({
+  killedPids = [],
+  interactivePids = [],
+  originalError,
+  profileDir,
+}) {
+  let text = `The profile ${profileDir} could not be opened after the recovery attempt.`;
+  if (killedPids.length) {
+    text += ` The leftover process (PID ${killedPids.join(", ")}) was killed, but `;
+  }
+  if (interactivePids.length) {
+    text +=
+      `a browser window (PID ${interactivePids.join(", ")}) is still using the profile -- ` +
+      `close it and re-run the same command.`;
+  } else {
+    text += `close any browser that is using it and re-run the same command.`;
+  }
+  const detail = firstNonEmptyLine(String(originalError && (originalError.message || originalError)));
+  if (detail) text += ` Last error: ${detail}`;
+  return text;
+}
+
+function firstNonEmptyLine(text) {
+  const line = String(text || "")
+    .split("\n")
+    .map((s) => s.trim())
+    .find(Boolean);
+  return line ? line.slice(0, 200) : null;
 }
 
 // Friendly launch failures: cli/index.js reads this flag and prints only the

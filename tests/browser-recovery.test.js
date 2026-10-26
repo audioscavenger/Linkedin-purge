@@ -11,6 +11,7 @@ import {
   matchesProfile,
   classifyHolders,
   pickRecovery,
+  finalFailureMessage,
   ProfileInUseError,
 } from "../src/browser-recovery.js";
 
@@ -48,6 +49,24 @@ function testMatchesProfilePathForms() {
   if (matchesProfile(null, PROFILE) || matchesProfile("", PROFILE) || matchesProfile(forward, null)) {
     throw new Error("missing arguments must not match");
   }
+}
+
+// A sibling or subdirectory of the profile merely CONTAINS its path; treating
+// it as a holder would let killProcesses() force-kill an innocent browser.
+function testMatchesProfileBoundary() {
+  if (matchesProfile(`--user-data-dir=E:/wintools/PortableApps/chromium-win64/profile2 --headless`, PROFILE)) {
+    throw new Error("sibling profile (profile2) must not match");
+  }
+  if (matchesProfile(`--user-data-dir=E:\\wintools\\PortableApps\\chromium-win64\\profile-backup`, PROFILE)) {
+    throw new Error("sibling profile (profile-backup) must not match");
+  }
+  if (matchesProfile(`--user-data-dir=E:/wintools/PortableApps/chromium-win64/profile/session`, PROFILE)) {
+    throw new Error("a subdirectory of the profile must not match");
+  }
+  // The legit cases the boundary change must not break.
+  if (!matchesProfile(`--user-data-dir="${PROFILE}" --headless`, PROFILE)) throw new Error("quoted exact path must match");
+  if (!matchesProfile(`--user-data-dir=${PROFILE} --no-first-run`, PROFILE)) throw new Error("space-separated exact path must match");
+  if (!matchesProfile(`--user-data-dir=${PROFILE}`, PROFILE)) throw new Error("end-of-line exact path must match");
 }
 
 function testClassifyHoldersStragglersAndInteractive() {
@@ -92,6 +111,37 @@ function testPickRecoveryActions() {
   }
 }
 
+function testFinalFailureMessage() {
+  const bigError = new Error(
+    "browserType.launchPersistentContext: Target page, context or browser has been closed\n" +
+      "Browser logs:\n<launched> pid=42\n  - [pid=42] <process did exit: exitCode=21, signal=null>\n  (hundreds more lines)"
+  );
+
+  const withOthers = finalFailureMessage({
+    killedPids: [12704],
+    interactivePids: [55, 66],
+    originalError: bigError,
+    profileDir: PROFILE,
+  });
+  if (!/killed/.test(withOthers)) throw new Error("must say the leftover was killed");
+  if (!/12704/.test(withOthers)) throw new Error("must name the killed PIDs");
+  if (!/55, 66/.test(withOthers)) throw new Error("must name the still-holding browser PIDs");
+  if (!/close it and re-run/.test(withOthers)) throw new Error("must tell the user to close and retry");
+  if (!withOthers.includes("Target page, context or browser has been closed")) {
+    throw new Error("must keep the first-line diagnosis");
+  }
+  if (withOthers.includes("hundreds more lines")) throw new Error("must not carry the launch-log dump");
+
+  const solo = finalFailureMessage({
+    killedPids: [],
+    interactivePids: [],
+    originalError: bigError,
+    profileDir: PROFILE,
+  });
+  if (/killed/.test(solo)) throw new Error("must not claim a kill when none happened");
+  if (!/close any browser/.test(solo)) throw new Error("must fall back to the generic close-and-retry hint");
+}
+
 function testProfileInUseErrorIsFriendly() {
   const e = new ProfileInUseError("close the browser and re-run");
   if (e.friendly !== true) throw new Error("friendly flag must be set");
@@ -102,9 +152,11 @@ function testProfileInUseErrorIsFriendly() {
 const tests = [
   testIsProfileLockFailureSignatures,
   testMatchesProfilePathForms,
+  testMatchesProfileBoundary,
   testClassifyHoldersStragglersAndInteractive,
   testClassifyHoldersEmptyInputs,
   testPickRecoveryActions,
+  testFinalFailureMessage,
   testProfileInUseErrorIsFriendly,
 ];
 
