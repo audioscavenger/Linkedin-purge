@@ -6,6 +6,8 @@
 
 ## Unreleased
 
+* [x] Browser launch recovers from locked profiles: kills leftover headless/CDP browser instances from previous runs and retries the launch; when a browser you have open holds the profile, it says so in one line (with the PIDs) instead of dumping the Playwright launch log.
+
 ## Released
 
 * [x] 0.3.4 - Standards fixes for the v0.3.3 release: records of destructive actions are now correct and single-sited, the Report Entry has one owner, and the purge input format is a named contract (ADR 0001).

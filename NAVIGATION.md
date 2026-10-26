@@ -39,7 +39,8 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 
 | Module | Purpose | Key Exports |
 |--------|---------|-------------|
-| `src/browser.js` | Chromium launch, CDP attach, DOM-helper injection, resource blocking | `launchBrowser()`, `connectCDP()`, `injectDomHelpers()`, `blockHeavyResources()`, `findChromiumBinary()` |
+| `src/browser.js` | Chromium launch (with profile-lock recovery), CDP attach, DOM-helper injection, resource blocking | `launchBrowser()`, `connectCDP()`, `injectDomHelpers()`, `blockHeavyResources()`, `findChromiumBinary()` |
+| `src/browser-recovery.js` | Launch-recovery decisions when the profile is locked: classify the failure, match profile-holder processes, pick the kill / retry / ask-user action | `isProfileLockFailure()`, `matchesProfile()`, `classifyHolders()`, `pickRecovery()`, `ProfileInUseError` |
 | `src/linkedin-dom.js` | In-page helpers exposed as `window.LP` — scan collection & deletion flows | `window.LP.isCommentsPage`, `window.LP.isReactionsPage`, `window.LP.collectKeys`, `window.LP.collectItems`, `window.LP.deleteFirstEligible`, `window.LP.clickShowMoreIfPresent` |
 | `src/config.js` | Defaults + file load + deep merge for timing & paths | `loadConfig()`, `saveConfig()`, `URLS`, `PATHS`, `TIMING` |
 | `src/checkpoint.js` | Legacy checkpoint I/O (absorbed into `CheckpointAdapter`) | `loadCheckpoint()`, `saveCheckpoint()`, `resetCheckpoint()` |
@@ -53,6 +54,7 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 |------|---------|
 | `tests/purge.test.js` | In-memory adapter tests for `PurgeRunner` (no browser/FS/TTY) |
 | `tests/input-keys.test.js` | `--input` loader tests over fixture files: the scan JSON envelope contract (items[].key, keys[] fallback, rejections) |
+| `tests/browser-recovery.test.js` | Launch-recovery decision tests over the pure helpers: lock-failure signatures, holder matching, action picking (no browser process is ever touched by the test) |
 | `scripts/check-all.js` | Recursive `node --check` across `src/` and `tests/` |
 | `data/checkpoint-<type>.json` | Persisted processed-key set (resumes across runs) |
 | `data/report-<type>-<timestamp>.json` | Purge run reports with item metadata |
@@ -65,7 +67,7 @@ See `GLOSSARY.md` for canonical terms: **Purge Run**, **Purge Item**, **Key**, *
 
 | Command | What it runs |
 |---------|-------------|
-| `npm run check` | `scripts/check-all.js` (syntax check all files) + `tests/purge.test.js` |
+| `npm run check` | `scripts/check-all.js` (syntax check all files) + `tests/purge.test.js` + `tests/input-keys.test.js` + `tests/browser-recovery.test.js` |
 | `npm run lint` | Same as `npm run check` |
-| `npm run test` | `tests/purge.test.js` only |
+| `npm run test` | `tests/purge.test.js` + `tests/input-keys.test.js` + `tests/browser-recovery.test.js` |
 | Pre-commit hook | `npm run check` (via `.husky/pre-commit`) |

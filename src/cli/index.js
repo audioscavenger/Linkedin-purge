@@ -33,7 +33,7 @@ export async function main() {
     else if (command === "status") await runStatus(args);
     else printHelp();
   } catch (e) {
-    err(e && e.stack ? e.stack : String(e));
+    err(e && e.friendly ? e.message : (e && e.stack ? e.stack : String(e)));
     process.exit(1);
   }
 }
