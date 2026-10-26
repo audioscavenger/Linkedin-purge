@@ -73,6 +73,9 @@ function collectReactionKeys() {
 }
 
 // Extract post author + date from the reaction/comment card's container.
+// This is the single canonical card-metadata extractor: the scan path and both
+// delete flows all call it on the card, so every record for the same item
+// carries the same author and dateTime.
 // "author" is the post author (not the account that performed the like/comment).
 // container should be the role="listitem" ancestor of the button.
 function extractAuthorAndDate(container) {
@@ -210,6 +213,12 @@ function clickShowMoreIfPresent() {
 
 // --- Delete comment flow ---
 
+// Comments have no per-item state (unlike reactions there is no stateful
+// button on the card), so a deleted comment records the activity itself as its
+// state. A stable constant keeps comment results the same shape as reaction
+// results, where state is always a real, non-null value.
+const COMMENTS_STATE = "Commented";
+
 async function deleteCommentButton(btn) {
   btn.click();
   await sleep(800);
@@ -286,8 +295,25 @@ async function deleteFirstEligible(skipArr, allowedArr) {
     if (!targetBtn) {
       return { ok: false, key: null, skip: false, error: "no eligible item" };
     }
+    // Record card metadata from the pristine card BEFORE the destructive
+    // menu -> delete -> confirm sequence: once the comment is gone, the card is
+    // gone too. The canonical extractor (the same one the scan path uses) reads
+    // the post author from the "Open control menu for post by" label first,
+    // skipping the commenter's own profile link, with ordered fallbacks, then
+    // the date text and the <time> element. ("author" is the post author,
+    // never the account being purged.)
+    const card = findCard(targetBtn);
+    let postHref = null;
+    const meta = { author: null, dateTime: null };
+    if (card) {
+      const feedLink = card.querySelector("a[href*='/feed/update/']");
+      if (feedLink) postHref = feedLink.getAttribute("href");
+      Object.assign(meta, extractAuthorAndDate(card));
+    }
     const res = await deleteCommentButton(targetBtn);
-    return { ...res, key: res.key || targetKey };
+    // Same result shape as reaction deletions on every path (success and
+    // failure alike): ok, key, skip, state, author, postHref, dateTime.
+    return { ...res, key: res.key || targetKey, state: COMMENTS_STATE, author: meta.author, postHref, dateTime: meta.dateTime };
   }
 
   if (isReactionsPage()) {
@@ -305,6 +331,22 @@ async function deleteFirstEligible(skipArr, allowedArr) {
     if (!targetBtn) {
       return { ok: false, key: null, skip: false, error: "no eligible item" };
     }
+    // Record card metadata from the pristine card BEFORE the destructive
+    // toggle click: the canonical extractor (the same one the scan path uses)
+    // reads the post author from the "Open control menu for post by" label
+    // first, skipping the reactor's own profile link, with ordered fallbacks,
+    // then the date text and the <time> element. ("author" is the post author,
+    // never the account being purged.) The old post-click walk that took the
+    // first /in/ or /company/ link could record the purged account's own name;
+    // extraction now happens before the click and never after.
+    const card = findCard(targetBtn);
+    let postHref = null;
+    const meta = { author: null, dateTime: null };
+    if (card) {
+      const feedLink = card.querySelector("a[href*='/feed/update/']");
+      if (feedLink) postHref = feedLink.getAttribute("href");
+      Object.assign(meta, extractAuthorAndDate(card));
+    }
     // Click to toggle to "no reaction"
     targetBtn.click();
     await sleep(1500);
@@ -312,64 +354,18 @@ async function deleteFirstEligible(skipArr, allowedArr) {
     const newState = reactionState(targetBtn);
     if (newState.toLowerCase() !== "no reaction") {
       // Failed to remove; return metadata about what we tried to delete
-      return { 
-        ok: false, 
-        key: targetKey, 
-        skip: false, 
+      return {
+        ok: false,
+        key: targetKey,
+        skip: false,
         error: "reaction not removed (possible rate limit)",
         state: newState,
-        postHref: null,
-        author: null,
-        dateTime: null
+        author: meta.author,
+        postHref,
+        dateTime: meta.dateTime
       };
     }
-    // Gather metadata about the deleted item
-    // Find post href and author/date info from the container
-    let postHref = null;
-    let author = null;
-    let dateTime = null;
-    let state = newState;
-    
-    // The targetBtn was clicked and is now "no reaction", but we can still extract metadata
-    // from the DOM before it changes. Let's find the container and relevant info.
-    let container = targetBtn;
-    for (let i = 0; i < 30; i++) {
-      if (container.querySelector && container.querySelector("a[href*='/feed/update/']")) break;
-      container = container.parentElement;
-    }
-    const feedLink = container.querySelector("a[href*='/feed/update/']");
-    if (feedLink) {
-      postHref = feedLink.getAttribute("href");
-    }
-    
-    // Get author name
-    const authorLinks = [...container.querySelectorAll("a[href*='/in/'], a[href*='/company/']")];
-    for (const link of authorLinks) {
-      const name = (link.getAttribute("aria-label") || link.textContent || "").trim();
-      if (name && !name.includes("...") && name.length > 2) {
-        author = name;
-        break;
-      }
-    }
-    
-    // Get date/time
-    const times = [...container.querySelectorAll("time")];
-    for (const t of times) {
-      dateTime = t.dateTime;
-      if (dateTime) break;
-    }
-    if (!dateTime) {
-      const dateElements = [...container.querySelectorAll("[aria-label]")];
-      for (const el of dateElements) {
-        const al = el.getAttribute("aria-label") || "";
-        if (/\b\d{4}\b/.test(al) && /ago|on|\b\d+\b/.test(al)) {
-          dateTime = al;
-          break;
-        }
-      }
-    }
-    
-    return { ok: true, key: targetKey, state, author, postHref, dateTime };
+    return { ok: true, key: targetKey, state: newState, author: meta.author, postHref, dateTime: meta.dateTime };
   }
 
   return { ok: false, key: null, skip: false, error: "not on a supported page" };
