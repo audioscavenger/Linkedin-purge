@@ -4,14 +4,24 @@ import path from "node:path";
 import { launchBrowser, injectDomHelpers } from "../browser.js";
 import { loadCheckpoint, resetCheckpoint } from "../checkpoint.js";
 import { log, warn } from "../logger.js";
+import { resolveFlag, asBool, asInt, loadConfig } from "./config.js";
 
 export async function runPurge(args) {
-  const profileDir = getFlag(args, "profile-dir", ".profile-chromium");
-  const dataDir = path.resolve(getFlag(args, "data-dir", "data"));
+  // CLI flag > config.json > built-in default.
+  const profileDir = resolveFlag(args, "profile-dir", "paths.profileDir", ".profile-chromium");
+  const dataDir = path.resolve(resolveFlag(args, "data-dir", "paths.dataDir", "data"));
   const typeArg = getFlag(args, "type", "all");
-  const chromiumPath = getFlag(args, "chromium-path", null);
-  const limitArg = getIntFlag(args, "limit", 0);
-  const resetCheckpointArg = getFlag(args, "reset-checkpoint", false);
+  const chromiumPath = resolveFlag(args, "chromium-path", "paths.chromiumPath", null);
+  const limitArg = asInt(resolveFlag(args, "limit", "behavior.limit", 0), 0);
+  const resetCheckpointArg = asBool(resolveFlag(args, "reset-checkpoint", "behavior.resetCheckpoint", false), false);
+  const headless = asBool(resolveFlag(args, "headless", "behavior.headless", false), false);
+
+  // Timing options, all overridable via CLI.
+  const timing = loadConfig().timing || {};
+  const actionMin = asInt(resolveFlag(args, "action-min", "timing.actionMin", 2000), 2000);
+  const actionMax = asInt(resolveFlag(args, "action-max", "timing.actionMax", 5000), 5000);
+  const batchMin = asInt(resolveFlag(args, "batch-min", "timing.batchMin", 30000), 30000);
+  const batchMax = asInt(resolveFlag(args, "batch-max", "timing.batchMax", 60000), 60000);
 
   function typesToRun(type) {
     if (type === "all") return ["comments", "likes"];
@@ -24,12 +34,13 @@ export async function runPurge(args) {
     for (const t of typesToRun(typeArg)) resetCheckpoint(dataDir, t);
     log("Checkpoints reset.");
   }
-  
-  const context = await launchBrowser({ profileDir, headless: false, chromiumPath });
-  const page = await context.newPage();
-  await injectDomHelpers(page, "./linkedin-dom.js");
 
-  // Login check logic 
+  const context = await launchBrowser({ profileDir, headless, chromiumPath });
+  const page = await context.newPage();
+  const linkedinDomPath = path.resolve("./src/linkedin-dom.js");
+  await injectDomHelpers(page, linkedinDomPath);
+
+  // Login check logic
   const url = page.url();
   if (url.includes("/login") || url.includes("/checkpoint") || url.includes("/authwall")) {
     warn("Not logged in. Run `npm run login` first.");
@@ -45,7 +56,7 @@ export async function runPurge(args) {
   const username = usernameMatch ? usernameMatch[1] : "me";
   const baseUrl = `https://www.linkedin.com/in/${username}/recent-activity/`;
 
-  // Navigate to activity page 
+  // Navigate to activity page
   await page.goto(baseUrl + "all/", { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(5000);
 
@@ -59,20 +70,27 @@ export async function runPurge(args) {
 
   // Setup and run purge
   const { PurgeRunner, PageAdapter, CheckpointAdapter, ReporterAdapter, ConfirmAdapter } = await import("../purge/index.js");
-  
+
   try {
     const pageAdapter = new PageAdapter(page);
     const checkpointAdapter = new CheckpointAdapter(dataDir, typeArg);
     const reporterAdapter = new ReporterAdapter({ dataDir: dataDir || "data" });
     const confirmAdapter = new ConfirmAdapter();
-  
+
     const runner = new PurgeRunner({ pageAdapter, checkpointAdapter, reporterAdapter, confirmAdapter });
-    
-    // Run the purge
+
+    // Run the purge, passing all timing options from config/CLI.
     const result = await runner.run({
       type: typeArg,
-      timeoutMs: 3600000,
-      batchSize: 10,
+      timeoutMs: asInt(timing.timeout, 3600000),
+      batchSize: asInt(timing.batchSize, 10),
+      maxRetries: asInt(timing.maxRetries, 4),
+      maxEmptyScrolls: asInt(timing.maxEmptyScrolls, 8),
+      backoffBase: asInt(timing.backoffBase, 10000),
+      actionMin,
+      actionMax,
+      batchMin,
+      batchMax,
       limit: limitArg,
     });
 
@@ -92,17 +110,11 @@ export async function runPurge(args) {
   }
 }
 
-// Helper functions for flag parsing
+// Helper for flags that don't have a config.json source of truth (--type).
 function getFlag(args, name, defaultVal) {
   const idx = args.indexOf(`--${name}`);
   if (idx === -1) return defaultVal;
   const v = args[idx + 1];
   if (v === undefined || v.startsWith("--")) return true;
   return v;
-}
-
-function getIntFlag(args, name, defaultVal) {
-  const v = getFlag(args, name, defaultVal);
-  const n = Number(v);
-  return Number.isFinite(n) ? n : defaultVal;
 }

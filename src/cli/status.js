@@ -1,9 +1,11 @@
 // CLI status command
+import path from "node:path";
 import { loadCheckpoint } from "../checkpoint.js";
 import { log } from "../logger.js";
+import { resolveFlag } from "./config.js";
 
 export async function runStatus(args) {
-  const dataDir = getDataDir(args);
+  const dataDir = path.resolve(resolveFlag(args, "data-dir", "paths.dataDir", "data"));
   const typeArg = getFlag(args, "type", "all");
 
   function typesToRun(type) {
@@ -16,10 +18,6 @@ export async function runStatus(args) {
     const cp = loadCheckpoint(dataDir, t);
     log(`${t}: ${cp.processed.size} processed`);
   }
-}
-
-function getDataDir(args) {
-  return path.resolve(getFlag(args, "data-dir", "data"));
 }
 
 function getFlag(args, name, defaultVal) {

@@ -4,13 +4,14 @@ import path from "node:path";
 import { launchBrowser, injectDomHelpers } from "../browser.js";
 import { log, warn, err } from "../logger.js";
 import { loadCheckpoint, resetCheckpoint } from "../checkpoint.js";
+import { resolveFlag, asBool } from "./config.js";
 
 export async function runScan(args) {
-  // Get all the command arguments  
-  const profileDir = getFlag(args, "profile-dir", ".profile-chromium");
-  const dataDir = path.resolve(getFlag(args, "data-dir", "data"));
+  // CLI flag > config.json > built-in default.
+  const profileDir = resolveFlag(args, "profile-dir", "paths.profileDir", ".profile-chromium");
+  const dataDir = path.resolve(resolveFlag(args, "data-dir", "paths.dataDir", "data"));
   const typeArg = getFlag(args, "type", "all");
-  const chromiumPath = getFlag(args, "chromium-path", null);
+  const chromiumPath = resolveFlag(args, "chromium-path", "paths.chromiumPath", null);
   const cdpEndpoint = getFlag(args, "cdp", null);
 
   function typesToRun(type) {
@@ -19,9 +20,13 @@ export async function runScan(args) {
     throw new Error(`Unknown type: ${type}`);
   }
 
-  const context = await launchBrowser({ profileDir, headless: false, chromiumPath });
+  // Scan is the exception per user spec: defaults to headless=true.
+  // Config's `behavior.headless` (false) is a global default for purge/login.
+  const headless = asBool(getFlag(args, "headless"), true);
+  const context = await launchBrowser({ profileDir, headless, chromiumPath });
   const page = await context.newPage();
-  await injectDomHelpers(page, "./linkedin-dom.js");
+  const linkedinDomPath = path.resolve("./src/linkedin-dom.js");
+  await injectDomHelpers(page, linkedinDomPath);
 
   // Login check logic (simplified version)
   const url = page.url();
@@ -31,10 +36,18 @@ export async function runScan(args) {
     return;
   }
 
+  // Get base URL for the user's profile
+  await page.goto("https://www.linkedin.com/in/me/", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(3000);
+  const meUrl = page.url();
+  const usernameMatch = meUrl.match(/linkedin\.com\/in\/([^/]+)/);
+  const username = usernameMatch ? usernameMatch[1] : "me";
+  const baseUrl = `https://www.linkedin.com/in/${username}/recent-activity/`;
+
   for (const t of typesToRun(typeArg)) {
     log(`=== Scanning ${t} ===`);
     const tab = t === "comments" ? "comments/" : "reactions/";
-    await page.goto("https://www.linkedin.com/in/me/recent-activity/" + tab, { waitUntil: "domcontentloaded" });
+    await page.goto(baseUrl + tab, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(8000);
     // Login check again
     const url2 = page.url();
@@ -43,7 +56,7 @@ export async function runScan(args) {
       await context.close();
       return;
     }
-    
+
     const keys = await page.evaluate(() => window.LP.collectKeys());
     const out = path.join(dataDir, `scan-${t}.json`);
     fs.mkdirSync(dataDir, { recursive: true });

@@ -101,16 +101,26 @@ CLI flags always take precedence.
     "scrollWait": 800,
     "maxEmptyScrolls": 8,
     "maxRetries": 4,
-    "backoffBase": 60000,
+    "backoffBase": 10000,
     "batchSize": 10,
     "timeout": 3600000
   },
-  "paths": { "profileDir": null, "chromiumPath": null }
+  "paths": {
+    "profileDir": "E:/wintools/PortableApps/chromium-win64/profile",
+    "dataDir": "data",
+    "chromiumPath": "E:/wintools/PortableApps/chromium-win64/bin/chrome.exe"
+  },
+  "behavior": {
+    "headless": false,
+    "limit": 0,
+    "resetCheckpoint": false
+  }
 }
 ```
 
 `timeout` (ms) caps how long a scan or purge run may take before checkpointing
-and stopping. Set to `null` to disable.
+and stopping. Set to `null` to disable. `behavior.headless` is the default
+for purge/login; scan defaults to headless regardless (override with `--headless`).
 
 ## Reports
 

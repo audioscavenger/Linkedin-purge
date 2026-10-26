@@ -8,6 +8,11 @@
 
 ## Released
 
+* [x] 0.3.2 - Fixed status.js `path` error, scan.js linkedin-dom.js not-found, `/me/` username detection, `--headless` default for each command; wired CLI parameters (profile-dir, data-dir, chromium-path, limit, headless, action-min/max, batch-min/max, reset-checkpoint) to config.json with CLI > config.json > built-in default precedence.
+    * New src/cli/config.js centralizes flag resolution.
+    * config.json now includes paths.dataDir and a behavior section (headless, limit, resetCheckpoint).
+    * purge.js passes all timing options (actionMin/Max, batchMin/Max, timeoutMs, batchSize, maxRetries, maxEmptyScrolls, backoffBase) through to PurgeRunner.
+    * scan.js defaults to headless=true, purge/login default to headless=false.
 * [x] 0.3.1 - Added a `--help` / `-h` flag and an `npm run help` usage screen showing the full parameter reference (with defaults) and copy-paste examples.
     * `--help` / `-h` is honored from any argument position, for any command.
     * Readme Parameters and Development sections now document it; `npm run help` script added.

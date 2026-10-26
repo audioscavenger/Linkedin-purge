@@ -2,10 +2,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { log, err } from "../logger.js";
+import { resolveFlag } from "./config.js";
 
 export async function runCopyChromiumProfile(args) {
   const src = getFlag(args, "source", "E:/wintools/PortableApps/chromium-win64/profile");
-  const dest = path.resolve(getFlag(args, "profile-dir", ".profile-chromium"));
+  const dest = path.resolve(resolveFlag(args, "profile-dir", "paths.profileDir", ".profile-chromium"));
   log(`Source profile: ${src}`);
   log(`Destination: ${dest}`);
   if (!fs.existsSync(src)) {
