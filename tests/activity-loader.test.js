@@ -138,7 +138,7 @@ function loaderFor(fakePage, timing) {
   return { loader, clock, events };
 }
 
-const FAST_TIMING = { scrollWait: 3000, maxEmptyScrolls: 8, timeout: 3600000 };
+const FAST_TIMING = { growthWait: 3000, maxEmptyScrolls: 8, timeout: 3600000 };
 
 // A list that grows for two steps and then idles stops after the configured
 // run of fruitless steps, reports completeness, and numbers the steps.
@@ -191,7 +191,7 @@ async function testTimeoutCutoff() {
     pages: [page(["a", "b"]), page(["a", "b", "c", "d"])],
     growsOnSteps: [1],
   });
-  const { loader } = loaderFor(fake, { scrollWait: 3000, maxEmptyScrolls: 8, timeout: 1000 });
+  const { loader } = loaderFor(fake, { growthWait: 3000, maxEmptyScrolls: 8, timeout: 1000 });
 
   const result = await loader.collectAll();
 
@@ -294,7 +294,7 @@ async function testZeroTimeoutWalksToEnd() {
     pages: [page(["a"]), page(["a", "b"]), page(["a", "b", "c"])],
     growsOnSteps: [1, 2],
   });
-  const { loader } = loaderFor(fake, { scrollWait: 3000, maxEmptyScrolls: 2, timeout: 0 });
+  const { loader } = loaderFor(fake, { growthWait: 3000, maxEmptyScrolls: 2, timeout: 0 });
 
   const result = await loader.collectAll();
 
@@ -311,7 +311,7 @@ async function testZeroTimeoutWalksToEnd() {
 async function testAbsentTimeoutUsesDefault() {
   const fake = new FakeActivityPage({ pages: [page(["a"])], growsOnSteps: [] });
   // 600000 ms per step: the sixth step reaches the 3600000 ms default.
-  const { loader } = loaderFor(fake, { scrollWait: 600000, maxEmptyScrolls: 8 });
+  const { loader } = loaderFor(fake, { growthWait: 600000, maxEmptyScrolls: 8 });
 
   const result = await loader.collectAll();
 
@@ -331,7 +331,7 @@ async function testLateBatchIsReconciled() {
     pages: [page(["a", "b"]), page(["a", "b", "c", "d"])],
     batchLandsAfterRead: 1,
   });
-  const { loader } = loaderFor(fake, { scrollWait: 3000, maxEmptyScrolls: 2, timeout: 3600000 });
+  const { loader } = loaderFor(fake, { growthWait: 3000, maxEmptyScrolls: 2, timeout: 3600000 });
 
   const result = await loader.collectAll();
 

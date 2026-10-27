@@ -18,7 +18,7 @@ export async function runScan(args) {
   const cdpEndpoint = getFlag(args, "cdp", null);
   // Deep is opt-in: the CLI flag, then behavior.deepScan, then false.
   const deep = asBool(resolveFlag(args, "deep", "behavior.deepScan", false));
-  // The loader's stopping rules reuse the existing timing knobs: scrollWait is
+  // The loader's stopping rules reuse the existing timing knobs: growthWait is
   // now the per-step growth deadline, maxEmptyScrolls the idle limit and
   // timeout the overall walk limit (0 = none).
   const timing = loadConfig().timing || {};

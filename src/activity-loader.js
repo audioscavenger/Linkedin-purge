@@ -50,9 +50,9 @@ export class ActivityLoader {
     this.sleep = sleep;
   }
 
-  // How long one load step may wait for the list to grow (timing.scrollWait).
+  // How long one load step may wait for the list to grow (timing.growthWait).
   get growthDeadlineMs() {
-    return numberOr(this.timing.scrollWait, DEFAULT_GROWTH_DEADLINE_MS);
+    return numberOr(this.timing.growthWait, DEFAULT_GROWTH_DEADLINE_MS);
   }
 
   // Fruitless load steps allowed before the end of the list is declared

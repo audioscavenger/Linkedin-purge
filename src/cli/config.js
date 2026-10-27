@@ -17,7 +17,7 @@ const DEFAULT_CONFIG = {
     batchMax: 60000,
     // How long one load step waits for the Activity List to grow. A deep scan
     // that sees eight fruitless steps in a row (about 24 s) declares the end.
-    scrollWait: 3000,
+    growthWait: 3000,
     maxEmptyScrolls: 8,
     maxRetries: 4,
     backoffBase: 10000,

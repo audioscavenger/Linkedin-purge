@@ -134,7 +134,7 @@ CLI flags always take precedence.
     "actionMax": 5000,
     "batchMin": 30000,
     "batchMax": 60000,
-    "scrollWait": 3000,
+    "growthWait": 3000,
     "maxEmptyScrolls": 8,
     "maxRetries": 4,
     "backoffBase": 10000,
@@ -160,9 +160,9 @@ turn every scan deep and a command line flag still wins. `behavior.headless` is
 the default for purge/login; scan defaults to headless regardless (override with
 `--headless`).
 
-### scrollWait is a growth deadline, not a sleep
+### growthWait is a growth deadline, not a sleep
 
-`timing.scrollWait` (ms) used to be a fixed sleep after each scroll. It is now
+`timing.growthWait` (ms) used to be a fixed sleep after each scroll. It is now
 the deadline one load step waits for the Activity List to grow: the tool reads a
 growth signal, scrolls the list to its bottom, then polls every 300 ms until the
 list grows or this deadline expires. A productive step ends as soon as cards
@@ -170,13 +170,12 @@ appear. The default is now 3000, so eight fruitless steps in a row
 (`timing.maxEmptyScrolls`) cost about 24 seconds of silence before the end of the
 list is declared.
 
-`config.json` is written on first run and gitignored, so an existing install
-keeps the value it already has, and older ones hold 800. To adopt the new
-deadline, set `timing.scrollWait` to 3000 or delete the key and let the default
-apply. Keeping 800 does not lose items that are there, but each step gives the
-page less time to answer: more load steps end fruitless and get retried, and the
-end of the list is declared after 8 x 800 ms rather than 8 x 3000 ms, so a slow
-page can be mistaken for the end of a list that had more cards.
+`config.json` is written on first run and gitignored, so every install keeps its
+own value; the built-in default is 3000. A smaller value does not lose items that
+are there, but each step gives the page less time to answer: more load steps end
+fruitless and get retried, and the end of the list is declared after 8 x the wait
+rather than 8 x 3000 ms, so a slow page can be mistaken for the end of a list
+that had more cards.
 
 ### timeout caps a walk; 0 means no limit
 

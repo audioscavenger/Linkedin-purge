@@ -24,7 +24,7 @@
 ## Config
 
 - `config.json` (created on first run; persisted, edited by user) holds timing and paths; CLI flags override.
-- Timing fields: actionMin, actionMax, batchMin, batchMax, scrollWait, maxEmptyScrolls, maxRetries, backoffBase, batchSize, timeout.
+- Timing fields: actionMin, actionMax, batchMin, batchMax, growthWait, maxEmptyScrolls, maxRetries, backoffBase, batchSize, timeout.
 
 ## Releasing
 
