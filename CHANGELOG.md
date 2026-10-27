@@ -6,8 +6,11 @@
 
 ## Unreleased
 
-* [x] Browser launch recovers from locked profiles: kills leftover headless/CDP browser instances from previous runs and retries the launch; when a browser you have open holds the profile, it says so in one line (with the PIDs) instead of dumping the Playwright launch log.
-* [x] Restored the full activity walk as `scan --deep`, with a polling load step, an honest scan envelope, and purge visiting the tab of the type it purges.
+## Released
+
+* [x] 0.4.0 - Full activity walk restored as `scan --deep`, a purge that finds its own tab, and a live check that catches LinkedIn markup changes.
+    * Browser launch recovers from locked profiles: kills leftover headless/CDP browser instances from previous runs and retries the launch; when a browser you have open holds the profile, it says so in one line (with the PIDs) instead of dumping the Playwright launch log.
+    * Restored the full activity walk as `scan --deep`, with a polling load step, an honest scan envelope, and purge visiting the tab of the type it purges.
     * Plain `scan` still collects the first render only (about 20 cards per tab); `scan --deep` walks the whole Activity List and stops when the list stops growing. Deep is opt-in: `--deep` on the command line, or `behavior.deepScan` in `config.json`, default false.
     * A load step is a growth deadline, not a fixed sleep: read the growth signal, scroll the Activity List to its bottom, then poll until it grows or `timing.growthWait` expires. The key is `growthWait` (renamed from `scrollWait` before the first release, because it no longer describes a sleep) and its default rises from 800 to 3000, so eight fruitless steps mean about 24 seconds of silence before the end is declared. The poll interval is a fixed 300 ms because it is machine latency, not user preference.
     * The scan envelope adds per-item `step` (the load step a card first appeared in, zero-based, 0 for every item of a shallow scan), plus top-level `steps` and `complete`. A walk cut short by `timing.timeout` still writes its file, marked `complete: false`, and warns. Every pre-existing field keeps its meaning, so old and new files both load through `purge --input`.
@@ -17,12 +20,11 @@
     * The in-page note about reaction keys now records what was measured: an unliked card keeps its place within the page session and disappears on reload, so reaction indices are session-scoped, not stable across runs.
     * `purge --type all` writes per-type checkpoints and reports: the aggregate type used to reach the adapters, so the run produced a `checkpoint-all.json` that nothing ever resumes from and one `report-all-<ts>.json` instead of a report per type. Each run now carries its concrete type and its own Activity List tab.
     * A deep walk reconciles a late batch: cards that land between one step's last poll and the next step's first growth read are read once before the step counts toward the idle limit, so a file marked `complete: true` cannot silently omit a whole batch. A `timing.timeout` of `0` is no time limit now, matching `--limit 0`, instead of stopping the walk after the first render; `null` still falls back to the one-hour default.
-* [x] `npm run verify:page` checks the injected page helpers against the live activity tabs, so a LinkedIn markup change fails loudly with the helper's name instead of a scan of 0 items, a scroll target of nothing, or a growth signal that never moves.
+    * `npm run verify:page` checks the injected page helpers against the live activity tabs, so a LinkedIn markup change fails loudly with the helper's name instead of a scan of 0 items, a scroll target of nothing, or a growth signal that never moves.
     * Asserts tab recognition, the growth signal shape, the named scroll target plus real pagination, the item metadata, unique keys and the incremental seen-key contract on both tabs. Every page call is bounded, so a hung evaluate fails with the helper's name and the step instead of hanging the command.
     * Not part of `npm run check`, `lint` or `health`: it opens LinkedIn with your own profile and needs a logged-in session (`npm run login` first). The assertions live in `src/page-check.js`, unit-tested through a fake page seam; `scripts/verify-page.js` is only the browser wiring.
-
-## Released
-
+    * Running the check live found and fixed a permanently null `lastKey` in the growth signal (the Activity List ends with tiles that carry no key), and proved the pagination assertion has to count cards rather than scroll height: a 40 px layout shift passed the first version with no new cards.
+    * A stalled or killed deep walk is still a known gap: the walk writes its file only at the end, and a 300-plus-card comments list stalled once with no diagnostics. Parked in `.scratch/deep-scan-scale/issue.md`.
 * [x] 0.3.4 - Standards fixes for the v0.3.3 release: records of destructive actions are now correct and single-sited, the Report Entry has one owner, and the purge input format is a named contract (ADR 0001).
     * One canonical card-metadata extraction runs on the card before the destructive click and serves both delete flows; reaction and comment deletions both record state, author, postHref, and dateTime, with author = the post author, never the purged account.
     * Eligibility (not yet processed, and in the input set when one is given) is computed once in the runner; the page adapter does membership over the precomputed eligible-key list only.
