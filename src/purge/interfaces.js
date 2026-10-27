@@ -28,7 +28,6 @@ export class PageAdapter {
 
   async collectKeys() { throw new Error("Not implemented"); }
   async deleteFirstEligible(eligibleKeys) { throw new Error("Not implemented"); }
-  async clickShowMoreIfPresent() { throw new Error("Not implemented"); }
   async waitForTimeout(ms) { throw new Error("Not implemented"); }
 }
 

@@ -7,6 +7,16 @@
 ## Unreleased
 
 * [x] Browser launch recovers from locked profiles: kills leftover headless/CDP browser instances from previous runs and retries the launch; when a browser you have open holds the profile, it says so in one line (with the PIDs) instead of dumping the Playwright launch log.
+* [x] Restored the full activity walk as `scan --deep`, with a polling load step, an honest scan envelope, and purge visiting the tab of the type it purges.
+    * Plain `scan` still collects the first render only (about 20 cards per tab); `scan --deep` walks the whole Activity List and stops when the list stops growing. Deep is opt-in: `--deep` on the command line, or `behavior.deepScan` in `config.json`, default false.
+    * A load step is a growth deadline, not a fixed sleep: read the growth signal, scroll the Activity List to its bottom, then poll until it grows or `timing.growthWait` expires. The key is `growthWait` (renamed from `scrollWait` before the first release, because it no longer describes a sleep) and its default rises from 800 to 3000, so eight fruitless steps mean about 24 seconds of silence before the end is declared. The poll interval is a fixed 300 ms because it is machine latency, not user preference.
+    * The scan envelope adds per-item `step` (the load step a card first appeared in, zero-based, 0 for every item of a shallow scan), plus top-level `steps` and `complete`. A walk cut short by `timing.timeout` still writes its file, marked `complete: false`, and warns. Every pre-existing field keeps its meaning, so old and new files both load through `purge --input`.
+    * Only cards not yet seen get their metadata extracted, so a deep walk stays linear as the page grows, and nothing inside a card is clicked: scrolling alone paginates both tabs.
+    * The walk lives in one module, `ActivityLoader`, with a thin page seam for tests, `createActivityPage()` for the browser edge, and a pure `buildScanEnvelope()` in its own module that owns the file contract. Covered by a browser-free test file over a scripted fake page.
+    * Purge navigates to the tab matching the type it purges: the activity "all" tab matched neither page detector, so purge collected zero keys and reported "cancelled or nothing to delete" against a full history. Purge still acts on what is on the page and does not walk.
+    * The in-page note about reaction keys now records what was measured: an unliked card keeps its place within the page session and disappears on reload, so reaction indices are session-scoped, not stable across runs.
+    * `purge --type all` writes per-type checkpoints and reports: the aggregate type used to reach the adapters, so the run produced a `checkpoint-all.json` that nothing ever resumes from and one `report-all-<ts>.json` instead of a report per type. Each run now carries its concrete type and its own Activity List tab.
+    * A deep walk reconciles a late batch: cards that land between one step's last poll and the next step's first growth read are read once before the step counts toward the idle limit, so a file marked `complete: true` cannot silently omit a whole batch. A `timing.timeout` of `0` is no time limit now, matching `--limit 0`, instead of stopping the walk after the first render; `null` still falls back to the one-hour default.
 
 ## Released
 

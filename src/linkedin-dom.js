@@ -21,12 +21,22 @@ function commentMenuButtons() {
   );
 }
 
+// The comment key inside one node: the first replaceableComment_ id among its
+// descendants, else its own. The card-key path and the button-key path both go
+// through this one lookup, so they cannot drift apart.
+function commentKeyIn(node) {
+  if (!node) return null;
+  const rc = node.querySelector ? node.querySelector("[id^='replaceableComment_']") : null;
+  if (rc) return rc.id;
+  if (node.id && node.id.startsWith("replaceableComment_")) return node.id;
+  return null;
+}
+
 function commentKeyForButton(btn) {
   let node = btn;
   for (let i = 0; i < 25 && node; i++) {
-    const rc = node.querySelector ? node.querySelector("[id^='replaceableComment_']") : null;
-    if (rc) return rc.id;
-    if (node.id && node.id.startsWith("replaceableComment_")) return node.id;
+    const key = commentKeyIn(node);
+    if (key) return key;
     node = node.parentElement;
   }
   return null;
@@ -43,32 +53,41 @@ function collectCommentKeys() {
 
 // --- Reactions helpers ---
 
+// The predicate that identifies a reaction button. One definition, so the
+// growth signal, the collectors and the delete flows all agree on what one is.
+function isReactionButton(btn) {
+  return /^Reaction button state:/i.test(btn.getAttribute("aria-label") || "");
+}
+
 function reactionButtons() {
-  return [...document.querySelectorAll("button")].filter((b) =>
-    /^Reaction button state:/i.test(b.getAttribute("aria-label") || "")
-  );
+  return [...document.querySelectorAll("button")].filter(isReactionButton);
 }
 
 function reactionState(btn) {
   return (btn.getAttribute("aria-label") || "").replace(/^Reaction button state:\s*/i, "").trim();
 }
 
-function reactionKeyForButton(btn) {
-  // The activity list keeps unliked items in place (state "no reaction"), so the
-  // button's index among all reaction buttons is stable across runs and serves
-  // as a checkpoint key (permalinks are not reachable per item in this UI).
-  const all = reactionButtons();
-  const idx = all.indexOf(btn);
+function reactionKeyForIndex(idx) {
   return idx >= 0 ? `reaction:${idx}` : null;
+}
+
+function reactionKeyForButton(btn) {
+  // The card keeps its place among the reaction buttons for the life of the
+  // page session: an unliked card stays put with state "no reaction" until the
+  // page is reloaded, and then it disappears. The index is therefore a
+  // session-scoped key, not one that survives a reload (permalinks are not
+  // reachable per item in this UI).
+  const all = reactionButtons();
+  return reactionKeyForIndex(all.indexOf(btn));
 }
 
 function collectReactionKeys() {
   const keys = new Set();
-  for (const btn of reactionButtons()) {
-    if (reactionState(btn).toLowerCase() === "no reaction") continue;
-    const k = reactionKeyForButton(btn);
+  reactionButtons().forEach((btn, idx) => {
+    if (reactionState(btn).toLowerCase() === "no reaction") return;
+    const k = reactionKeyForIndex(idx);
     if (k) keys.add(k);
-  }
+  });
   return [...keys];
 }
 
@@ -160,27 +179,32 @@ function readCardMeta(btn) {
 }
 
 // Collect rich metadata for each reaction item (state, author, postHref, dateTime).
-function collectReactionItems() {
+// Keys already seen are skipped before metadata extraction, so a deep walk reads
+// each card once instead of re-reading the whole list on every load step.
+function collectReactionItems(seenKeys) {
+  const seen = new Set(seenKeys || []);
   const items = [];
-  for (const btn of reactionButtons()) {
+  reactionButtons().forEach((btn, idx) => {
     const state = reactionState(btn);
-    if (state.toLowerCase() === "no reaction") continue;
-    const key = reactionKeyForButton(btn);
-    if (!key) continue;
+    if (state.toLowerCase() === "no reaction") return;
+    const key = reactionKeyForIndex(idx);
+    if (!key || seen.has(key)) return;
     const meta = readCardMeta(btn);
     items.push({ key, state, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
-  }
+  });
   return items;
 }
 
 // Collect rich metadata for each comment item (author, postHref, dateTime).
-function collectCommentItems() {
+// Same incremental contract as reactions: keys already seen are skipped before
+// metadata extraction.
+function collectCommentItems(seenKeys) {
   const items = [];
-  const seenKeys = new Set();
+  const seen = new Set(seenKeys || []);
   for (const btn of commentMenuButtons()) {
     const key = commentKeyForButton(btn);
-    if (!key || seenKeys.has(key)) continue;
-    seenKeys.add(key);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
     const meta = readCardMeta(btn);
     items.push({ key, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
   }
@@ -195,23 +219,78 @@ function collectKeys() {
   return [];
 }
 
-function collectItems() {
-  if (isCommentsPage()) return collectCommentItems();
-  if (isReactionsPage()) return collectReactionItems();
+function collectItems(seenKeys) {
+  if (isCommentsPage()) return collectCommentItems(seenKeys);
+  if (isReactionsPage()) return collectReactionItems(seenKeys);
   return [];
 }
 
-function clickShowMoreIfPresent() {
-  const buttons = [...document.querySelectorAll("button")];
-  const target = buttons.find((b) => {
-    const t = (b.innerText || "").trim().toLowerCase();
-    return /load more comments|show more|see more/i.test(t) && b.offsetParent !== null;
-  });
-  if (target) {
-    target.click();
-    return true;
+// --- Activity List traversal helpers ---
+
+// The Activity List's cards. Both tabs render them as role="listitem" and
+// neither virtualizes: cards accumulate as more of the list loads.
+function activityCards() {
+  return [...document.querySelectorAll('[role="listitem"]')];
+}
+
+// The element that actually scrolls the Activity List: the nearest scrollable
+// ancestor of a card, then the element with id "workspace", then the main
+// landmark, then the document scroller. Measured today, all of them land on
+// #workspace, but the derivation order is what survives a rename.
+function activityScrollTarget() {
+  let node = activityCards()[0] || null;
+  for (let i = 0; i < 20 && node; i++) {
+    const cs = getComputedStyle(node);
+    if ((cs.overflowY === "auto" || cs.overflowY === "scroll") && node.scrollHeight > node.clientHeight + 40) {
+      return node;
+    }
+    node = node.parentElement;
   }
-  return false;
+  return (
+    document.getElementById("workspace") ||
+    document.querySelector("main, [role='main']") ||
+    document.scrollingElement ||
+    document.documentElement
+  );
+}
+
+// Scroll the Activity List to its bottom and name the element used, so the
+// caller can log which scroller the walk relied on.
+function scrollActivityListToBottom() {
+  const target = activityScrollTarget();
+  if (!target) return { tag: null, id: null };
+  target.scrollTo(0, target.scrollHeight);
+  const cards = activityCards();
+  if (cards.length) cards[cards.length - 1].scrollIntoView({ block: "end" });
+  return { tag: target.tagName || null, id: target.id || null };
+}
+
+// The key of one card, computed without reading its metadata: the comment id
+// path, or the reaction-button predicate plus the session-scoped reaction
+// index. Both come from the collectors' own helpers, so the growth signal and
+// the collectors can never disagree about a card's key.
+function cardKey(card) {
+  if (isCommentsPage()) return commentKeyIn(card);
+  if (isReactionsPage()) {
+    const btn = [...card.querySelectorAll("button")].find(isReactionButton);
+    return btn ? reactionKeyForButton(btn) : null;
+  }
+  return null;
+}
+
+// Cheap growth signal: the Activity List's scroll height, its card count and
+// the last card's key. Never extracts card metadata, so polling it while the
+// list grows to hundreds of cards stays cheap. Growth of any of the three means
+// the page loaded more content.
+function readGrowthSignal() {
+  const cards = activityCards();
+  const target = activityScrollTarget();
+  const last = cards.length ? cards[cards.length - 1] : null;
+  return {
+    scrollHeight: target ? target.scrollHeight : 0,
+    count: cards.length,
+    lastKey: last ? cardKey(last) : null,
+  };
 }
 
 // --- Delete comment flow ---
@@ -369,6 +448,7 @@ window.LP = {
   isReactionsPage,
   collectKeys,
   collectItems,
+  readGrowthSignal,
+  scrollActivityListToBottom,
   deleteFirstEligible,
-  clickShowMoreIfPresent,
 };

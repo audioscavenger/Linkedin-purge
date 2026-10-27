@@ -22,7 +22,6 @@ class FakePageAdapter {
     if (!nextKey) return { ok: false, key: null, skip: false, error: "no eligible item" };
     return { ok: true, key: nextKey, state: "no reaction", author: "Test Author", postHref: "/feed/update/1", dateTime: "2026-01-01T00:00:00Z" };
   }
-  async clickShowMoreIfPresent() { return false; }
   async waitForTimeout(ms) { return Promise.resolve(); }
 }
 

@@ -20,10 +20,6 @@ export class PageAdapter {
     );
   }
 
-  async clickShowMoreIfPresent() {
-    return this.page.evaluate(() => window.LP.clickShowMoreIfPresent());
-  }
-
   async waitForTimeout(ms) {
     return this.page.waitForTimeout(ms);
   }
