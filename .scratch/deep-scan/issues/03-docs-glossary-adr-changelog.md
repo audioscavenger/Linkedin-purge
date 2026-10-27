@@ -18,9 +18,9 @@
 
 **Do not touch:** any source or test file. If the shipped behaviour differs from what this ticket describes, report it rather than editing code.
 
-- [ ] README documents `--deep`, `behavior.deepScan`, the new `scrollWait` meaning and default, and what a scan covers
-- [ ] The navigation index lists the Activity Loader, the corrected in-page exports, describes scan accurately, and no longer lists the deleted legacy configuration module
-- [ ] The glossary defines Activity List, Load Step, Shallow Scan and Deep Scan without implementation detail
-- [ ] ADR 0002 is written in the existing ADR format and cites the issue and the measured numbers
-- [ ] The changelog Unreleased entry is added in the house format
-- [ ] `npm run health` passes
+- [x] README documents `--deep`, `behavior.deepScan`, the new `scrollWait` meaning and default, and what a scan covers
+- [x] The navigation index lists the Activity Loader, the corrected in-page exports, describes scan accurately, and no longer lists the deleted legacy configuration module
+- [x] The glossary defines Activity List, Load Step, Shallow Scan and Deep Scan without implementation detail
+- [x] ADR 0002 is written in the existing ADR format and cites the issue and the measured numbers
+- [x] The changelog Unreleased entry is added in the house format
+- [x] `npm run health` passes
