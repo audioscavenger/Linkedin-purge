@@ -4,7 +4,7 @@
 
 **Blocked by:** 06 (Delete loop orchestration).
 
-**Status:** ready-for-agent
+**Status:** done (shipped in v0.3.0)
 
 - [ ] Happy path: 10 items, batch 5 — all deleted, checkpoint saved
 - [ ] Timeout during loop stops the run and returns PurgeResult

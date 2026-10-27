@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Purge Runner module skeleton).
 
-**Status:** ready-for-agent
+**Status:** done (shipped in v0.3.0)
 
 - [ ] Default implementation asks the user via readline prompt
 - [ ] Returns true only when user answers YES

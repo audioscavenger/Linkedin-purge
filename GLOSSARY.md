@@ -10,7 +10,10 @@ A single deletable entity on the user's LinkedIn activity page: either a comment
 A purge item as recorded at the moment it was acted on: the item's fields plus a timestamp of when the run performed the action.
 
 ## Key
-A stable, unique identifier for a purge item, used for deduplication across runs. Comment keys are `replaceableComment_<id>` element IDs. Reaction keys are `reaction:<index>`, derived from the reaction button's stable position in the activity list.
+A session-scoped handle for a purge item, used to deduplicate within one page session. Comment keys are `replaceableComment_<id>` element IDs. Reaction keys are `reaction:<index>`, the button's position among the reaction buttons. Positions drift between sessions and disappear on reload, so a Key is not an identity: see Card Identity.
+
+## Card Identity
+The stable identity of a Purge Item's card, taken from the post the card belongs to. It survives page reloads and is not disturbed by other activity being added or removed above it. A Key can drift; a Card Identity cannot.
 
 ## Author
 The author of the post. Never the account whose activity is being purged.

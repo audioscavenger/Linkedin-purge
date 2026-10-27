@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Purge Runner module skeleton).
 
-**Status:** ready-for-agent
+**Status:** done (shipped in v0.3.0)
 
 - [ ] Open a new report file for a purge type
 - [ ] Write a purge item record (key, ts, state, author, postHref, dateTime)

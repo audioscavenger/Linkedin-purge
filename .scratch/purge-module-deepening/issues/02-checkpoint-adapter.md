@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Purge Runner module skeleton).
 
-**Status:** ready-for-agent
+**Status:** done (shipped in v0.3.0)
 
 - [ ] Load checkpoint set from disk, return empty set if none exists
 - [ ] Query whether a given key has already been processed

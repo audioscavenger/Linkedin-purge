@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done (shipped in v0.3.0)
 
 - [ ] `PurgeRunner` class exists with a single public `run(options)` method
 - [ ] `PageAdapter` interface declared (collect keys, delete first eligible, click show more, wait)

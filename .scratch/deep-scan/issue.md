@@ -1,6 +1,6 @@
 # Issue: scan --deep (full activity walk) and the load-more the v0.3.0 refactor deleted
 
-Status: ready-for-agent
+Status: done (shipped in v0.4.0)
 Origin: grilling session on 2026-10-26 (14 accepted decisions) plus two read-only live probes against the user's real account.
 
 ## Problem Statement

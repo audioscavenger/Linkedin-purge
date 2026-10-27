@@ -4,7 +4,7 @@
 
 **Blocked by:** 06 (Delete loop orchestration) — now that `src/purge.js` contains the full `run()` implementation, this ticket can start.
 
-**Status:** ready-for-agent
+**Status:** done (shipped in v0.3.0)
 
 - [ ] Import `PurgeRunner` from the purge module
 - [ ] Build concrete adapters (PageAdapter backed by Playwright page; CheckpointAdapter backed by data dir; ReporterAdapter backed by data dir; ConfirmAdapter via readline)

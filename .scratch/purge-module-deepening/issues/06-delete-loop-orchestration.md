@@ -4,7 +4,7 @@
 
 **Blocked by:** 02, 03, 04, 05 (all adapters must be implemented first) — all four are now in `src/purge.js`.
 
-**Status:** ready-for-agent
+**Status:** done (shipped in v0.3.0)
 
 - [ ] Collect keys via PageAdapter, filter out already-processed keys via CheckpointAdapter
 - [ ] Confirm via ConfirmAdapter before deleting anything

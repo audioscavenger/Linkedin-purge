@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Purge Runner module skeleton).
 
-**Status:** ready-for-agent
+**Status:** done (shipped in v0.3.0)
 
 - [ ] Collect keys from the current page (comments or reactions)
 - [ ] Delete the first eligible item given a skip set of keys
