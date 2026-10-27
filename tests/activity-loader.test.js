@@ -1,8 +1,8 @@
-// Unit tests for the Activity Loader and the scan envelope builder.
+// Unit tests for the Activity Loader.
 // No browser, no DOM, no real timers: the loader runs against a fake Activity
 // Page seam that scripts growth signals and item pages, per the deep-scan
 // spec's loader seam.
-import { ActivityLoader, buildScanEnvelope } from "../src/activity-loader.js";
+import { ActivityLoader } from "../src/activity-loader.js";
 
 // One scripted Activity Page: pages[0] is the first render, pages[n] is what
 // the Activity List holds after its n-th growth. The fake mirrors the injected
@@ -52,6 +52,59 @@ class FakeActivityPage {
     this.scrolls++;
     this.pendingGrowth = true;
     return { tag: "MAIN", id: "workspace" };
+  }
+}
+
+// A page whose batches land silently between load steps: a new batch arrives
+// right after one step's read and before the next step's first growth read, so
+// the polling loop never observes growth. This is the case that made a
+// complete envelope omit a whole batch.
+class LateBatchActivityPage {
+  constructor({ pages, batchLandsAfterRead = 1 }) {
+    this.pages = pages;
+    this.batchLandsAfterRead = batchLandsAfterRead;
+    this.pageIndex = 0;
+    this.reads = 0;
+    this.scrolls = 0;
+    this.stepOpen = false;
+    this.stepSignal = null;
+    this.growthSeen = false;
+  }
+
+  signal() {
+    const items = this.pages[this.pageIndex];
+    return { count: items.length, scrollHeight: 1000 + this.pageIndex * 500, lastKey: items.length ? items[items.length - 1].key : null };
+  }
+
+  async readGrowth() {
+    const signal = this.signal();
+    if (!this.stepOpen) {
+      this.stepOpen = true;
+      this.stepSignal = signal;
+    } else if (
+      signal.count > this.stepSignal.count ||
+      signal.scrollHeight > this.stepSignal.scrollHeight ||
+      (signal.lastKey != null && signal.lastKey !== this.stepSignal.lastKey)
+    ) {
+      this.growthSeen = true;
+    }
+    return signal;
+  }
+
+  async scrollToBottom() {
+    this.scrolls++;
+    return { tag: "MAIN", id: "workspace" };
+  }
+
+  // The batch lands here, between this step's read and the next step's first
+  // growth read, so no poll of any step sees the list grow.
+  async readItems(seenKeys = []) {
+    const seen = new Set(seenKeys);
+    const items = this.pages[this.pageIndex].filter((it) => !seen.has(it.key));
+    this.reads++;
+    this.stepOpen = false;
+    if (this.reads === this.batchLandsAfterRead && this.pageIndex + 1 < this.pages.length) this.pageIndex++;
+    return items;
   }
 }
 
@@ -151,8 +204,9 @@ async function testTimeoutCutoff() {
   console.log("PASS: timeout cutoff keeps items and marks the walk incomplete");
 }
 
-// A list that never grows costs exactly the allowed idle steps, returns the
-// first render, and never re-reads card metadata.
+// A list that never grows costs exactly the allowed idle steps and returns the
+// first render. Every later read is handed the keys already seen, so no card
+// metadata is extracted twice.
 async function testNeverGrows() {
   const fake = new FakeActivityPage({ pages: [page(["a", "b"])], growsOnSteps: [] });
   const { loader } = loaderFor(fake, FAST_TIMING);
@@ -163,8 +217,14 @@ async function testNeverGrows() {
   if (result.steps !== 9) throw new Error(`Expected 1 + 8 idle steps, got ${result.steps}`);
   if (fake.scrolls !== 8) throw new Error(`Expected exactly 8 idle scrolls, got ${fake.scrolls}`);
   if (result.items.length !== 2) throw new Error(`Expected the first render only, got ${result.items.length}`);
-  if (fake.readItemsCalls.length !== 1) {
-    throw new Error(`Card metadata was read ${fake.readItemsCalls.length} times for a list that never grew`);
+  // One read for the first render plus one reconciliation read per load step.
+  if (fake.readItemsCalls.length !== 1 + 8) {
+    throw new Error(`Expected 1 + 8 card reads (one per step), got ${fake.readItemsCalls.length}`);
+  }
+  for (const call of fake.readItemsCalls.slice(1)) {
+    if (call.join(",") !== "a,b") {
+      throw new Error(`A later read lost the seen keys, so metadata would be re-extracted: [${call}]`);
+    }
   }
 
   console.log("PASS: never-growing list stops after the idle limit with the first render");
@@ -194,7 +254,7 @@ async function testMergeDedupeAndStepNumbering() {
   console.log("PASS: merge de-duplicates by key with first-seen order and step numbers");
 }
 
-// Every load step after the first hands the already-seen keys to the page, and
+// Every read after the first render hands the already-seen keys to the page, so
 // a page that honours them returns only new cards.
 async function testSeenKeysHandOff() {
   const fake = new FakeActivityPage({
@@ -205,9 +265,6 @@ async function testSeenKeysHandOff() {
 
   const result = await loader.collectAll();
 
-  if (fake.readItemsCalls.length !== 3) {
-    throw new Error(`Expected one card read per growth, got ${fake.readItemsCalls.length}`);
-  }
   if (fake.readItemsCalls[0].length !== 0) {
     throw new Error(`First render must be read with no seen keys, got [${fake.readItemsCalls[0]}]`);
   }
@@ -217,99 +274,127 @@ async function testSeenKeysHandOff() {
   if (fake.readItemsCalls[2].join(",") !== "a,b,c") {
     throw new Error(`Step 2 saw the wrong keys: [${fake.readItemsCalls[2]}]`);
   }
+  // Two productive steps plus the one idle step that ends the walk.
+  if (fake.readItemsCalls.length !== 4) {
+    throw new Error(`Expected one card read per step after the render, got ${fake.readItemsCalls.length}`);
+  }
+  if (fake.readItemsCalls[3].join(",") !== "a,b,c,d") {
+    throw new Error(`The idle step saw the wrong keys: [${fake.readItemsCalls[3]}]`);
+  }
   const keys = result.items.map((it) => it.key).join(",");
   if (keys !== "a,b,c,d") throw new Error(`Expected [a,b,c,d], got [${keys}]`);
 
   console.log("PASS: already-seen keys are handed to the page on every later step");
 }
 
-// A shallow scan keeps the historical envelope contract: one step, complete,
-// every item in step 0, and every pre-existing field meaning unchanged.
-async function testShallowEnvelope() {
-  const items = [
-    { key: "reaction:1", state: "LIKE", author: "A", postHref: null, dateTime: "Sep 16" },
-    { key: "reaction:2", state: "LIKE", author: "B", postHref: "/feed/update/2", dateTime: "Sep 17" },
-  ];
-  const envelope = buildScanEnvelope({
-    type: "likes",
-    items,
-    steps: 1,
-    complete: true,
-    scannedAt: "2026-10-26T07:49:00.000Z",
+// timing.timeout 0 means no time limit, the same way purge's runner treats it
+// and the way `--limit 0` reads: the walk ends when the list stops growing.
+async function testZeroTimeoutWalksToEnd() {
+  const fake = new FakeActivityPage({
+    pages: [page(["a"]), page(["a", "b"]), page(["a", "b", "c"])],
+    growsOnSteps: [1, 2],
   });
+  const { loader } = loaderFor(fake, { scrollWait: 3000, maxEmptyScrolls: 2, timeout: 0 });
 
-  const fields = Object.keys(envelope);
-  const expectedFields = ["type", "count", "keys", "items", "scannedAt", "steps", "complete"];
-  if (fields.join(",") !== expectedFields.join(",")) {
-    throw new Error(`Envelope fields changed: [${fields.join(", ")}]`);
-  }
-  if (envelope.type !== "likes") throw new Error(`type not preserved: ${envelope.type}`);
-  if (envelope.count !== 2) throw new Error(`count expected 2, got ${envelope.count}`);
-  if (envelope.keys.join(",") !== "reaction:1,reaction:2") {
-    throw new Error(`keys expected [reaction:1, reaction:2], got [${envelope.keys}]`);
-  }
-  if (envelope.scannedAt !== "2026-10-26T07:49:00.000Z") throw new Error("scannedAt not preserved");
-  if (envelope.steps !== 1) throw new Error(`A shallow scan is one step, got ${envelope.steps}`);
-  if (envelope.complete !== true) throw new Error("A shallow scan is complete");
-  for (const item of envelope.items) {
-    if (item.step !== 0) throw new Error(`Shallow item ${item.key} expected step 0, got ${item.step}`);
-  }
-  // Pre-existing item fields survive unchanged, and the caller's items are not
-  // mutated by the builder.
-  if (envelope.items[0].author !== "A" || envelope.items[1].postHref !== "/feed/update/2") {
-    throw new Error("Item fields were not preserved");
-  }
-  if (items[0].step !== undefined) throw new Error("The builder mutated the caller's items");
+  const result = await loader.collectAll();
 
-  console.log("PASS: shallow envelope shape (one step, complete, every item step 0)");
+  if (!result.complete) throw new Error("timeout 0 must not cut the walk short");
+  if (result.items.length !== 3) throw new Error(`Expected all 3 items, got ${result.items.length}`);
+  if (result.steps !== 5) throw new Error(`Expected 1 + 2 productive + 2 idle steps = 5, got ${result.steps}`);
+  if (fake.scrolls !== 4) throw new Error(`Expected the walk to reach the idle limit, got ${fake.scrolls} scrolls`);
+
+  console.log("PASS: timeout 0 is no time limit, so the walk ends when the list stops growing");
 }
 
-// A deep walk cut short records how far it got and stays honest about it.
-async function testDeepPartialEnvelope() {
-  const items = [
-    { key: "reaction:0", state: "LIKE", author: "A", postHref: null, dateTime: null, step: 0 },
-    { key: "reaction:37", state: "LOVE", author: "B", postHref: null, dateTime: null, step: 5 },
-  ];
-  const envelope = buildScanEnvelope({
-    type: "likes",
-    items,
-    steps: 6,
-    complete: false,
-    scannedAt: "2026-10-26T08:00:00.000Z",
-  });
+// An absent (or null) timeout is not "no limit": it falls back to the built-in
+// one hour, which is what the shipped timing defaults and README describe.
+async function testAbsentTimeoutUsesDefault() {
+  const fake = new FakeActivityPage({ pages: [page(["a"])], growsOnSteps: [] });
+  // 600000 ms per step: the sixth step reaches the 3600000 ms default.
+  const { loader } = loaderFor(fake, { scrollWait: 600000, maxEmptyScrolls: 8 });
 
-  if (envelope.steps !== 6) throw new Error(`steps expected 6, got ${envelope.steps}`);
-  if (envelope.complete !== false) throw new Error("A cut-short walk must be incomplete");
-  if (envelope.count !== 2) throw new Error(`count expected 2, got ${envelope.count}`);
-  if (envelope.keys.join(",") !== "reaction:0,reaction:37") throw new Error(`keys wrong: [${envelope.keys}]`);
-  const steps = envelope.items.map((it) => it.step).join(",");
-  if (steps !== "0,5") throw new Error(`Per-item steps lost: [${steps}]`);
+  const result = await loader.collectAll();
 
-  console.log("PASS: deep partial envelope shape (many steps, incomplete, per-item steps kept)");
+  if (result.complete) throw new Error("An absent timeout must fall back to the 3600000 ms default");
+  if (result.steps !== 7) throw new Error(`Expected the cutoff on the 6th load step (steps=7), got ${result.steps}`);
+  if (fake.scrolls !== 6) throw new Error(`Expected 6 load steps before the default cutoff, got ${fake.scrolls}`);
+
+  console.log("PASS: absent timeout falls back to the 3600000 ms default");
 }
 
-const tests = {
+// Cards can land between one step's last poll and the next step's first growth
+// read. Nothing observes growth, so the step has to read the unseen cards once
+// before it counts toward the idle limit; otherwise a complete envelope can
+// silently omit a whole batch (the under-report user story 7 forbids).
+async function testLateBatchIsReconciled() {
+  const fake = new LateBatchActivityPage({
+    pages: [page(["a", "b"]), page(["a", "b", "c", "d"])],
+    batchLandsAfterRead: 1,
+  });
+  const { loader } = loaderFor(fake, { scrollWait: 3000, maxEmptyScrolls: 2, timeout: 3600000 });
+
+  const result = await loader.collectAll();
+
+  if (!result.complete) throw new Error("Expected the walk to stay complete after reconciling the late batch");
+  const keys = result.items.map((it) => it.key).join(",");
+  if (keys !== "a,b,c,d") throw new Error(`The late batch was never collected: [${keys}]`);
+  if (fake.growthSeen) throw new Error("The fake page must not report growth for this case");
+  if (result.steps !== 4) throw new Error(`Expected 1 + 3 load steps (1 reconciled, 2 idle) = 4, got ${result.steps}`);
+
+  const stepByKey = Object.fromEntries(result.items.map((it) => [it.key, it.step]));
+  if (stepByKey.c !== 1 || stepByKey.d !== 1) {
+    throw new Error(`The reconciled batch must carry the step that read it: ${JSON.stringify(stepByKey)}`);
+  }
+
+  console.log("PASS: a batch that lands silently between steps is reconciled, not dropped");
+}
+
+// The first render is one operation: one read, one step, complete, items in
+// step 0, and the same step-0 event the shallow path logs.
+async function testFirstRenderOperation() {
+  const fake = new FakeActivityPage({ pages: [page(["a", "b"])], growsOnSteps: [] });
+  const { loader, events } = loaderFor(fake, FAST_TIMING);
+
+  const result = await loader.readFirstRender();
+
+  if (result.steps !== 1) throw new Error(`A first render is one step, got ${result.steps}`);
+  if (result.complete !== true) throw new Error("A first render is complete");
+  if (result.items.length !== 2) throw new Error(`Expected 2 items, got ${result.items.length}`);
+  if (events.length !== 1) throw new Error(`Expected exactly one step event, got ${events.length}`);
+  const event = events[0];
+  if (event.step !== 0) throw new Error(`The first-render event must be step 0, got ${event.step}`);
+  if (event.total !== 2 || event.added !== 2) throw new Error(`Bad first-render totals: ${JSON.stringify(event)}`);
+  if (event.waitedMs !== 0 || event.target !== null) {
+    throw new Error(`A first render waits for nothing and has no target: ${JSON.stringify(event)}`);
+  }
+  if (fake.scrolls !== 0) throw new Error("The first render must not scroll");
+
+  console.log("PASS: first-render operation (one step, complete, step 0, one step-0 event)");
+}
+
+const tests = [
   testGrowsThenIdles,
   testTimeoutCutoff,
   testNeverGrows,
   testMergeDedupeAndStepNumbering,
   testSeenKeysHandOff,
-  testShallowEnvelope,
-  testDeepPartialEnvelope,
-};
+  testZeroTimeoutWalksToEnd,
+  testAbsentTimeoutUsesDefault,
+  testLateBatchIsReconciled,
+  testFirstRenderOperation,
+];
 
 async function main() {
-  let passed = 0;
   let failed = 0;
-  for (const [name, fn] of Object.entries(tests)) {
+  for (const fn of tests) {
     try {
       await fn();
-      passed++;
     } catch (e) {
-      console.error(`FAIL: ${name} - ${e.message}`);
+      console.error(`FAIL: ${fn.name} - ${e.message}`);
       failed++;
     }
   }
+  const passed = tests.length - failed;
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
 }

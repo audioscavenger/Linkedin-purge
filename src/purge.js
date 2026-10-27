@@ -1,4 +1,5 @@
-// Main purge exports - this file is the simplified entry point to the purge module
+// Main purge module: the entry point to the purge module.
+// PurgeRunner owns the lifecycle; the four adapters are its seams.
 export { PurgeRunner } from "./purge/runner.js";
 export { PageAdapter } from "./purge/adapters/page-adapter.js";
 export { CheckpointAdapter } from "./purge/adapters/checkpoint-adapter.js";

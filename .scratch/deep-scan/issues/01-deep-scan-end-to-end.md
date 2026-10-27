@@ -38,3 +38,5 @@ Prefactor, in the same ticket because it clears traps this ticket would otherwis
 - [x] `npm run test` and `npm run check` pass
 
 Live verification (2026-10-27, headless, `--type all --deep`): likes 86 items / 24 steps / complete, first render 18, batches +10 +8 +10 +10 +10; comments 156 items / 53 steps / complete, first render 20, batches of 8 to 12. Both far above the pre-change 19. The walk's growth deadline came from the local `config.json` (`scrollWait: 800`, a gitignored file that predates this change), so several steps needed a second attempt and the end-of-list tolerance was 8 x 800 ms; see ticket 03.
+
+The envelopes those numbers come from are kept outside the repo because `data/` is gitignored: `E:/TEMP/eric/opencode/deep-scan-verify/scan-likes.json` (86 items, 24 steps, `complete: true`, 18 in step 0) and `E:/TEMP/eric/opencode/deep-scan-verify/scan-comments.json` (156 items, 53 steps, `complete: true`, 20 in step 0). They are the on-disk evidence behind this note, not a live re-run.
