@@ -53,9 +53,13 @@ npm run purge -- --cdp http://localhost:9222
 ## Usage
 
 ```sh
-# Count items without deleting
+# Count items without deleting (first render only)
 npm run scan -- --type comments
 npm run scan -- --type likes
+
+# Count the whole activity list, not just the first page
+npm run scan -- --type likes --deep
+npm run scan -- --type all --deep
 
 # Delete comments + reactions, with dry-run confirmation
 npm run purge
@@ -67,11 +71,43 @@ npm run purge -- --type likes --reset-checkpoint
 npm run status
 ```
 
+## What a scan covers
+
+Plain `scan` collects the first render only: about 20 cards per tab, of which 18
+to 19 count as liked cards on the reactions tab and 20 are comment cards. It
+finishes in seconds and is useful as a smoke test, but it is a page, not a
+total.
+
+`--deep` walks the whole Activity List instead, one load step at a time, until
+the list stops growing. On the live profile each step added about 8 to 10 cards;
+the probe reached 138 reaction buttons in 11 steps and roughly 25 seconds. The
+command prints one line per load step with the running item count, the delta and
+the wait it cost, then a final line with the total, the number of steps and
+whether the walk completed.
+
+A deep walk that runs into `timing.timeout` still writes its file, marked
+`"complete": false`, and warns that the walk stopped early: the file holds what
+was collected up to that point. Every item also carries the load step it first
+appeared in (`step`), and the envelope carries `steps` and `complete` next to the
+unchanged `type`, `count`, `keys`, `items` and `scannedAt`, so files written
+before and after this change both load through `purge --input`.
+
+### Step numbers are attempt indices
+
+`step` is the index of the load step in which a card was first seen,
+counting the first render as step 0. It is not a card count and not a page
+number, so gaps are normal: a load step that found nothing new still consumes
+its number. The live likes scan recorded steps 0, 2, 4, 7, 8, 11, 13, 15, which
+means steps 1, 3, 5, 6, 9, 10, 12 and 14 scrolled without adding a card yet. A
+gap says "that attempt added nothing", not "items are missing". A plain scan
+puts every item in step 0.
+
 ## Parameters
 
 The following command-line parameters are accepted:
 
 - `--type` - Type of items to process: `comments`, `likes`, or `all` (default)
+- `--deep` - Walk the whole Activity List instead of collecting the first render (default: false; scan only; also `behavior.deepScan` in `config.json`)
 - `--profile-dir` - Chromium profile directory path  
 - `--data-dir` - Data directory for reports/checkpoints (default: data)
 - `--chromium-path` - Path to Chromium binary
@@ -98,7 +134,7 @@ CLI flags always take precedence.
     "actionMax": 5000,
     "batchMin": 30000,
     "batchMax": 60000,
-    "scrollWait": 800,
+    "scrollWait": 3000,
     "maxEmptyScrolls": 8,
     "maxRetries": 4,
     "backoffBase": 10000,
@@ -113,14 +149,42 @@ CLI flags always take precedence.
   "behavior": {
     "headless": false,
     "limit": 0,
-    "resetCheckpoint": false
+    "resetCheckpoint": false,
+    "deepScan": false
   }
 }
 ```
 
-`timeout` (ms) caps how long a scan or purge run may take before checkpointing
-and stopping. Set to `null` to disable. `behavior.headless` is the default
-for purge/login; scan defaults to headless regardless (override with `--headless`).
+`behavior.deepScan` is the persisted default for `--deep`, so a config file can
+turn every scan deep and a command line flag still wins. `behavior.headless` is
+the default for purge/login; scan defaults to headless regardless (override with
+`--headless`).
+
+### scrollWait is a growth deadline, not a sleep
+
+`timing.scrollWait` (ms) used to be a fixed sleep after each scroll. It is now
+the deadline one load step waits for the Activity List to grow: the tool reads a
+growth signal, scrolls the list to its bottom, then polls every 300 ms until the
+list grows or this deadline expires. A productive step ends as soon as cards
+appear. The default is now 3000, so eight fruitless steps in a row
+(`timing.maxEmptyScrolls`) cost about 24 seconds of silence before the end of the
+list is declared.
+
+`config.json` is written on first run and gitignored, so an existing install
+keeps the value it already has, and older ones hold 800. To adopt the new
+deadline, set `timing.scrollWait` to 3000 or delete the key and let the default
+apply. Keeping 800 does not lose items that are there, but each step gives the
+page less time to answer: more load steps end fruitless and get retried, and the
+end of the list is declared after 8 x 800 ms rather than 8 x 3000 ms, so a slow
+page can be mistaken for the end of a list that had more cards.
+
+### timeout caps a walk, it cannot be switched off
+
+`timeout` (ms) is the overall limit for a deep scan of one type, and for a purge
+run. Setting it to `null` does not disable it: `null` is not a number, so the
+built-in default of 3600000 (one hour) applies, for both scan and purge. To run
+longer, raise the number. A plain scan reads one page and never consults the
+timeout at all.
 
 ## Reports
 
@@ -137,6 +201,22 @@ Each entry includes metadata so you can filter later:
     "dateTime": "2026-04-20T15:09:00Z"
   }
 ] }
+```
+
+Every scan writes `data/scan-<type>.json` in the scan envelope that
+`purge --input` reads, with the walk's facts added:
+
+```jsonc
+{ "type": "likes", "count": 2,
+  "keys": ["reaction:0", "reaction:2"],
+  "items": [
+    { "key": "reaction:0", "state": "Like", "author": "...", "postHref": "...", "dateTime": "...", "step": 0 },
+    { "key": "reaction:2", "state": "Love", "author": "...", "postHref": "...", "dateTime": "...", "step": 4 }
+  ],
+  "scannedAt": "2026-10-27T09:12:44.001Z",
+  "steps": 15,
+  "complete": true }
+```
 
 ## Pacing
 
