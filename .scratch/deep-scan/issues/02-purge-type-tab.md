@@ -8,7 +8,7 @@ This ticket shares no file with ticket 01 and can run in parallel with it.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Touches:** the purge command, the purge page adapter, the adapter interface file, and the purge test fake.
 
@@ -19,3 +19,5 @@ This ticket shares no file with ticket 01 and can run in parallel with it.
 - [x] The show-more wrapper is gone from the page adapter, the adapter interface and the purge test fake, and nothing in the purge path references the deleted in-page helper
 - [x] No other behavioural change: the purge runner tests keep passing once the dead stub is removed, proving the loop, eligibility and report behaviour did not move
 - [x] `npm run test` and `npm run check` pass
+
+Live check (2026-10-27, headless, confirmation declined so nothing was deleted): `purge --type all` on an empty checkpoint prompted "Delete 20 comments items?" and then "Delete 18 likes items?", which proves both tabs are detected and the per-type loop runs; before this ticket both runs would have reported zero pending and exited. The second prompt then hung because the piped stdin had reached EOF, a harness artefact of driving an interactive prompt from a pipe, not a defect in the loop.
