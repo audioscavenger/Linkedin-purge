@@ -30,6 +30,9 @@ export const DEFAULT_CALL_TIMEOUT_MS = 15000;
 // wait the walk relies on.
 export const DEFAULT_POLL_INTERVAL_MS = 300;
 export const DEFAULT_GROWTH_WAIT_MS = 3000;
+// How many scrolls the pagination assertion may try before calling the pager
+// dead. A batch that only arrives on the second scroll is normal.
+export const MAX_SCROLL_ATTEMPTS = 3;
 
 // The Activity tab each page detector answers for.
 const DETECTOR_BY_TAB = {
@@ -189,23 +192,34 @@ export async function checkActivityTab({
       : fail(tab, "scroll target", "scrollActivityListToBottom", targetExpected, "no tag and no id")
   );
 
-  // --- Real pagination: one scroll plus a bounded wait must make the list
-  // taller. If it does not, the target is wrong or LinkedIn stopped paging.
+  // --- Real pagination: the card count has to grow, the way the walk's own
+  // scrolling expects. Scroll height alone is not proof of a new batch: it moves
+  // by a few pixels on a layout shift, which is how a dead list passed this check
+  // the first time it was run live. A batch that arrives only on the second
+  // scroll is normal (the walk sees the same cadence), so the check scrolls up to
+  // MAX_SCROLL_ATTEMPTS times before calling the pager dead.
   const before = signal;
   let after = signal;
-  const startedAt = now();
-  while (now() - startedAt < growthWaitMs) {
-    await sleep(pollIntervalMs);
-    const read = await call("pagination", "readGrowthSignal", () => page.readGrowthSignal());
-    if (!read.ok) return finish();
-    after = read.value || {};
-    if (after.scrollHeight > before.scrollHeight) break;
+  let attempts = 0;
+  while (attempts < MAX_SCROLL_ATTEMPTS && after.count <= before.count) {
+    attempts++;
+    const attemptStartedAt = now();
+    while (now() - attemptStartedAt < growthWaitMs && after.count <= before.count) {
+      await sleep(pollIntervalMs);
+      const read = await call("pagination", "readGrowthSignal", () => page.readGrowthSignal());
+      if (!read.ok) return finish();
+      after = read.value || {};
+    }
+    if (after.count > before.count) break;
+    const again = await call("pagination", "scrollActivityListToBottom", () => page.scrollActivityListToBottom());
+    if (!again.ok) return finish();
   }
+  facts.cards = { from: before.count || 0, to: after.count || 0 };
   facts.growth = { from: before.scrollHeight || 0, to: after.scrollHeight || 0 };
-  const paginationExpected = `a scroll height above ${facts.growth.from} after one scroll and a ${growthWaitMs} ms wait`;
-  const paginationObserved = `${describeTarget(facts.target)}, scroll height ${facts.growth.to}, count ${before.count} before and ${after.count} after`;
+  const paginationExpected = `the card count above ${facts.cards.from} after at most ${MAX_SCROLL_ATTEMPTS} scrolls of ${growthWaitMs} ms each`;
+  const paginationObserved = `${describeTarget(facts.target)}, cards ${facts.cards.from} -> ${facts.cards.to}, scroll height ${facts.growth.from} -> ${facts.growth.to}`;
   results.push(
-    facts.growth.to > facts.growth.from
+    facts.cards.to > facts.cards.from
       ? pass(tab, "pagination", "scrollActivityListToBottom", paginationExpected, paginationObserved)
       : fail(tab, "pagination", "scrollActivityListToBottom", paginationExpected, paginationObserved)
   );

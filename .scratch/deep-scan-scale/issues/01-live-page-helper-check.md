@@ -19,7 +19,7 @@ Name the command for what it checks (`npm run verify:page` or similar), document
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] One command opens both activity tabs headless and runs the assertions above against the real page
 - [x] Tab recognition, growth signal, scroll target plus real pagination, item metadata, unique keys and the incremental seen-key contract are all asserted
@@ -28,3 +28,9 @@ Name the command for what it checks (`npm run verify:page` or similar), document
 - [x] Passing output is short: one line per tab with the card count, the scroll target and the growth it observed
 - [x] The command is documented in README Development as needing a logged-in profile, and stays out of `npm run check` and `npm run health`
 - [x] No new dependency
+
+Live findings (2026-10-27, first three runs of the command):
+
+- The growth signal's `lastKey` was permanently null: it read the last `[role="listitem"]`, and the list ends with tiles that carry no key. Fixed in the in-page helper (walk back to the last keyed card), and this check is now the regression test for it.
+- The first version asserted pagination by scroll height alone. It passed on a 40 px layout shift with the card count unchanged, which is a false pass. Tightened to the card count growing within up to three scrolls; the next run showed the true batch (cards 23 -> 33 on both tabs).
+- Passing output now: `comments: OK - 23 cards, target MAIN#workspace, cards 23 -> 33, scroll height 17623 -> 25439, 30 items` and the same shape for reactions (28 items).

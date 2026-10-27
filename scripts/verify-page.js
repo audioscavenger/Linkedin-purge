@@ -82,8 +82,11 @@ async function main() {
 function report(tab, result) {
   const failures = result.results.filter((r) => !r.ok);
   if (!failures.length) {
-    const { count, target, growth, items } = result.facts;
-    log(`${tab}: OK - ${count} cards, target ${describeTarget(target)}, scroll height ${growth.from} -> ${growth.to}, ${items} items`);
+    const { count, target, growth, cards, items } = result.facts;
+    log(
+      `${tab}: OK - ${count} cards, target ${describeTarget(target)}, ` +
+        `cards ${cards.from} -> ${cards.to}, scroll height ${growth.from} -> ${growth.to}, ${items} items`
+    );
     return 0;
   }
   for (const failure of failures) err(`${failure.tab}: ${failure.message}`);

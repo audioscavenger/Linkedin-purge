@@ -285,11 +285,16 @@ function cardKey(card) {
 function readGrowthSignal() {
   const cards = activityCards();
   const target = activityScrollTarget();
-  const last = cards.length ? cards[cards.length - 1] : null;
+  // The last keyed card, not merely the last element in the list: LinkedIn ends
+  // the list with tiles that carry no key (a "load more" sentinel, a
+  // placeholder), and taking that tile left lastKey permanently null, which
+  // blinded the cheapest growth clue the walk has.
+  let lastKey = null;
+  for (let i = cards.length - 1; i >= 0 && lastKey == null; i--) lastKey = cardKey(cards[i]);
   return {
     scrollHeight: target ? target.scrollHeight : 0,
     count: cards.length,
-    lastKey: last ? cardKey(last) : null,
+    lastKey,
   };
 }
 

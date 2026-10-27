@@ -166,14 +166,40 @@ async function testNoPagination() {
   assert(failure, `Expected a scrollActivityListToBottom failure; ${failureText(result)}`);
   assert(failure.step === "pagination", `Expected the pagination step, got ${failure.step}`);
   assert(
-    failure.expected === "a scroll height above 1000 after one scroll and a 3000 ms wait",
+    failure.expected === "the card count above 2 after at most 3 scrolls of 3000 ms each",
     `Bad pagination expectation: ${failure.expected}`
   );
-  for (const seen of ["MAIN#workspace", "scroll height 1000", "count 2 before and 2 after"]) {
+  for (const seen of ["MAIN#workspace", "cards 2 -> 2", "scroll height 1000 -> 1000"]) {
     assert(failure.observed.includes(seen), `The pagination failure must report ${seen}: ${failure.observed}`);
   }
 
   console.log("PASS: no growth after one scroll fails with the target and the counts before and after");
+}
+
+// A batch that only arrives on the second scroll is the normal cadence on the
+// live page, so the check must scroll again instead of calling the pager dead.
+async function testPaginationOnSecondScroll() {
+  let scrolls = 0;
+  const base = fakePage({ grownHeight: 1000, grows: false });
+  const page = {
+    ...base,
+    scrollActivityListToBottom: () => {
+      scrolls++;
+      return { tag: "MAIN", id: "workspace" };
+    },
+    readGrowthSignal: () => ({
+      scrollHeight: 1000 + scrolls * 500,
+      count: scrolls >= 2 ? 12 : 2,
+      lastKey: "reaction:1",
+    }),
+  };
+
+  const result = await check(page);
+
+  assert(result.ok, `Expected a pass once the second scroll loaded a batch; ${failureText(result)}`);
+  assert(result.facts.cards.from === 2 && result.facts.cards.to === 12, `Bad card facts ${JSON.stringify(result.facts.cards)}`);
+
+  console.log("PASS: pagination passes when the batch only arrives on a later scroll");
 }
 
 // Items that lose a promised metadata field fail with the field and the item;
@@ -278,7 +304,10 @@ async function testFailureMessageCarriesBothValues() {
   assert(failure.message.startsWith("scrollActivityListToBottom [pagination]: expected "), `Bad message lead: ${failure.message}`);
   assert(failure.message.includes(failure.expected), `The message omits the expectation: ${failure.message}`);
   assert(failure.message.includes(failure.observed), `The message omits the observation: ${failure.message}`);
-  assert(failure.expected.includes("1000") && failure.observed.includes("1000"), `Both values must be present: ${failure.message}`);
+  assert(
+    failure.expected.includes("2") && failure.observed.includes("1000"),
+    `Both values must be present: ${failure.message}`
+  );
 
   console.log("PASS: a failure message names the helper, the expectation and the observation");
 }
@@ -288,6 +317,7 @@ const tests = [
   testBadTabDetection,
   testDeadGrowthSignal,
   testNoPagination,
+  testPaginationOnSecondScroll,
   testMissingMetadata,
   testDuplicateKeys,
   testLeakedSeenKeys,
