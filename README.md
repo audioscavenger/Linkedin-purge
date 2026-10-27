@@ -79,8 +79,11 @@ finishes in seconds and is useful as a smoke test, but it is a page, not a
 total.
 
 `--deep` walks the whole Activity List instead, one load step at a time, until
-the list stops growing. On the live profile each step added about 8 to 10 cards;
-the probe reached 138 reaction buttons in 11 steps and roughly 25 seconds. The
+the list stops growing. On the live profile each step added between 3 and 10
+cards. A full likes walk with the shipped defaults collected 410 cards in 111
+steps, about four minutes; one batch often needs a scroll that finds nothing yet
+and the next scroll that finds it, which is where the time goes. Time grows with
+history size, so a large comment history takes proportionally longer. The
 command prints one line per load step with the running item count, the delta and
 the wait it cost, then a final line with the total, the number of steps and
 whether the walk completed.
