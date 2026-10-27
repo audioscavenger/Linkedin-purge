@@ -15,10 +15,10 @@
     "purge": "node src/cli.js purge",
     "status": "node src/cli.js status",
     "help": "node src/cli.js --help",
-    "check": "node scripts/check-all.js && node tests/purge.test.js && node tests/input-keys.test.js && node tests/browser-recovery.test.js && node tests/activity-loader.test.js",
+    "check": "node scripts/check-all.js && node tests/purge.test.js && node tests/input-keys.test.js && node tests/browser-recovery.test.js && node tests/activity-loader.test.js && node tests/purge-targets.test.js",
     "health": "node scripts/health.js",
     "lint": "echo 'No linter configured; running full check' && npm run check",
-    "test": "node tests/purge.test.js && node tests/input-keys.test.js && node tests/browser-recovery.test.js && node tests/activity-loader.test.js",
+    "test": "node tests/purge.test.js && node tests/input-keys.test.js && node tests/browser-recovery.test.js && node tests/activity-loader.test.js && node tests/purge-targets.test.js",
     "postinstall": "echo 'No build step needed'",
     "prepare": "husky"
   },

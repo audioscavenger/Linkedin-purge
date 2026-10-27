@@ -1,8 +1,10 @@
 // CLI purge command
 import path from "node:path";
 import { launchBrowser, injectDomHelpers } from "../browser.js";
-import { loadCheckpoint, resetCheckpoint } from "../checkpoint.js";
+import { resetCheckpoint } from "../checkpoint.js";
 import { log, warn } from "../logger.js";
+import { PurgeRunner, PageAdapter, CheckpointAdapter, ReporterAdapter, ConfirmAdapter } from "../purge/index.js";
+import { purgeTargets } from "../purge/targets.js";
 import { resolveFlag, asBool, asInt, loadConfig } from "./config.js";
 import { loadInputKeys } from "./input-keys.js";
 
@@ -25,15 +27,14 @@ export async function runPurge(args) {
   const batchMin = asInt(resolveFlag(args, "batch-min", "timing.batchMin", 30000), 30000);
   const batchMax = asInt(resolveFlag(args, "batch-max", "timing.batchMax", 60000), 60000);
 
-  function typesToRun(type) {
-    if (type === "all") return ["comments", "likes"];
-    if (type === "comments" || type === "likes") return [type];
-    throw new Error(`Unknown type: ${type}`);
-  }
+  // One Purge Run per concrete type, each on the Activity List tab where its
+  // page detector matches. Resolved before the browser launches, so an unknown
+  // type fails without a visit.
+  const targets = purgeTargets(typeArg);
 
   // Reset checkpoint if requested
   if (resetCheckpointArg) {
-    for (const t of typesToRun(typeArg)) resetCheckpoint(dataDir, t);
+    for (const target of targets) resetCheckpoint(dataDir, target.type);
     log("Checkpoints reset.");
   }
 
@@ -43,8 +44,7 @@ export async function runPurge(args) {
   await injectDomHelpers(page, linkedinDomPath);
 
   // Login check logic
-  const url = page.url();
-  if (url.includes("/login") || url.includes("/checkpoint") || url.includes("/authwall")) {
+  if (isLoggedOut(page)) {
     warn("Not logged in. Run `npm run login` first.");
     await context.close();
     return;
@@ -58,18 +58,6 @@ export async function runPurge(args) {
   const username = usernameMatch ? usernameMatch[1] : "me";
   const baseUrl = `https://www.linkedin.com/in/${username}/recent-activity/`;
 
-  // Navigate to activity page
-  await page.goto(baseUrl + "all/", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(5000);
-
-  // Login check again
-  const url2 = page.url();
-  if (url2.includes("/login") || url2.includes("/checkpoint") || url2.includes("/authwall")) {
-    warn("Not logged in. Run `npm run login` first.");
-    await context.close();
-    return;
-  }
-
   // Load input keys if --input was specified
   let inputKeys = null;
   if (inputFile) {
@@ -77,46 +65,82 @@ export async function runPurge(args) {
     log(`Loaded ${inputKeys.length} keys from ${inputFile}`);
   }
 
-  // Setup and run purge
-  const { PurgeRunner, PageAdapter, CheckpointAdapter, ReporterAdapter, ConfirmAdapter } = await import("../purge/index.js");
+  // Everything a run needs except its type, which is per target.
+  const runOptions = {
+    timeoutMs: asInt(timing.timeout, 3600000),
+    batchSize: asInt(timing.batchSize, 10),
+    maxRetries: asInt(timing.maxRetries, 4),
+    maxEmptyScrolls: asInt(timing.maxEmptyScrolls, 8),
+    backoffBase: asInt(timing.backoffBase, 10000),
+    actionMin,
+    actionMax,
+    batchMin,
+    batchMax,
+    limit: limitArg,
+    inputKeys,
+  };
 
   try {
-    const pageAdapter = new PageAdapter(page);
-    const checkpointAdapter = new CheckpointAdapter(dataDir, typeArg);
-    const reporterAdapter = new ReporterAdapter({ dataDir: dataDir || "data" });
-    const confirmAdapter = new ConfirmAdapter();
+    const results = [];
+    for (const target of targets) {
+      log(`=== Purging ${target.type} ===`);
+      await page.goto(baseUrl + target.tab, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(5000);
 
-    const runner = new PurgeRunner({ pageAdapter, checkpointAdapter, reporterAdapter, confirmAdapter });
+      // Login check again, as scan does: a session that expires between tabs
+      // must stop the run instead of purging whatever the login page renders.
+      if (isLoggedOut(page)) {
+        warn("Not logged in. Run `npm run login` first.");
+        await context.close();
+        return;
+      }
 
-    // Run the purge, passing all timing options from config/CLI.
-    const result = await runner.run({
-      type: typeArg,
-      timeoutMs: asInt(timing.timeout, 3600000),
-      batchSize: asInt(timing.batchSize, 10),
-      maxRetries: asInt(timing.maxRetries, 4),
-      maxEmptyScrolls: asInt(timing.maxEmptyScrolls, 8),
-      backoffBase: asInt(timing.backoffBase, 10000),
-      actionMin,
-      actionMax,
-      batchMin,
-      batchMax,
-      limit: limitArg,
-      inputKeys,
-    });
+      // The adapters are per type: the checkpoint and the report are named
+      // after the concrete type being purged, never after the --type argument,
+      // so `all` writes checkpoint-comments.json + checkpoint-likes.json rather
+      // than a checkpoint-all.json that nothing would ever resume.
+      const runner = new PurgeRunner({
+        pageAdapter: new PageAdapter(page),
+        checkpointAdapter: new CheckpointAdapter(dataDir, target.type),
+        reporterAdapter: new ReporterAdapter({ dataDir }),
+        confirmAdapter: new ConfirmAdapter(),
+      });
 
-    if (result && result.deleted > 0) {
-      log(`${result.type}: ${result.deleted} items deleted, ${result.processed} processed`);
-      if (result.reportPath) log(`Report written: ${result.reportPath}`);
-    } else if (result && result.deleted === 0) {
-      log("Purge cancelled or nothing to delete.");
+      // The runner asks its own confirmation prompt once per type.
+      results.push(await runner.run({ type: target.type, ...runOptions }));
     }
 
+    reportSummary(results);
     await context.close();
     log("Done.");
   } catch (error) {
     console.error('Error running purge:', error);
     await context.close();
     throw error;
+  }
+}
+
+// A login, checkpoint or authwall redirect means the session ended; nothing on
+// the page is what the run thinks it is.
+function isLoggedOut(page) {
+  const url = page.url();
+  return url.includes("/login") || url.includes("/checkpoint") || url.includes("/authwall");
+}
+
+// Closing summary across every Purge Run of this invocation: one line per type
+// with its own report path, plus a total when more than one type ran.
+function reportSummary(results) {
+  for (const result of results) {
+    if (result.deleted > 0) {
+      log(`${result.type}: ${result.deleted} items deleted, ${result.processed} processed`);
+      if (result.reportPath) log(`Report written: ${result.reportPath}`);
+    } else if (result.deleted === 0) {
+      log(`${result.type}: purge cancelled or nothing to delete.`);
+    }
+  }
+  if (results.length > 1) {
+    const deleted = results.reduce((sum, result) => sum + result.deleted, 0);
+    log(`Total: ${deleted} items deleted across ${results.length} types.`);
   }
 }
 
