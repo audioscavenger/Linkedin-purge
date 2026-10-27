@@ -35,3 +35,9 @@ A scan that reports what the Activity List rendered on first load and stops ther
 
 ## Deep Scan
 A scan that walks the Activity List to exhaustion, one Load Step at a time, until the list stops growing. It records how many steps it took and whether the walk finished or was cut short by the overall time limit, and it is opt-in.
+
+## Selection
+The subset of a scan's Purge Items that the user chooses on the Selection Page and exports, so that a purge acts on exactly those items and nothing else.
+
+## Purge Status
+The state of one Purge Item with respect to purging: left alone, chosen but not yet acted on, purged, refused after an attempt, or chosen but never found. Every item carries exactly one, and the scan envelope is where they live.

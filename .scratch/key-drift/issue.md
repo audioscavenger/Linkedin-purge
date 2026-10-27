@@ -1,6 +1,6 @@
 # Issue: Card identity for purge (report links, key drift, selection flow)
 
-Status: parked (needs its own grilling round before a spec)
+Status: superseded by .scratch/purge-v050/issue.md (v0.5.0 spec)
 Origin: grilling session on 2026-10-26 for `scan --deep` (`.scratch/deep-scan/issue.md`). Out of scope there by decision.
 
 ## Problem Statement
