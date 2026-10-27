@@ -30,6 +30,7 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 | `src/activity-loader.js` | The one implementation of scroll-and-wait: reads the items currently rendered, reads the first render as one complete step, performs one load step, or walks the Activity List to exhaustion (complete, or incomplete when the timeout cuts it short); reads the unseen cards once per step, so a batch that lands between steps is still collected | `ActivityLoader`, `createActivityPage()`, `POLL_INTERVAL_MS` |
 | `src/activity-targets.js` | `activityTargets()` resolves one Activity target per type: a concrete type plus the Activity List tab where its page detector matches (`comments/`, `reactions/`). Shared by scan and purge, so the two commands cannot disagree about a tab; `all` expands to an ordered list of targets, never a type of its own | `activityTargets()` |
 | `src/scan-envelope.js` | The `data/scan-<type>.json` file contract: a pure builder that keeps the pre-existing fields and adds per-item `step` plus top-level `steps` and `complete`, so `purge --input` reads old and new files (ADR 0001) | `buildScanEnvelope()` |
+| `src/page-check.js` | Live check of the injected `window.LP` helpers at the real boundary: tab recognition, growth signal, scroll target plus real pagination, item metadata, unique keys and the seen-key contract, one named result per assertion; every page call is bounded so a hung evaluate fails instead of hanging, and the checks run against a fake page seam in tests | `checkActivityTab()`, `createCheckPage()`, `describeTarget()` |
 
 ## Purge Modules
 
@@ -66,6 +67,7 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 | `tests/activity-loader.test.js` | Activity Loader tests through a scripted fake page: grow-then-idle, timeout cutoff, timeout 0 as no limit, absent timeout as the one-hour default, never grows, merge/dedupe/step numbering, already-seen key hand-off, a silently landing late batch, the first-render operation (no browser) |
 | `tests/scan-envelope.test.js` | Scan envelope builder tests: the shallow shape (one step, complete, every item step 0) and the deep-partial shape (many steps, incomplete) |
 | `tests/activity-targets.test.js` | Activity target tests: which Activity List tab each type lives on, that `all` expands to both types, and that an unknown type is rejected |
+| `tests/page-check.test.js` | Live page-helper check tests through a scripted fake page seam (no browser): both tabs passing, and one named failure each for bad tab detection, a dead growth signal, no pagination, missing metadata, duplicate keys, leaked seen keys, a hung call and a throwing call, plus the failure-message shape |
 | `tests/login-guard.test.js` | Login guard tests: login, checkpoint and authwall URLs count as logged out, real pages do not, and the URL is read at call time |
 | `scripts/check-all.js` | Recursive `node --check` across `src/` and `tests/` |
 | `data/checkpoint-<type>.json` | Persisted processed-key set (resumes across runs) |
@@ -80,7 +82,8 @@ See `GLOSSARY.md` for canonical terms: **Purge Run**, **Purge Item**, **Key**, *
 
 | Command | What it runs |
 |---------|--------------|
-| `npm run check` | `scripts/check-all.js` (syntax check all files) + `tests/purge.test.js` + `tests/input-keys.test.js` + `tests/browser-recovery.test.js` + `tests/activity-loader.test.js` + `tests/scan-envelope.test.js` + `tests/activity-targets.test.js` + `tests/login-guard.test.js` |
+| `npm run check` | `scripts/check-all.js` (syntax check all files) + `tests/purge.test.js` + `tests/input-keys.test.js` + `tests/browser-recovery.test.js` + `tests/activity-loader.test.js` + `tests/scan-envelope.test.js` + `tests/activity-targets.test.js` + `tests/login-guard.test.js` + `tests/page-check.test.js` |
 | `npm run lint` | Same as `npm run check` |
-| `npm run test` | `tests/purge.test.js` + `tests/input-keys.test.js` + `tests/browser-recovery.test.js` + `tests/activity-loader.test.js` + `tests/scan-envelope.test.js` + `tests/activity-targets.test.js` + `tests/login-guard.test.js` |
+| `npm run test` | `tests/purge.test.js` + `tests/input-keys.test.js` + `tests/browser-recovery.test.js` + `tests/activity-loader.test.js` + `tests/scan-envelope.test.js` + `tests/activity-targets.test.js` + `tests/login-guard.test.js` + `tests/page-check.test.js` |
+| `npm run verify:page` | Live check of the injected `window.LP` helpers against both Activity tabs (a browser and a logged-in profile); not part of `check`, `lint` or `health` |
 | Pre-commit hook | `npm run check` (via `.husky/pre-commit`) |

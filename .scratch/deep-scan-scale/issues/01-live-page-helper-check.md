@@ -21,10 +21,10 @@ Name the command for what it checks (`npm run verify:page` or similar), document
 
 **Status:** ready-for-agent
 
-- [ ] One command opens both activity tabs headless and runs the assertions above against the real page
-- [ ] Tab recognition, growth signal, scroll target plus real pagination, item metadata, unique keys and the incremental seen-key contract are all asserted
-- [ ] Each page call has a bound, and a hung call fails with the helper name and step rather than hanging the command
-- [ ] Failures name the helper, the expectation and the observation, and exit non-zero
-- [ ] Passing output is short: one line per tab with the card count, the scroll target and the growth it observed
-- [ ] The command is documented in README Development as needing a logged-in profile, and stays out of `npm run check` and `npm run health`
-- [ ] No new dependency
+- [x] One command opens both activity tabs headless and runs the assertions above against the real page
+- [x] Tab recognition, growth signal, scroll target plus real pagination, item metadata, unique keys and the incremental seen-key contract are all asserted
+- [x] Each page call has a bound, and a hung call fails with the helper name and step rather than hanging the command
+- [x] Failures name the helper, the expectation and the observation, and exit non-zero
+- [x] Passing output is short: one line per tab with the card count, the scroll target and the growth it observed
+- [x] The command is documented in README Development as needing a logged-in profile, and stays out of `npm run check` and `npm run health`
+- [x] No new dependency
