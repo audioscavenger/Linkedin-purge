@@ -61,6 +61,7 @@ Commands:
 
 Parameters:
   --type <comments|likes|all>     Item type to process                 (default: all)
+  --deep                          Walk the whole activity list, not the first page (default: false, scan only)
   --profile-dir <dir>             Chromium profile directory
   --data-dir <dir>                Directory for reports/checkpoints    (default: data)
   --chromium-path <path>          Path to the Chromium binary
