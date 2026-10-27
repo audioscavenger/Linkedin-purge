@@ -8,7 +8,7 @@ Assertions, on both activity tabs (`reactions/` and `comments/`):
 
 - The page is recognised: `isReactionsPage()` / `isCommentsPage()` is true for the tab just opened, and false for the other.
 - `readGrowthSignal()` returns a positive scroll height, a card count of at least one, and a last key that is not null.
-- `scrollActivityListToBottom()` names the element it used, and the growth signal's scroll height increases after one scroll plus a wait, which proves the list actually paginates and that the scroll target is the right element (today: `MAIN#workspace`).
+- `scrollActivityListToBottom()` names the element it used, and the card count grows after at most three scroll-and-wait cycles, which proves the list actually paginates and that the scroll target is the right element (today: `MAIN#workspace`). Scroll height alone is not proof: a layout shift moves it by a few pixels, so the count is what counts.
 - `collectItems([])` returns items that each carry a key and the metadata fields the envelope promises; keys are unique.
 - `collectItems(seenKeys)` returns only keys that are not in the list it was handed, which is the incremental contract the walk depends on.
 - Every page call is bounded: a helper that never returns fails the check with the helper's name and the step, instead of hanging the command.
