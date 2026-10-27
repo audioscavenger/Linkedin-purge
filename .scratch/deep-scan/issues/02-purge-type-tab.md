@@ -14,8 +14,8 @@ This ticket shares no file with ticket 01 and can run in parallel with it.
 
 **Do not touch:** the injected in-page helpers (ticket 01 owns that file, including the helper your wrapper calls; whether it is already deleted when you start is not your concern), and never `README.md`, `NAVIGATION.md`, `GLOSSARY.md`, `docs/adr/`, or `CHANGELOG.md` (ticket 03 owns all documentation; do not add a changelog entry here).
 
-- [ ] `purge --type likes` visits the reactions tab, `purge --type comments` visits the comments tab, and `all` loops over both
-- [ ] A run against a history larger than one page reports a real pending count instead of ending with "cancelled or nothing to delete"
-- [ ] The show-more wrapper is gone from the page adapter, the adapter interface and the purge test fake, and nothing in the purge path references the deleted in-page helper
-- [ ] No other behavioural change: the purge runner tests keep passing once the dead stub is removed, proving the loop, eligibility and report behaviour did not move
-- [ ] `npm run test` and `npm run check` pass
+- [x] `purge --type likes` visits the reactions tab, `purge --type comments` visits the comments tab, and `all` loops over both
+- [x] A run against a history larger than one page reports a real pending count instead of ending with "cancelled or nothing to delete"
+- [x] The show-more wrapper is gone from the page adapter, the adapter interface and the purge test fake, and nothing in the purge path references the deleted in-page helper
+- [x] No other behavioural change: the purge runner tests keep passing once the dead stub is removed, proving the loop, eligibility and report behaviour did not move
+- [x] `npm run test` and `npm run check` pass
