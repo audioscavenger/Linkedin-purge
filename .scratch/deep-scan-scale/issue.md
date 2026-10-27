@@ -1,6 +1,6 @@
 # Issue: A deep walk on a large history is slow, can stall, and loses everything if killed
 
-Status: parked (needs its own investigation before tickets are worked)
+Status: parked (needs its own investigation before tickets are worked; ticket 01 is ready on its own)
 Origin: re-verification of scan --deep after the review fixes and the `growthWait` rename, 2026-10-27 (.scratch/deep-scan/issues/01-deep-scan-end-to-end.md).
 
 ## Problem Statement
@@ -40,3 +40,4 @@ There is also a correctness scar worth remembering: with the previous 800 ms dea
 - Evidence: `E:/TEMP/eric/opencode/deep-scan-verify2/scan-likes.json` (410 items, 111 steps, complete) and the killed comments run (317 items at step 63, no file).
 - Reproduce the stall before theorising: a comments tab with 300-plus cards, then one `window.LP.readGrowthSignal()` timed from Node.
 - If the stall turns out to be LinkedIn throttling, the right answer may be pacing between load steps, which the spec deliberately left out of the first cut.
+- Ticket 01 is the answer to the untested in-page half that the deep-scan code review flagged: a live structural check rather than a hand-rolled DOM stub, so a LinkedIn markup change fails loudly with the helper's name. It is the instrumentation this issue needs anyway, which is why it lives here and is ready now while the rest stays parked.
