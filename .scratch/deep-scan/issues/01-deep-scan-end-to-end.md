@@ -13,7 +13,7 @@ Prefactor, in the same ticket because it clears traps this ticket would otherwis
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Touches:** the injected in-page helpers, a new Activity Loader module, the scan command, the CLI configuration module, the CLI help screen, a new loader/envelope test file, the package test/check/lint script lists, the health script, and the deleted legacy configuration module.
 
@@ -34,5 +34,7 @@ Prefactor, in the same ticket because it clears traps this ticket would otherwis
 - [x] The in-page stability comment describes the measured session-scoped behaviour
 - [x] The stopping rules and the envelope are covered by browser-free tests through a scripted fake page (grow then idle, timeout cutoff, never grows, merge/dedupe/step numbering, already-seen key hand-off) and a pure envelope builder (shallow shape, deep-partial shape), both added to the `test`, `check` and `lint` script lists
 - [x] The health script runs the same test set as the test script, so the new coverage is not silently skipped by `npm run health`
-- [ ] Live verification recorded in the commit message: first render about 20, growth about 8 to 10 per step, `complete: true`, item count far above the pre-change 19, for both tabs
+- [x] Live verification recorded in the commit message: first render about 20, growth about 8 to 10 per step, `complete: true`, item count far above the pre-change 19, for both tabs
 - [x] `npm run test` and `npm run check` pass
+
+Live verification (2026-10-27, headless, `--type all --deep`): likes 86 items / 24 steps / complete, first render 18, batches +10 +8 +10 +10 +10; comments 156 items / 53 steps / complete, first render 20, batches of 8 to 12. Both far above the pre-change 19. The walk's growth deadline came from the local `config.json` (`scrollWait: 800`, a gitignored file that predates this change), so several steps needed a second attempt and the end-of-list tolerance was 8 x 800 ms; see ticket 03.
