@@ -251,9 +251,21 @@ npm run <command> -- --help     # e.g. npm run purge -- --help
 # Check all source files for syntax errors + run unit tests
 npm run check
 
+# Live check of the injected page helpers against your own activity tabs
+npm run verify:page
+
 # Quick health check: syntax + tests + pre-commit hook status
 npm run health
 ```
+
+`npm run verify:page` is the live half of the page-helper testing story: it opens
+both activity tabs headless and asserts that tab recognition, the growth signal,
+the scroll target and real pagination, the item metadata, unique keys and the
+seen-key contract all still behave as the tool assumes, failing with the helper's
+name when LinkedIn changes its markup. It is not part of `npm run check`,
+`npm run lint` or `npm run health`, because it opens LinkedIn with your profile
+and needs a logged-in session: run `npm run login` first. It only reads and
+scrolls each tab once; it never clicks a card or deletes anything.
 
 The repo includes a Husky pre-commit hook that automatically runs `npm run check`
 before every commit. If it's not active after cloning, run `npx husky install`.

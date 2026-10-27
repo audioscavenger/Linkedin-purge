@@ -17,6 +17,9 @@
     * The in-page note about reaction keys now records what was measured: an unliked card keeps its place within the page session and disappears on reload, so reaction indices are session-scoped, not stable across runs.
     * `purge --type all` writes per-type checkpoints and reports: the aggregate type used to reach the adapters, so the run produced a `checkpoint-all.json` that nothing ever resumes from and one `report-all-<ts>.json` instead of a report per type. Each run now carries its concrete type and its own Activity List tab.
     * A deep walk reconciles a late batch: cards that land between one step's last poll and the next step's first growth read are read once before the step counts toward the idle limit, so a file marked `complete: true` cannot silently omit a whole batch. A `timing.timeout` of `0` is no time limit now, matching `--limit 0`, instead of stopping the walk after the first render; `null` still falls back to the one-hour default.
+* [x] `npm run verify:page` checks the injected page helpers against the live activity tabs, so a LinkedIn markup change fails loudly with the helper's name instead of a scan of 0 items, a scroll target of nothing, or a growth signal that never moves.
+    * Asserts tab recognition, the growth signal shape, the named scroll target plus real pagination, the item metadata, unique keys and the incremental seen-key contract on both tabs. Every page call is bounded, so a hung evaluate fails with the helper's name and the step instead of hanging the command.
+    * Not part of `npm run check`, `lint` or `health`: it opens LinkedIn with your own profile and needs a logged-in session (`npm run login` first). The assertions live in `src/page-check.js`, unit-tested through a fake page seam; `scripts/verify-page.js` is only the browser wiring.
 
 ## Released
 
