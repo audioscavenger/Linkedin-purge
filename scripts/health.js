@@ -21,8 +21,19 @@ run("syntax check", () =>
   execFileSync(process.execPath, [path.join(root, "scripts/check-all.js")], { encoding: "utf8" })
 );
 
+// Run exactly the test set that `npm run test` runs, read from package.json so
+// a newly registered test file cannot be silently skipped here.
+const testCommands = String(
+  JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).scripts.test || ""
+)
+  .split("&&")
+  .map((cmd) => cmd.trim())
+  .filter(Boolean);
+
 run("unit tests", () =>
-  execFileSync("node", [path.join(root, "tests/purge.test.js")], { encoding: "utf8" })
+  testCommands
+    .map((cmd) => execSync(cmd, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }))
+    .join("\n")
 );
 
 const hooksActive = fs.existsSync(path.join(root, ".husky/pre-commit"));

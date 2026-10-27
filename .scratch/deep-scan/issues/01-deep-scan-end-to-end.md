@@ -19,20 +19,20 @@ Prefactor, in the same ticket because it clears traps this ticket would otherwis
 
 **Do not touch:** anything under the purge module (ticket 02 owns it), and never `README.md`, `NAVIGATION.md`, `GLOSSARY.md`, `docs/adr/`, or `CHANGELOG.md` (ticket 03 owns all documentation; do not add a changelog entry here).
 
-- [ ] `scan --deep --type likes`, `--type comments`, and `--type all` each collect far more than the ~20 cards of the first render, and the walk works on both tabs
-- [ ] Plain `scan` still reports the first render only, apart from the new envelope fields
-- [ ] `--deep` also settable as `behavior.deepScan` in config, CLI wins over config, default false
-- [ ] `--deep` is listed in the `--help` screen for scan
-- [ ] No in-card clicking during the walk; pagination comes from scrolling alone
-- [ ] A productive step ends as soon as new cards appear; a walk stops complete after the configured run of fruitless steps, and stops incomplete on the configured timeout, still writing what it collected and warning loudly
-- [ ] The envelope carries per-item `step` plus top-level `steps` and `complete`, and every pre-existing field keeps its meaning so old and new scan files both load through `purge --input`
-- [ ] One log line per load step (step number, item count, delta, wait cost) and a final line with total, steps and completeness
-- [ ] Card metadata is read only for cards not already seen, so the walk stays linear as the page grows
-- [ ] The scroll target is derived from a card in the list and falls back through the old chain, and the chosen element is visible in the log
-- [ ] The dead legacy configuration module is deleted, no reference to it remains in code, and the live CLI configuration module is still the only reader of `config.json` (a scan run still resolves flags from it)
-- [ ] The scan command no longer imports the legacy checkpoint helpers it never used
-- [ ] The in-page stability comment describes the measured session-scoped behaviour
-- [ ] The stopping rules and the envelope are covered by browser-free tests through a scripted fake page (grow then idle, timeout cutoff, never grows, merge/dedupe/step numbering, already-seen key hand-off) and a pure envelope builder (shallow shape, deep-partial shape), both added to the `test`, `check` and `lint` script lists
-- [ ] The health script runs the same test set as the test script, so the new coverage is not silently skipped by `npm run health`
+- [x] `scan --deep --type likes`, `--type comments`, and `--type all` each collect far more than the ~20 cards of the first render, and the walk works on both tabs
+- [x] Plain `scan` still reports the first render only, apart from the new envelope fields
+- [x] `--deep` also settable as `behavior.deepScan` in config, CLI wins over config, default false
+- [x] `--deep` is listed in the `--help` screen for scan
+- [x] No in-card clicking during the walk; pagination comes from scrolling alone
+- [x] A productive step ends as soon as new cards appear; a walk stops complete after the configured run of fruitless steps, and stops incomplete on the configured timeout, still writing what it collected and warning loudly
+- [x] The envelope carries per-item `step` plus top-level `steps` and `complete`, and every pre-existing field keeps its meaning so old and new scan files both load through `purge --input`
+- [x] One log line per load step (step number, item count, delta, wait cost) and a final line with total, steps and completeness
+- [x] Card metadata is read only for cards not already seen, so the walk stays linear as the page grows
+- [x] The scroll target is derived from a card in the list and falls back through the old chain, and the chosen element is visible in the log
+- [x] The dead legacy configuration module is deleted, no reference to it remains in code, and the live CLI configuration module is still the only reader of `config.json` (a scan run still resolves flags from it)
+- [x] The scan command no longer imports the legacy checkpoint helpers it never used
+- [x] The in-page stability comment describes the measured session-scoped behaviour
+- [x] The stopping rules and the envelope are covered by browser-free tests through a scripted fake page (grow then idle, timeout cutoff, never grows, merge/dedupe/step numbering, already-seen key hand-off) and a pure envelope builder (shallow shape, deep-partial shape), both added to the `test`, `check` and `lint` script lists
+- [x] The health script runs the same test set as the test script, so the new coverage is not silently skipped by `npm run health`
 - [ ] Live verification recorded in the commit message: first render about 20, growth about 8 to 10 per step, `complete: true`, item count far above the pre-change 19, for both tabs
-- [ ] `npm run test` and `npm run check` pass
+- [x] `npm run test` and `npm run check` pass
