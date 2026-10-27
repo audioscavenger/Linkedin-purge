@@ -80,6 +80,7 @@ The user can then scan once, look at one page, tick a handful of items with conf
 
 ## Testing Decisions
 
+- **Test registration is directory-driven.** One runner discovers and runs every file under the tests directory, and the check script calls it, so a ticket that adds a test file never edits a script list. This is a prefactor for the release, not a nicety: the work splits into many small tickets, and a shared script string would be the one file two parallel tickets both edit.
 - **What makes a good test here:** external behaviour at a seam, never DOM internals. Pure functions for anything the page and the CLI must agree on; scripted fakes for anything that talks to a page; a temp directory for anything that touches the envelope file. The live page check covers the DOM-dependent half, per the existing exemption for the injected single-file script.
 - **Seams, in order of preference:**
   1. The existing **Activity Loader fake-page seam** for the walking purge: a fake page scripts card batches, Card Identities and delete outcomes, so stopping rules, matching, and status assignment are tested without a browser. Prior art: the loader tests and the purge runner tests with in-memory adapters.
@@ -113,3 +114,4 @@ The user can then scan once, look at one page, tick a handful of items with conf
 - The parked `key-drift` spec is superseded: its problem statement and evidence remain useful history, but the solution here replaces its card-identity and direct-link requirements.
 - Seam decisions from the second grill round: the envelope store owns durability (`mark` writes atomically, there is no separate save the runner could forget), the delete operation takes one card and returns one result (the list-shaped first-eligible search retires), and the generated page is tested in a real browser instead of sharing an inlined function with the tests.
 - Those three are what future work hangs on: the store is where resume, multiple saved scans and a dry run would attach; the one-card delete is what retry, undo and per-item dry runs would extend; the browser page test is the only protection for filters and select-all, which are the parts the user touches most.
+- The release ships as 27 narrow tickets, each one behaviour touching one or two files, because the implementation runs on small-context agents and each slice has to be reviewable in isolation. The first is a prefactor: test registration becomes directory-driven, which removes the only file two parallel tickets would otherwise both edit.
