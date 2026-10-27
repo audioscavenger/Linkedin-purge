@@ -1,13 +1,16 @@
 // Activity Loader: the one implementation of scroll-and-wait for the LinkedIn
 // Activity List.
 //
-// It owns three operations over a small Activity Page seam:
+// It owns four operations over a small Activity Page seam:
 //   readItems(seenKeys)  - the items currently rendered, skipping seen cards
 //   readGrowth()         - the cheap growth signal (no card metadata)
 //   scrollToBottom()     - scroll the Activity List and name the element used
+//   loadStep()           - one scroll-and-poll round, reporting whether it grew
 //
+// `readFirstRender()` is what plain scan collects: one read, one step, complete.
 // `collectAll()` walks the list until it stops growing (complete) or until the
-// configured timeout expires (incomplete, keeping what it collected).
+// configured timeout expires (incomplete, keeping what it collected); a timeout
+// of 0 means no limit.
 //
 // The page seam is a plain object, not a Playwright page, so the stopping rules
 // are tested without a browser; `createActivityPage()` adapts a real page to it.
@@ -58,9 +61,12 @@ export class ActivityLoader {
     return numberOr(this.timing.maxEmptyScrolls, DEFAULT_IDLE_LIMIT);
   }
 
-  // Overall walk limit (timing.timeout).
+  // Overall walk limit (timing.timeout). 0 means no time limit, the same way
+  // purge's runner treats it (`timeoutMs > 0` guards its check) and the way
+  // `--limit 0` reads. Absent or null falls back to the built-in hour.
   get timeoutMs() {
-    return numberOr(this.timing.timeout, DEFAULT_TIMEOUT_MS);
+    const value = numberOr(this.timing.timeout, DEFAULT_TIMEOUT_MS);
+    return value === 0 ? Number.POSITIVE_INFINITY : value;
   }
 
   // Read the items currently in the page. The seen keys are handed to the
@@ -92,6 +98,16 @@ export class ActivityLoader {
     return { grew, waitedMs: this.now() - startedAt, target: target || null };
   }
 
+  // The first render is one operation: the cards LinkedIn put on the page on
+  // load, one step, complete, every item in step 0. The shallow scan is only
+  // this, and the walk starts with it, so both paths share one read and one
+  // step-0 event.
+  async readFirstRender() {
+    const items = (await this.readItems([])) || [];
+    this.emitStep({ step: 0, total: items.length, added: items.length, waitedMs: 0, target: null });
+    return { items, steps: 1, complete: true };
+  }
+
   // Walk the Activity List to exhaustion. The first render is step 0; each load
   // step gets the next step number. Growth ends a step immediately and resets
   // the idle counter; a fruitless step increments it.
@@ -99,14 +115,12 @@ export class ActivityLoader {
     const startedAt = this.now();
     const items = [];
     const seenKeys = new Set();
-    let steps = 0;
     let idle = 0;
 
     // Step 0 is what LinkedIn rendered on first load.
-    const firstItems = await this.readItems([]);
-    let added = mergeItems(items, seenKeys, firstItems, 0);
-    steps = 1;
-    this.emitStep({ step: 0, total: items.length, added, waitedMs: 0, target: null });
+    const first = await this.readFirstRender();
+    let added = mergeItems(items, seenKeys, first.items, 0);
+    let steps = first.steps;
 
     while (idle < this.idleLimit) {
       const remaining = this.timeoutMs - (this.now() - startedAt);
@@ -114,19 +128,19 @@ export class ActivityLoader {
 
       const step = steps; // zero-based: the first load step after the render is 1
       const result = await this.loadStep(Math.min(this.growthDeadlineMs, remaining));
-      added = 0;
-      if (result.grew) {
-        const freshItems = await this.readItems([...seenKeys]);
-        added = mergeItems(items, seenKeys, freshItems, step);
-        idle = 0;
-      } else {
-        idle++;
-      }
+      // Read the unseen cards once per step, whether or not the polling loop saw
+      // growth. Cards can land between one step's last poll and the next step's
+      // first growth read, and a growth-only read would drop that batch from a
+      // walk that still calls itself complete. A step that turns up cards this
+      // way was productive after all.
+      const freshItems = await this.readItems([...seenKeys]);
+      added = mergeItems(items, seenKeys, freshItems, step);
+      idle = result.grew || added > 0 ? 0 : idle + 1;
       steps++;
       this.emitStep({ step, total: items.length, added, waitedMs: result.waitedMs, target: result.target });
 
       if (this.now() - startedAt >= this.timeoutMs) return { items, steps, complete: false };
-      if (!result.grew && idle >= this.idleLimit) return { items, steps, complete: true };
+      if (idle >= this.idleLimit) return { items, steps, complete: true };
     }
 
     return { items, steps, complete: true };
@@ -157,26 +171,5 @@ export function createActivityPage(page) {
     readItems: (seenKeys) => page.evaluate((keys) => window.LP.collectItems(keys), seenKeys),
     readGrowth: () => page.evaluate(() => window.LP.readGrowthSignal()),
     scrollToBottom: () => page.evaluate(() => window.LP.scrollActivityListToBottom()),
-  };
-}
-
-// Build the scan envelope. The one place the documented file contract is
-// assembled: the pre-existing fields keep their meanings (type, count, keys,
-// items, scannedAt) and the walk adds per-item `step` plus top-level `steps`
-// and `complete`, so `purge --input` reads old and new files alike.
-// Items without a step are first-render items, hence step 0.
-export function buildScanEnvelope({ type, items, steps = 1, complete = true, scannedAt = new Date().toISOString() }) {
-  const withSteps = (items || []).map((item) => ({
-    ...item,
-    step: Number.isInteger(item.step) ? item.step : 0,
-  }));
-  return {
-    type,
-    count: withSteps.length,
-    keys: withSteps.map((item) => item.key).filter(Boolean),
-    items: withSteps,
-    scannedAt,
-    steps,
-    complete,
   };
 }

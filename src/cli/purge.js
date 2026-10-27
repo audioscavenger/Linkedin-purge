@@ -3,8 +3,9 @@ import path from "node:path";
 import { launchBrowser, injectDomHelpers } from "../browser.js";
 import { resetCheckpoint } from "../checkpoint.js";
 import { log, warn } from "../logger.js";
-import { PurgeRunner, PageAdapter, CheckpointAdapter, ReporterAdapter, ConfirmAdapter } from "../purge/index.js";
-import { purgeTargets } from "../purge/targets.js";
+import { PurgeRunner, PageAdapter, CheckpointAdapter, ReporterAdapter, ConfirmAdapter } from "../purge.js";
+import { activityTargets } from "../activity-targets.js";
+import { isLoggedOut } from "../login-guard.js";
 import { resolveFlag, asBool, asInt, loadConfig } from "./config.js";
 import { loadInputKeys } from "./input-keys.js";
 
@@ -30,7 +31,7 @@ export async function runPurge(args) {
   // One Purge Run per concrete type, each on the Activity List tab where its
   // page detector matches. Resolved before the browser launches, so an unknown
   // type fails without a visit.
-  const targets = purgeTargets(typeArg);
+  const targets = activityTargets(typeArg);
 
   // Reset checkpoint if requested
   if (resetCheckpointArg) {
@@ -118,13 +119,6 @@ export async function runPurge(args) {
     await context.close();
     throw error;
   }
-}
-
-// A login, checkpoint or authwall redirect means the session ended; nothing on
-// the page is what the run thinks it is.
-function isLoggedOut(page) {
-  const url = page.url();
-  return url.includes("/login") || url.includes("/checkpoint") || url.includes("/authwall");
 }
 
 // Closing summary across every Purge Run of this invocation: one line per type

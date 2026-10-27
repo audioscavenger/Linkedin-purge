@@ -21,12 +21,22 @@ function commentMenuButtons() {
   );
 }
 
+// The comment key inside one node: the first replaceableComment_ id among its
+// descendants, else its own. The card-key path and the button-key path both go
+// through this one lookup, so they cannot drift apart.
+function commentKeyIn(node) {
+  if (!node) return null;
+  const rc = node.querySelector ? node.querySelector("[id^='replaceableComment_']") : null;
+  if (rc) return rc.id;
+  if (node.id && node.id.startsWith("replaceableComment_")) return node.id;
+  return null;
+}
+
 function commentKeyForButton(btn) {
   let node = btn;
   for (let i = 0; i < 25 && node; i++) {
-    const rc = node.querySelector ? node.querySelector("[id^='replaceableComment_']") : null;
-    if (rc) return rc.id;
-    if (node.id && node.id.startsWith("replaceableComment_")) return node.id;
+    const key = commentKeyIn(node);
+    if (key) return key;
     node = node.parentElement;
   }
   return null;
@@ -43,10 +53,14 @@ function collectCommentKeys() {
 
 // --- Reactions helpers ---
 
+// The predicate that identifies a reaction button. One definition, so the
+// growth signal, the collectors and the delete flows all agree on what one is.
+function isReactionButton(btn) {
+  return /^Reaction button state:/i.test(btn.getAttribute("aria-label") || "");
+}
+
 function reactionButtons() {
-  return [...document.querySelectorAll("button")].filter((b) =>
-    /^Reaction button state:/i.test(b.getAttribute("aria-label") || "")
-  );
+  return [...document.querySelectorAll("button")].filter(isReactionButton);
 }
 
 function reactionState(btn) {
@@ -251,17 +265,14 @@ function scrollActivityListToBottom() {
   return { tag: target.tagName || null, id: target.id || null };
 }
 
-// The key of one card, computed without reading its metadata: the comment's
-// replaceableComment_ id, or the reaction button's session-scoped position.
+// The key of one card, computed without reading its metadata: the comment id
+// path, or the reaction-button predicate plus the session-scoped reaction
+// index. Both come from the collectors' own helpers, so the growth signal and
+// the collectors can never disagree about a card's key.
 function cardKey(card) {
-  if (isCommentsPage()) {
-    const comment = card.querySelector("[id^='replaceableComment_']");
-    return comment ? comment.id : null;
-  }
+  if (isCommentsPage()) return commentKeyIn(card);
   if (isReactionsPage()) {
-    const btn = [...card.querySelectorAll("button")].find((b) =>
-      /^Reaction button state:/i.test(b.getAttribute("aria-label") || "")
-    );
+    const btn = [...card.querySelectorAll("button")].find(isReactionButton);
     return btn ? reactionKeyForButton(btn) : null;
   }
   return null;

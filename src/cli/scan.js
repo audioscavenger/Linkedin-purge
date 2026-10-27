@@ -4,7 +4,10 @@ import path from "node:path";
 import { launchBrowser, injectDomHelpers } from "../browser.js";
 import { log, warn } from "../logger.js";
 import { resolveFlag, asBool, loadConfig } from "./config.js";
-import { ActivityLoader, createActivityPage, buildScanEnvelope } from "../activity-loader.js";
+import { ActivityLoader, createActivityPage } from "../activity-loader.js";
+import { buildScanEnvelope } from "../scan-envelope.js";
+import { activityTargets } from "../activity-targets.js";
+import { isLoggedOut } from "../login-guard.js";
 
 export async function runScan(args) {
   // CLI flag > config.json > built-in default.
@@ -17,14 +20,12 @@ export async function runScan(args) {
   const deep = asBool(resolveFlag(args, "deep", "behavior.deepScan", false));
   // The loader's stopping rules reuse the existing timing knobs: scrollWait is
   // now the per-step growth deadline, maxEmptyScrolls the idle limit and
-  // timeout the overall walk limit.
+  // timeout the overall walk limit (0 = none).
   const timing = loadConfig().timing || {};
 
-  function typesToRun(type) {
-    if (type === "all") return ["comments", "likes"];
-    if (type === "comments" || type === "likes") return [type];
-    throw new Error(`Unknown type: ${type}`);
-  }
+  // One scan per concrete type, resolved before the browser launches so an
+  // unknown type fails without a visit.
+  const targets = activityTargets(typeArg);
 
   // Scan is the exception per user spec: defaults to headless=true.
   // Config's `behavior.headless` (false) is a global default for purge/login.
@@ -35,8 +36,7 @@ export async function runScan(args) {
   await injectDomHelpers(page, linkedinDomPath);
 
   // Login check logic (simplified version)
-  const url = page.url();
-  if (url.includes("/login") || url.includes("/checkpoint") || url.includes("/authwall")) {
+  if (isLoggedOut(page)) {
     warn("Not logged in. Run `npm run login` first.");
     await context.close();
     return;
@@ -50,14 +50,13 @@ export async function runScan(args) {
   const username = usernameMatch ? usernameMatch[1] : "me";
   const baseUrl = `https://www.linkedin.com/in/${username}/recent-activity/`;
 
-  for (const t of typesToRun(typeArg)) {
+  for (const target of targets) {
+    const t = target.type;
     log(`=== Scanning ${t}${deep ? " (deep)" : ""} ===`);
-    const tab = t === "comments" ? "comments/" : "reactions/";
-    await page.goto(baseUrl + tab, { waitUntil: "domcontentloaded" });
+    await page.goto(baseUrl + target.tab, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(8000);
     // Login check again
-    const url2 = page.url();
-    if (url2.includes("/login") || url2.includes("/checkpoint") || url2.includes("/authwall")) {
+    if (isLoggedOut(page)) {
       warn("Not logged in. Run `npm run login` first.");
       await context.close();
       return;
@@ -68,10 +67,8 @@ export async function runScan(args) {
       timing,
       onStep: (event) => log(stepLine(t, event)),
     });
-    // Deep walks the Activity List; plain scan keeps reading the first render.
-    const result = deep
-      ? await loader.collectAll()
-      : await readFirstRender(t, loader);
+    // Deep walks the Activity List; plain scan reads the first render only.
+    const result = deep ? await loader.collectAll() : await loader.readFirstRender();
 
     const out = path.join(dataDir, `scan-${t}.json`);
     fs.mkdirSync(dataDir, { recursive: true });
@@ -90,14 +87,6 @@ export async function runScan(args) {
     log(`${t}: ${result.items.length} items, ${result.steps} steps, ${result.complete ? "complete" : "INCOMPLETE"} -> ${out}`);
   }
   await context.close();
-}
-
-// Plain scan: one in-page read, no scrolling. The envelope still reports one
-// step and completeness, and every item belongs to step 0.
-async function readFirstRender(type, loader) {
-  const items = await loader.readItems([]);
-  log(stepLine(type, { step: 0, total: items.length, added: items.length, waitedMs: 0, target: null }));
-  return { items, steps: 1, complete: true };
 }
 
 // One progress line per load step: step number, running item count, delta and

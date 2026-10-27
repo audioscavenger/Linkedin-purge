@@ -178,13 +178,15 @@ page less time to answer: more load steps end fruitless and get retried, and the
 end of the list is declared after 8 x 800 ms rather than 8 x 3000 ms, so a slow
 page can be mistaken for the end of a list that had more cards.
 
-### timeout caps a walk, it cannot be switched off
+### timeout caps a walk; 0 means no limit
 
 `timeout` (ms) is the overall limit for a deep scan of one type, and for a purge
-run. Setting it to `null` does not disable it: `null` is not a number, so the
-built-in default of 3600000 (one hour) applies, for both scan and purge. To run
-longer, raise the number. A plain scan reads one page and never consults the
-timeout at all.
+run. For a deep scan, `0` means no time limit, the same way `--limit 0` means
+unlimited: the walk then ends only when the list stops growing, never because the
+clock ran out. `null` does not disable the cap: `null` is not a number, so the
+built-in default of 3600000 (one hour) applies for both scan and purge, exactly
+as it does when the key is left out. To run longer but still bounded, raise the
+number. A plain scan reads one page and never consults the timeout at all.
 
 ## Reports
 
