@@ -12,7 +12,7 @@
 
 **Blocked by:** 01, 02 (it documents behaviour and defaults those tickets define, and must describe the final numbers, not the intended ones)
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Touches:** `README.md`, `NAVIGATION.md`, `GLOSSARY.md`, a new ADR file, `CHANGELOG.md`.
 
