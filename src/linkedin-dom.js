@@ -168,9 +168,10 @@ function findCard(btn) {
 // delete flows read through here, so every record for the same card comes
 // from one place.
 function readCardMeta(btn) {
-  const meta = { postHref: null, author: null, dateTime: null };
+  const meta = { cardId: null, postHref: null, author: null, dateTime: null };
   const card = findCard(btn);
   if (card) {
+    if (card.id) meta.cardId = card.id;
     const feedLink = card.querySelector("a[href*='/feed/update/']");
     if (feedLink) meta.postHref = feedLink.getAttribute("href");
     Object.assign(meta, extractAuthorAndDate(card));
@@ -190,7 +191,7 @@ function collectReactionItems(seenKeys) {
     const key = reactionKeyForIndex(idx);
     if (!key || seen.has(key)) return;
     const meta = readCardMeta(btn);
-    items.push({ key, state, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
+    items.push({ key, cardId: meta.cardId, state, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
   });
   return items;
 }
@@ -206,7 +207,7 @@ function collectCommentItems(seenKeys) {
     if (!key || seen.has(key)) continue;
     seen.add(key);
     const meta = readCardMeta(btn);
-    items.push({ key, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
+    items.push({ key, cardId: meta.cardId, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
   }
   return items;
 }

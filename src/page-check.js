@@ -46,8 +46,8 @@ const OTHER_TAB = { reactions: "comments", comments: "reactions" };
 // state; comments have none (the delete flow, not the collector, stamps
 // COMMENTS_STATE into a report). Every item also carries its key.
 const METADATA_FIELDS = {
-  reactions: ["state", "author", "postHref", "dateTime"],
-  comments: ["author", "postHref", "dateTime"],
+  reactions: ["cardId", "state", "author", "postHref", "dateTime"],
+  comments: ["cardId", "author", "postHref", "dateTime"],
 };
 
 const TIMED_OUT = Symbol("page-call-timed-out");
@@ -234,6 +234,7 @@ export async function checkActivityTab({
   if (!items.length) problems.push("no items at all");
   for (const [index, item] of items.entries()) {
     if (!item || item.key == null || item.key === "") problems.push(`no key on item ${index}`);
+    if (!item || item.cardId == null || item.cardId === "") problems.push(`no cardId on item ${index}`);
     for (const field of METADATA_FIELDS[tab]) {
       if (!item || !(field in item)) problems.push(`no ${field} on item ${index}`);
     }

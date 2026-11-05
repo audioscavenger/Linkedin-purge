@@ -15,13 +15,13 @@ function assert(condition, message) {
 function itemsFor(tab) {
   if (tab === "comments") {
     return [
-      { key: "replaceableComment_1", author: "Ada", postHref: "/feed/update/1", dateTime: "Sep 16" },
-      { key: "replaceableComment_2", author: "Bo", postHref: null, dateTime: "Sep 17" },
+      { key: "replaceableComment_1", cardId: "urn:li:activity:1", author: "Ada", postHref: "/feed/update/1", dateTime: "Sep 16" },
+      { key: "replaceableComment_2", cardId: "urn:li:activity:2", author: "Bo", postHref: null, dateTime: "Sep 17" },
     ];
   }
   return [
-    { key: "reaction:0", state: "LIKE", author: "Ada", postHref: "/feed/update/1", dateTime: "Sep 16" },
-    { key: "reaction:1", state: "LOVE", author: "Bo", postHref: null, dateTime: "Sep 17" },
+    { key: "reaction:0", cardId: "urn:li:activity:1", state: "LIKE", author: "Ada", postHref: "/feed/update/1", dateTime: "Sep 16" },
+    { key: "reaction:1", cardId: "urn:li:activity:2", state: "LOVE", author: "Bo", postHref: null, dateTime: "Sep 17" },
   ];
 }
 
@@ -206,20 +206,20 @@ async function testPaginationOnSecondScroll() {
 // the check reads reactions' state field and does not demand it from comments.
 async function testMissingMetadata() {
   const items = [
-    { key: "reaction:0", author: "Ada", postHref: "/feed/update/1", dateTime: "Sep 16" }, // no state
-    { key: "reaction:1", state: "LOVE", postHref: null, dateTime: "Sep 17" }, // no author
+    { key: "reaction:0", cardId: "urn:li:activity:1", author: "Ada", postHref: "/feed/update/1", dateTime: "Sep 16" }, // no state
+    { key: "reaction:1", cardId: "urn:li:activity:2", state: "LOVE", postHref: null, dateTime: "Sep 17" }, // no author
   ];
   const result = await check(fakePage({ items }));
   const failure = failureFor(result, "collectItems");
 
   assert(failure, `Expected a collectItems failure; ${failureText(result)}`);
   assert(failure.step === "item metadata", `Expected the item metadata step, got ${failure.step}`);
-  assert(failure.expected.includes("state, author, postHref and dateTime"), `Bad metadata expectation: ${failure.expected}`);
+  assert(failure.expected.includes("cardId, state, author, postHref and dateTime"), `Bad metadata expectation: ${failure.expected}`);
   assert(failure.observed.includes("no state on item 0"), `Missing state not named: ${failure.observed}`);
   assert(failure.observed.includes("no author on item 1"), `Missing author not named: ${failure.observed}`);
 
   // Comments carry no state, so the same shape without state passes on that tab.
-  const commentItems = [{ key: "replaceableComment_1", author: "Ada", postHref: null, dateTime: "Sep 16" }];
+  const commentItems = [{ key: "replaceableComment_1", cardId: "urn:li:activity:1", author: "Ada", postHref: null, dateTime: "Sep 16" }];
   const comments = await check(fakePage({ tab: "comments", items: commentItems }), { tab: "comments" });
   assert(comments.ok, `Comments must not be asked for a state field; ${failureText(comments)}`);
 
