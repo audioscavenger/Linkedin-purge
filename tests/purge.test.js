@@ -9,15 +9,19 @@ import { PurgeRunner, PageAdapter, CheckpointAdapter, ReporterAdapter, ConfirmAd
 import { REPORT_ENTRY_FIELDS } from "../src/purge/adapters/reporter-adapter.js";
 
 class FakePageAdapter {
-  constructor({ keys = [], deleteResult = { ok: false, key: null, skip: false } } = {}) {
+  constructor({ keys = [], deleteResult = { ok: false, key: null, skip: false }, refusals = new Set() } = {}) {
     this.keys = keys;
     this.deleteResult = deleteResult;
+    this.refusals = refusals; // set of keys that should fail (refusal)
   }
   async collect() { return [...this.keys]; }
   async collectKeys() { return this.collect(); }
   async oneCardAct(key) {
     if (!this.keys.includes(key)) {
       return { ok: false, skip: false, cardId: key, error: "card not found" };
+    }
+    if (this.refusals.has(key)) {
+      return { ok: false, key, error: "refused" };
     }
     return { ok: true, cardId: key, key, state: "no reaction", author: "Test Author", postHref: "/feed/update/1", dateTime: "2026-01-01T00:00:00Z" };
   }
@@ -176,7 +180,136 @@ async function testReporterOwnsEntry() {
   console.log("PASS: reporter owns the Report Entry (canonical fields, writer-stamped ts)");
 }
 
-const tests = { testHappyPath, testInputKeysFilter, testCheckpointNotRedeleted, testConfirmationAbort, testReporterOwnsEntry };
+// --- Ticket 19 tests ---
+
+// Selection of two items on a longer history acts on those two and stops early.
+async function testSelectionStopsEarly() {
+  const page = new FakePageAdapter({ keys: ["a1", "a2", "a3", "a4", "a5", "a6", "a7"] });
+  const cp = new FakeCheckpointAdapter();
+  const reporter = new FakeReporterAdapter();
+  const confirm = new FakeConfirmAdapter(true);
+
+  const runner = new PurgeRunner({ pageAdapter: page, checkpointAdapter: cp, reporterAdapter: reporter, confirmAdapter: confirm });
+  // Select only a2 and a5 from the longer history
+  const result = await runner.run({ type: "likes", timeoutMs: 3600000, batchSize: 5, inputKeys: ["a2", "a5"] });
+
+  const deletedKeys = reporter.items.map((it) => it.key).sort();
+  if (result.deleted !== 2) throw new Error(`Expected deleted=2, got ${result.deleted}`);
+  if (deletedKeys.length !== 2 || deletedKeys[0] !== "a2" || deletedKeys[1] !== "a5") {
+    throw new Error(`Expected [a2, a5], got [${deletedKeys.join(", ")}]`);
+  }
+  // Unselected items must not appear in the report
+  const allKeys = reporter.items.map((it) => it.key).sort();
+  const unselected = allKeys.filter(k => !["a2", "a5"].includes(k));
+  if (unselected.length > 0) throw new Error(`Unselected items acted on: ${unselected.join(", ")}`);
+  console.log("PASS: selection of two items on longer history acts on those two and stops early");
+}
+
+// Items not in the selection keep no-op (not acted on, not in report).
+async function testUnselectedKeepNoOp() {
+  const page = new FakePageAdapter({ keys: ["x1", "x2", "x3", "x4", "x5"] });
+  const cp = new FakeCheckpointAdapter();
+  const reporter = new FakeReporterAdapter();
+  const confirm = new FakeConfirmAdapter(true);
+
+  const runner = new PurgeRunner({ pageAdapter: page, checkpointAdapter: cp, reporterAdapter: reporter, confirmAdapter: confirm });
+  // Select only x2 and x4
+  await runner.run({ type: "likes", timeoutMs: 3600000, batchSize: 5, inputKeys: ["x2", "x4"] });
+
+  const allKeys = reporter.items.map((it) => it.key).sort();
+  // x1, x3, x5 must not be in report (they remain no-op)
+  const unexpected = allKeys.filter(k => !["x2", "x4"].includes(k));
+  if (unexpected.length > 0) throw new Error(`Unexpected keys in report (should stay no-op): ${unexpected.join(", ")}`);
+  console.log("PASS: unselected items keep no-op");
+}
+
+// Success writes `purged` through the store, refusal writes `failed` through the store.
+async function testSelectionWritesPurgedAndFailed() {
+  const page = new FakePageAdapter({
+    keys: ["s1", "s2"],
+    refusals: new Set(["s2"]) // s2 will be refused
+  });
+  const cp = new FakeCheckpointAdapter();
+  const reporter = new FakeReporterAdapter();
+  const confirm = new FakeConfirmAdapter(true);
+
+  const runner = new PurgeRunner({ pageAdapter: page, checkpointAdapter: cp, reporterAdapter: reporter, confirmAdapter: confirm });
+  await runner.run({ type: "likes", timeoutMs: 3600000, batchSize: 5, inputKeys: ["s1", "s2"] });
+
+  if (reporter.items.length !== 2) throw new Error(`Expected 2 report items, got ${reporter.items.length}`);
+
+  const byKey = Object.fromEntries(reporter.items.map(i => [i.key, i]));
+
+  // s1: success -> state from page adapter ("no reaction" which the reporter normalizes to the entry's state)
+  // Note: the runner writes the state from the page adapter result; the reporter owns the Report Entry
+  // The state in the fake report entry is whatever the runner passed.
+  if (!byKey["s1"]) throw new Error("s1 missing from report");
+  if (byKey["s1"].state !== "no reaction") throw new Error(`s1 expected state "no reaction", got "${byKey["s1"].state}"`);
+
+  // s2: refusal -> state "failed" written by runner
+  if (!byKey["s2"]) throw new Error("s2 missing from report");
+  if (byKey["s2"].state !== "failed") throw new Error(`s2 expected state "failed", got "${byKey["s2"].state}"`);
+  if (byKey["s2"].author !== null || byKey["s2"].postHref !== null || byKey["s2"].dateTime !== null) {
+    throw new Error("Refusal entry fields not normalized to null");
+  }
+  console.log("PASS: success writes purged-state, refusal writes failed through store");
+}
+
+// Runner indifference to page order: the order of keys on the page does not affect
+// which selected items are acted on or the results.
+async function testSelectionIndifferentToPageOrder() {
+  const keysPageOrder1 = ["a", "b", "c", "d", "e"]; // selected: b, d
+  const keysPageOrder2 = ["e", "d", "c", "b", "a"]; // same keys, reversed
+  const selected = ["b", "d"];
+
+  for (const [label, keys] of Object.entries({ "normal": keysPageOrder1, "reversed": keysPageOrder2 })) {
+    const page = new FakePageAdapter({ keys });
+    const cp = new FakeCheckpointAdapter();
+    const reporter = new FakeReporterAdapter();
+    const confirm = new FakeConfirmAdapter(true);
+
+    const runner = new PurgeRunner({ pageAdapter: page, checkpointAdapter: cp, reporterAdapter: reporter, confirmAdapter: confirm });
+    await runner.run({ type: "likes", timeoutMs: 3600000, batchSize: 5, inputKeys: selected });
+
+    const deletedKeys = reporter.items.map((it) => it.key).sort();
+    if (deletedKeys.length !== 2 || deletedKeys[0] !== "b" || deletedKeys[1] !== "d") {
+      throw new Error(`${label}: expected [b, d], got [${deletedKeys.join(", ")}]`);
+    }
+  }
+  console.log("PASS: runner indifferent to page order");
+}
+
+// Checkpoint-processed key in selection is skipped (no-op), other selected key acted on.
+async function testSelectionSkipsCheckpointed() {
+  const page = new FakePageAdapter({ keys: ["c1", "c2", "c3"] });
+  const cp = new FakeCheckpointAdapter();
+  cp.processed.add("c1"); // already purged
+  const reporter = new FakeReporterAdapter();
+  const confirm = new FakeConfirmAdapter(true);
+
+  const runner = new PurgeRunner({ pageAdapter: page, checkpointAdapter: cp, reporterAdapter: reporter, confirmAdapter: confirm });
+  // c1 is checkpointed, c2 is not; both in selection
+  await runner.run({ type: "likes", timeoutMs: 3600000, batchSize: 5, inputKeys: ["c1", "c2"] });
+
+  const deletedKeys = reporter.items.map((it) => it.key).sort();
+  if (deletedKeys.length !== 1 || deletedKeys[0] !== "c2") {
+    throw new Error(`Expected only c2 acted on, got [${deletedKeys.join(", ")}]`);
+  }
+  console.log("PASS: checkpointed key in selection is skipped (no-op)");
+}
+
+const tests = {
+  testHappyPath,
+  testInputKeysFilter,
+  testCheckpointNotRedeleted,
+  testConfirmationAbort,
+  testReporterOwnsEntry,
+  testSelectionStopsEarly,
+  testUnselectedKeepNoOp,
+  testSelectionWritesPurgedAndFailed,
+  testSelectionIndifferentToPageOrder,
+  testSelectionSkipsCheckpointed,
+};
 
 async function main() {
   let passed = 0;

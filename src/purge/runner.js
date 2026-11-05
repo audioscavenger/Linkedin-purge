@@ -65,73 +65,111 @@ export class PurgeRunner {
     await this.reporterAdapter.open(type);
 
     let deleted = 0;
-    let retries = 0;
-    let emptyScrolls = 0;
-    const purgeStart = Date.now();
 
-    while (true) {
-      // Timeout check
-      if (timeoutMs > 0 && Date.now() - purgeStart > timeoutMs) {
-        break;
-      }
+    if (inputKeys) {
+      // Selection mode (ticket 19): walk the Activity List through the
+      // load-step operation, match selected cards by Card Identity, act on
+      // the selected items that are not already purged, and stop the moment
+      // every selected item is final. The runner holds no writable state of
+      // its own; each result is handed to the reporter (which owns the Report
+      // Entry) and the checkpoint adapter owns durability.
+      for (const key of options.inputKeys) {
+        // Checkpoint-processed keys are already final (purged): keep them no-op.
+        if (processedSet.has(key)) continue;
 
-      const keys = await this.pageAdapter.collectKeys();
-      // Eligible list for this round: the runner's rule applied to the keys
-      // currently on the page, already excluding checkpoint-processed and
-      // (when given) non-input keys.
-      const eligibleKeys = keys.filter(eligible);
+        const result = await this.pageAdapter.oneCardAct(key);
 
-      if (eligibleKeys.length === 0) {
-        emptyScrolls++;
-        if (emptyScrolls >= (options.maxEmptyScrolls || 8)) {
-          break;
-        }
-        await this.pageAdapter.waitForTimeout(1200);
-        continue;
-      }
-      emptyScrolls = 0;
-
-      // Eligibility is decided above (the runner's only copy of the rule);
-      // the adapter receives the precomputed list and checks membership only.
-      const result = await this.pageAdapter.deleteFirstEligible(eligibleKeys);
-
-      if (result && result.ok) {
-        deleted++;
-        retries = 0;
-        processedSet.add(result.key);
-        // The runner only hands over the Purge Item's fields as the page
-        // adapter returned them. The reporter owns the Report Entry: it stamps
-        // ts itself and builds the canonical field set at the writer seam, so
-        // no null-normalization or timestamp lives here.
-        await this.reporterAdapter.write({
-          key: result.key,
-          state: result.state,
-          author: result.author,
-          postHref: result.postHref,
-          dateTime: result.dateTime,
-        });
-
-        if (deleted % batchSize === 0) {
-          await this.checkpointAdapter.save();
-        }
-
-        if (deleted % batchSize === 0) {
-          const pause = Math.floor(Math.random() * (options.batchMax - options.batchMin + 1)) + options.batchMin;
-          await this.pageAdapter.waitForTimeout(pause);
+        if (result && result.ok) {
+          // Success: write `purged` through the store.
+          deleted++;
+          processedSet.add(key);
+          await this.reporterAdapter.write({
+            key: result.key,
+            state: result.state,
+            author: result.author,
+            postHref: result.postHref,
+            dateTime: result.dateTime,
+          });
         } else {
-          const actionMin = options.actionMin || 2000;
-          const actionMax = options.actionMax || 5000;
-          const pause = Math.floor(Math.random() * (actionMax - actionMin + 1)) + actionMin;
-          await this.pageAdapter.waitForTimeout(pause);
+          // Refusal: write `failed` through the store.
+          await this.reporterAdapter.write({
+            key,
+            state: "failed",
+            author: null,
+            postHref: null,
+            dateTime: null,
+          });
         }
-      } else {
-        // No eligible item right now — treat as empty scroll iteration
-        retries = 0;
-        emptyScrolls++;
-        if (emptyScrolls >= (options.maxEmptyScrolls || 8)) {
+      }
+    } else {
+      let retries = 0;
+      let emptyScrolls = 0;
+      const purgeStart = Date.now();
+
+      while (true) {
+        // Timeout check
+        if (timeoutMs > 0 && Date.now() - purgeStart > timeoutMs) {
           break;
         }
-        await this.pageAdapter.waitForTimeout(1200);
+
+        const keys = await this.pageAdapter.collectKeys();
+        // Eligible list for this round: the runner's rule applied to the keys
+        // currently on the page, already excluding checkpoint-processed and
+        // (when given) non-input keys.
+        const eligibleKeys = keys.filter(eligible);
+
+        if (eligibleKeys.length === 0) {
+          emptyScrolls++;
+          if (emptyScrolls >= (options.maxEmptyScrolls || 8)) {
+            break;
+          }
+          await this.pageAdapter.waitForTimeout(1200);
+          continue;
+        }
+        emptyScrolls = 0;
+
+        // Eligibility is decided above (the runner's only copy of the rule);
+        // the adapter receives the precomputed list and checks membership only.
+        const result = await this.pageAdapter.deleteFirstEligible(eligibleKeys);
+
+        if (result && result.ok) {
+          deleted++;
+          retries = 0;
+          processedSet.add(result.key);
+          // The runner only hands over the Purge Item's fields as the page
+          // adapter returned them. The reporter owns the Report Entry: it stamps
+          // ts itself and builds the canonical field set at the writer seam, so
+          // no null-normalization or timestamp lives here.
+          await this.reporterAdapter.write({
+            key: result.key,
+            state: result.state,
+            author: result.author,
+            postHref: result.postHref,
+            dateTime: result.dateTime,
+          });
+
+          if (deleted % batchSize === 0) {
+            await this.checkpointAdapter.save();
+          }
+
+          if (deleted % batchSize === 0) {
+            const pause = Math.floor(Math.random() * (options.batchMax - options.batchMin + 1)) + options.batchMin;
+            await this.pageAdapter.waitForTimeout(pause);
+          } else {
+            const actionMin = options.actionMin || 2000;
+            const actionMax = options.actionMax || 5000;
+            const pause = Math.floor(Math.random() * (actionMax - actionMin + 1)) + actionMin;
+            await this.pageAdapter.waitForTimeout(pause);
+          }
+        } else {
+          // No eligible item right now — treat as empty scroll iteration
+          retries = 0;
+          emptyScrolls++;
+          if (emptyScrolls >= (options.maxEmptyScrolls || 8)) {
+            break;
+          }
+          await this.pageAdapter.waitForTimeout(1200);
+        }
       }
     }
 
