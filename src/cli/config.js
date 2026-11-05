@@ -29,30 +29,25 @@ const DEFAULT_CONFIG = {
     limit: 0,
     resetCheckpoint: false,
     deepScan: false,
+    links: false,
   },
 };
 
-let _cached = null;
-
 // Load config.json (creating it with defaults if missing) and merge with built-ins.
 export function loadConfig() {
-  if (_cached) return _cached;
   const configPath = path.resolve(process.cwd(), "config.json");
   if (!fs.existsSync(configPath)) {
     fs.writeFileSync(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2) + "\n");
-    _cached = DEFAULT_CONFIG;
-    return _cached;
+    return DEFAULT_CONFIG;
   }
   let fileConfig;
   try {
     fileConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
   } catch (error) {
     console.error("config.json is invalid; using built-in defaults:", error.message);
-    _cached = DEFAULT_CONFIG;
-    return _cached;
+    return DEFAULT_CONFIG;
   }
-  _cached = deepMerge(DEFAULT_CONFIG, fileConfig);
-  return _cached;
+  return deepMerge(DEFAULT_CONFIG, fileConfig);
 }
 
 // Resolve a flag: CLI value if present, else config.json value, else fallback.

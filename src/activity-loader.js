@@ -166,9 +166,18 @@ function mergeItems(items, seenKeys, incoming, step) {
 
 // Adapt a Playwright page to the Activity Page seam. Kept here so the browser
 // edge is one small, obvious object and the loader never imports Playwright.
-export function createActivityPage(page) {
+// `options.links` asks the page layer to capture a link for each item it reads
+// (about one second per item); it defaults to off so a plain scan is unchanged.
+export function createActivityPage(page, options = {}) {
+  const links = typeof options === "boolean" ? options : !!(options && options.links);
   return {
-    readItems: (seenKeys) => page.evaluate((keys) => window.LP.collectItems(keys), seenKeys),
+    links,
+    readItems: (seenKeys) => {
+      if (links) {
+        return page.evaluate((keys) => window.LP.collectItems(keys, true), seenKeys);
+      }
+      return page.evaluate((keys) => window.LP.collectItems(keys), seenKeys);
+    },
     readGrowth: () => page.evaluate(() => window.LP.readGrowthSignal()),
     scrollToBottom: () => page.evaluate(() => window.LP.scrollActivityListToBottom()),
   };

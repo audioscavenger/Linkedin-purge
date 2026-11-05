@@ -74,6 +74,7 @@ Parameters:
   --reset-checkpoint              Clear checkpoint before running      (purge only)
   --input <file>                  Only purge keys found in this JSON file (purge only)
   --headless                      Run the browser headless
+  --links                         Capture a link for every item (opens each card's menu; about one second per item; default: false)
   -h, --help                      Show this help (works with any command)
 
 Examples:
