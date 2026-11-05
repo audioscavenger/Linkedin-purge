@@ -143,7 +143,7 @@ The following command-line parameters are accepted:
 - `--chromium-path` - Path to Chromium binary
 - `--cdp` - Attach to running Chromium via CDP endpoint (e.g. http://localhost:9222)
 - `--limit` - Stop after deleting n items (0 = unlimited)
-- `--headless` - Run browser headless
+- `--headed` - Run browser headed (override of headless default)
 - `--action-min` - Minimum per-action delay in ms (default 2000)
 - `--action-max` - Maximum per-action delay in ms (default 5000) 
 - `--batch-min` - Minimum per-10 batch pause in ms (default 30000)
@@ -178,7 +178,7 @@ CLI flags always take precedence.
     "chromiumPath": "E:/wintools/PortableApps/chromium-win64/bin/chrome.exe"
   },
   "behavior": {
-    "headless": false,
+    "headed": false,
     "limit": 0,
     "deepScan": false
   }
@@ -186,9 +186,8 @@ CLI flags always take precedence.
 ```
 
 `behavior.deepScan` is the persisted default for `--deep`, so a config file can
-turn every scan deep and a command line flag still wins. `behavior.headless` is
-the default for purge/login; scan defaults to headless regardless (override with
-`--headless`).
+turn every scan deep and a command line flag still wins. `behavior.headed` is
+the override for the headless default of scan and purge; login stays headed.
 
 ### growthWait is a growth deadline, not a sleep
 

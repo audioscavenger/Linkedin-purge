@@ -7,8 +7,8 @@
 
 ## Commands
 
-- `npm run scan -- --type comments|likes` (headless by default)
-- `npm run purge` (headed; dry-run + `YES` confirmation required)
+- `npm run scan -- --type comments|likes` (headless by default; override with `--headed`)
+- `npm run purge` (headless by default; override with `--headed`; dry-run + `YES` confirmation required)
 - `npm run status` (checkpoint progress)
 - `npm run login` (open browser; press Enter when logged in)
 - `npm run copy-chromium-profile` (close Chromium first — profile DB locked while running)
