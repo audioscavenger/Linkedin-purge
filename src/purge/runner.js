@@ -1,6 +1,7 @@
 // Core PurgeRunner logic
 
 import fs from "node:fs";
+import { PURGE_STATUSES } from "./status.js";
 
 export class PurgeRunner {
   constructor({
@@ -24,6 +25,9 @@ export class PurgeRunner {
     const backoffBase = options.backoffBase || 10000;
     // Optional: restrict deletion to a specific set of keys (from --input file).
     const inputKeys = options.inputKeys ? new Set(options.inputKeys) : null;
+    // The selection branch fills this with per-status counts; the full-purge
+    // branch leaves it null (its entries carry reaction states, not statuses).
+    let summaryCounts = null;
 
     // Load existing checkpoint
     const cpResult = await this.checkpointAdapter.load();
@@ -67,40 +71,54 @@ export class PurgeRunner {
     let deleted = 0;
 
     if (inputKeys) {
-      // Selection mode (ticket 19): walk the Activity List through the
-      // load-step operation, match selected cards by Card Identity, act on
-      // the selected items that are not already purged, and stop the moment
-      // every selected item is final. The runner holds no writable state of
-      // its own; each result is handed to the reporter (which owns the Report
-      // Entry) and the checkpoint adapter owns durability.
+      // Selection mode (tickets 19 & 20): act on the selected items that are
+      // not already purged, and stop the moment every selected item is dealt
+      // with. The runner holds no writable state of its own; each result is
+      // handed to the reporter, which stamps it with the status vocabulary:
+      // success -> purged, refusal -> failed, no card left -> not-found.
+      // Only purged keys enter the checkpoint, so failed and not-found are
+      // retried on a re-run while purged keys are skipped and no-op keys
+      // (anything not selected) are never touched.
+      const counts = { purged: 0, failed: 0, notFound: 0, noOp: 0 };
       for (const key of options.inputKeys) {
         // Checkpoint-processed keys are already final (purged): keep them no-op.
-        if (processedSet.has(key)) continue;
+        if (processedSet.has(key)) {
+          counts.noOp++;
+          continue;
+        }
 
         const result = await this.pageAdapter.oneCardAct(key);
 
         if (result && result.ok) {
           // Success: write `purged` through the store.
           deleted++;
+          counts.purged++;
           processedSet.add(key);
           await this.reporterAdapter.write({
             key: result.key,
-            state: result.state,
+            state: PURGE_STATUSES.PURGED,
             author: result.author,
             postHref: result.postHref,
             dateTime: result.dateTime,
           });
         } else {
-          // Refusal: write `failed` through the store.
+          const err = (result && result.error) || "";
+          // A card that is not on the page is `not-found`, reported by identity;
+          // anything else (refused, rate limit) is `failed`. Both are retried
+          // on the next run, and neither enters the checkpoint.
+          const notFound = /not.?found/i.test(err);
+          if (notFound) counts.notFound++;
+          else counts.failed++;
           await this.reporterAdapter.write({
-            key,
-            state: "failed",
+            key: result && result.cardId ? result.cardId : key,
+            state: notFound ? PURGE_STATUSES.NOT_FOUND : PURGE_STATUSES.FAILED,
             author: null,
             postHref: null,
             dateTime: null,
           });
         }
       }
+      summaryCounts = counts;
     } else {
       let retries = 0;
       let emptyScrolls = 0;
@@ -183,6 +201,7 @@ export class PurgeRunner {
       processed: processedSet.size,
       durationMs: Date.now() - startTime,
       reportPath,
+      counts: summaryCounts,
     };
   }
 }

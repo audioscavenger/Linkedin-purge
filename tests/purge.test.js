@@ -240,11 +240,9 @@ async function testSelectionWritesPurgedAndFailed() {
 
   const byKey = Object.fromEntries(reporter.items.map(i => [i.key, i]));
 
-  // s1: success -> state from page adapter ("no reaction" which the reporter normalizes to the entry's state)
-  // Note: the runner writes the state from the page adapter result; the reporter owns the Report Entry
-  // The state in the fake report entry is whatever the runner passed.
+  // s1: success -> state "purged" from the purge status vocabulary (ticket 20)
   if (!byKey["s1"]) throw new Error("s1 missing from report");
-  if (byKey["s1"].state !== "no reaction") throw new Error(`s1 expected state "no reaction", got "${byKey["s1"].state}"`);
+  if (byKey["s1"].state !== "purged") throw new Error(`s1 expected state "purged", got "${byKey["s1"].state}"`);
 
   // s2: refusal -> state "failed" written by runner
   if (!byKey["s2"]) throw new Error("s2 missing from report");
@@ -298,6 +296,62 @@ async function testSelectionSkipsCheckpointed() {
   console.log("PASS: checkpointed key in selection is skipped (no-op)");
 }
 
+// A selected item whose Card Identity is not on the page ends as
+// not-found (reported by identity), never as a generic failure.
+async function testSelectionNotFoundMarkedNotFound() {
+  const page = new FakePageAdapter({ keys: ["k1", "k2"] });
+  const cp = new FakeCheckpointAdapter();
+  const reporter = new FakeReporterAdapter();
+  const confirm = new FakeConfirmAdapter(true);
+
+  const runner = new PurgeRunner({ pageAdapter: page, checkpointAdapter: cp, reporterAdapter: reporter, confirmAdapter: confirm });
+  // k-ghost is selected but not present on the page.
+  const result = await runner.run({ type: "likes", batchSize: 5, inputKeys: ["k1", "k-ghost"] });
+
+  const byKey = Object.fromEntries(reporter.items.map((i) => [i.key, i]));
+  if (byKey["k1"].state !== "purged") throw new Error(`k1 expected purged, got ${byKey["k1"].state}`);
+  if (byKey["k-ghost"].state !== "not-found") throw new Error(`k-ghost expected not-found, got ${byKey["k-ghost"].state}`);
+  // K2 is on the page but not selected: never acted on.
+  if (byKey["k2"]) throw new Error("k2 was not selected and must not be acted on");
+  if (result.counts.purged !== 1 || result.counts.failed !== 0 || result.counts.notFound !== 1 || result.counts.noOp !== 0) {
+    throw new Error(`bad counts: ${JSON.stringify(result.counts)}`);
+  }
+  // Only purged is allowed into the checkpoint; not-found retried later.
+  if (!cp.processed.has("k1") || cp.processed.has("k-ghost")) {
+    throw new Error("checkpoint must hold only purged keys");
+  }
+  console.log("PASS: exhausted walk marks unmatched selection not-found and reports it by identity");
+}
+
+// Re-run of the same selection: purged skipped, failed and not-found retried,
+// no-op never touched; results are counted per status.
+async function testSelectionRetryRunSkipsPurgedRetriesRest() {
+  const page = new FakePageAdapter({ keys: ["a", "b"], refusals: new Set(["b"]) });
+  const cp = new FakeCheckpointAdapter();
+  const reporter = new FakeReporterAdapter();
+  const confirm = new FakeConfirmAdapter(true);
+
+  const runner = new PurgeRunner({ pageAdapter: page, checkpointAdapter: cp, reporterAdapter: reporter, confirmAdapter: confirm });
+  const first = await runner.run({ type: "likes", batchSize: 5, inputKeys: ["a", "b"] });
+  if (first.counts.purged !== 1 || first.counts.failed !== 1) {
+    throw new Error(`bad first-run counts: ${JSON.stringify(first.counts)}`);
+  }
+  const bAfterFirst = reporter.items.find((i) => i.key === "b").state;
+  if (bAfterFirst !== "failed") throw new Error(`b expected failed after first run, got ${bAfterFirst}`);
+
+  // b no longer refuses on the retry; a is checkpoint-processed so skipped.
+  page.refusals.clear();
+  reporter.items = []; // the fake's open() resets items too; we assert the second run directly
+  const second = await runner.run({ type: "likes", batchSize: 5, inputKeys: ["a", "b"] });
+  if (second.deleted !== 1) throw new Error(`retry must act only on b, deleted=${second.deleted}`);
+  if (second.counts.purged !== 1 || second.counts.noOp !== 1 || second.counts.failed !== 0 || second.counts.notFound !== 0) {
+    throw new Error(`bad retry counts: ${JSON.stringify(second.counts)}`);
+  }
+  const bAfterSecond = reporter.items.find((i) => i.key === "b");
+  if (!bAfterSecond || bAfterSecond.state !== "purged") throw new Error(`b expected purged on retry, got ${JSON.stringify(bAfterSecond)}`);
+  console.log("PASS: re-run skips purged, retries failed and not-found, leaves no-op alone");
+}
+
 const tests = {
   testHappyPath,
   testInputKeysFilter,
@@ -309,6 +363,8 @@ const tests = {
   testSelectionWritesPurgedAndFailed,
   testSelectionIndifferentToPageOrder,
   testSelectionSkipsCheckpointed,
+  testSelectionNotFoundMarkedNotFound,
+  testSelectionRetryRunSkipsPurgedRetriesRest,
 };
 
 async function main() {
