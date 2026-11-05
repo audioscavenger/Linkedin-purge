@@ -46,7 +46,7 @@ function printHelp(command) {
   const focus = command ? `\nHelp for: ${command}\n` : "";
   console.log(`linkedin-purge
 Purge your own LinkedIn comments and reactions (likes) via a real browser, with
-randomized pacing, checkpointing, and dry-run confirmation.
+randomized pacing, and dry-run confirmation.
 ${focus}
 Usage:
   npm run <command> [--flags]        (inside the project)
@@ -57,7 +57,7 @@ Commands:
   copy-chromium-profile    Copy the portable Chromium profile into .profile-chromium.
   scan                     Collect item counts for --type (dry-run, no deletion).
   purge                    Scan, confirm, then delete with pacing.
-  status                   Show checkpoint progress.
+  status                   Show per-type purge statuses from the scan envelope.
 
 Parameters:
   --type <comments|likes|all>     Item type to process                 (default: all)

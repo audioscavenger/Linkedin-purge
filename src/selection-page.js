@@ -275,13 +275,6 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
 </body>
 </html>`;
 }
-export const buildSelectionPage = generateSelectionPage;
-export const renderSelectionPage = generateSelectionPage;
-export const generateSelectionPageHtml = generateSelectionPage;
-export const selectionPage = generateSelectionPage;
-export const createSelectionPage = generateSelectionPage;
-export const makeSelectionPage = generateSelectionPage;
-export const selectionPageHtml = generateSelectionPage;
 export default generateSelectionPage;
 function normalizeEnvelope(input) {
   if (input == null) return { type: "likes", items: [] };

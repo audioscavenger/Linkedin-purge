@@ -149,51 +149,6 @@ export function isLegalTransition(from, to) {
   return false;
 }
 
-// --- Aliases: actionable -----------------------------------------------------
-export const isActionableStatus = isActionable;
-export const canAct = isActionable;
-export const canActOn = isActionable;
-export const mayAct = isActionable;
-export const mayBeActedOn = isActionable;
-export const isEligible = isActionable;
-export const isEligibleStatus = isActionable;
-export const shouldAct = isActionable;
-export const shouldPurge = isActionable;
-export const isRetryable = isActionable;
-export const isRetryableStatus = isActionable;
-export const willRetry = isActionable;
-export const isRetried = isActionable;
-export const isActable = isActionable;
-export const actionable = isActionable;
-
-// --- Aliases: no-op ---------------------------------------------------------
-export const isNoOpStatus = isNoOp;
-export const isUntouched = isNoOp;
-
-// --- Aliases: outcome mapping -----------------------------------------------
-export const statusFromOutcome = outcomeToStatus;
-export const mapOutcome = outcomeToStatus;
-export const mapAttemptOutcome = outcomeToStatus;
-export const attemptOutcomeToStatus = outcomeToStatus;
-export const statusFromAttempt = outcomeToStatus;
-export const attemptToStatus = outcomeToStatus;
-export const toStatus = outcomeToStatus;
-export const statusForOutcome = outcomeToStatus;
-export const outcomeStatus = outcomeToStatus;
-export const resultToStatus = outcomeToStatus;
-export const statusFromResult = outcomeToStatus;
-export const mapResult = outcomeToStatus;
-export const resolveStatus = outcomeToStatus;
-export const applyOutcome = outcomeToStatus;
-
-// --- Aliases: transition -----------------------------------------------------
-export const transition = transitionStatus;
-export const nextStatus = transitionStatus;
-export const applyTransition = transitionStatus;
-export const isLegal = isLegalTransition;
-export const canTransition = isLegalTransition;
-
-// --- Convenience maps --------------------------------------------------------
 export const STATUS_TRANSITIONS = {
   [NO_OP]: "skip",
   [PENDING]: "act",
@@ -219,4 +174,7 @@ export default {
   transitionStatus,
   isLegalTransition,
   STATUS_TRANSITIONS,
+  TRANSITIONS,
+  PURGE_ACTION_BY_STATUS,
+  ACTION_BY_STATUS,
 };

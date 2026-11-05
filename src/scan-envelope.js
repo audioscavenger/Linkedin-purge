@@ -5,16 +5,15 @@
 // per-item `step` plus top-level `steps` and `complete`, so `purge --input`
 // reads files written before and after the deep scan (ADR 0001).
 // Items without a step are first-render items, hence step 0.
-// Every item starts as `no-op`: nothing has been chosen or acted on yet. An
-// item that already carries a status keeps it (the builder never overwrites a
-// real status).
+// Every item starts as `no-op`: nothing has been chosen or acted on yet. The builder
+// always overwrites any existing status.
 import { PURGE_STATUSES } from "./purge/status.js";
 
 export function buildScanEnvelope({ type, items, steps = 1, complete = true, scannedAt = new Date().toISOString() }) {
   const withSteps = (items || []).map((item) => ({
     ...item,
     step: Number.isInteger(item.step) ? item.step : 0,
-    status: item.status == null ? PURGE_STATUSES.NO_OP : item.status,
+    status: PURGE_STATUSES.NO_OP,
   }));
   return {
     type,

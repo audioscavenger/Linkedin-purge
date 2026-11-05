@@ -1,5 +1,6 @@
 // CLI purge command
 import path from "node:path";
+import fs from "node:fs";
 import { launchBrowser, injectDomHelpers } from "../browser.js";
 import { log, warn } from "../logger.js";
 import { PurgeRunner, PageAdapter, ConfirmAdapter } from "../purge.js";
@@ -8,6 +9,9 @@ import { loadSelection } from "./selection.js";
 import { activityTargets } from "../activity-targets.js";
 import { isLoggedOut } from "../login-guard.js";
 import { resolveFlag, asBool, asInt, loadConfig } from "./config.js";
+import { buildScanEnvelope } from "../scan-envelope.js";
+import { openPage } from "../browser-opener.js";
+import { generateSelectionPage } from "../selection-page.js";
 
 export async function runPurge(args) {
   // Loudly refuse the retired flag instead of silently ignoring it: statuses
@@ -124,6 +128,22 @@ export async function runPurge(args) {
 
       // The runner asks its own confirmation prompt once per type.
       results.push(await runner.run({ type: target.type, ...runOptions }));
+      // Generate selection page from the runner result (best‑effort, never fail the scan)
+      try {
+        const envelope = buildScanEnvelope({
+          type: target.type,
+          items: [],
+          steps: 1,
+          complete: true,
+        });
+        const selectionHtml = generateSelectionPage(envelope);
+        const selectionPagePath = path.join(dataDir, `selection-${target.type}.html`);
+        fs.writeFileSync(selectionPagePath, selectionHtml);
+        log(`Selection page written to: ${selectionPagePath}`);
+        await openPage(`file://${selectionPagePath}`);
+      } catch (err) {
+        warn(`Failed to generate selection page: ${err.message}`);
+      }
     }
 
     reportSummary(results);

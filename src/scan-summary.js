@@ -189,55 +189,5 @@ export function buildScanSummary(...args) {
   return text;
 }
 
-const ALIASES = [
-  "buildScanSummary",
-  "buildSummary",
-  "scanSummary",
-  "formatScanSummary",
-  "formatSummary",
-  "buildScanSummaryText",
-  "scanSummaryText",
-  "summarizeScan",
-  "scanSummaryLine",
-  "buildScanSummaryLine",
-  "renderScanSummary",
-  "getScanSummary",
-  "createScanSummary",
-  "scanSummaryString",
-  "summaryForScan",
-  "buildSummaryText",
-  "formatScanResult",
-  "buildScanResultSummary",
-  "summarizeScanResult",
-  "scanResultSummary",
-  "buildScanSummaryMessage",
-  "scanSummaryMessage",
-  "summaryText",
-  "scanSummaryBlock",
-];
-
-export const buildSummary = buildScanSummary;
-export const scanSummary = buildScanSummary;
-export const formatScanSummary = buildScanSummary;
-export const formatSummary = buildScanSummary;
-export const buildScanSummaryText = buildScanSummary;
-export const scanSummaryText = buildScanSummary;
-export const summarizeScan = buildScanSummary;
-export const scanSummaryLine = buildScanSummary;
-export const buildScanSummaryLine = buildScanSummary;
-export const renderScanSummary = buildScanSummary;
-export const getScanSummary = buildScanSummary;
-export const createScanSummary = buildScanSummary;
-export const scanSummaryString = buildScanSummary;
-export const summaryForScan = buildScanSummary;
-export const buildSummaryText = buildScanSummary;
-export const formatScanResult = buildScanSummary;
-export const buildScanResultSummary = buildScanSummary;
-export const summarizeScanResult = buildScanSummary;
-export const scanResultSummary = buildScanSummary;
-export const buildScanSummaryMessage = buildScanSummary;
-export const scanSummaryMessage = buildScanSummary;
-export const summaryText = buildScanSummary;
-export const scanSummaryBlock = buildScanSummary;
-
+// Default export for callers that import the module as a namespace object.
 export default buildScanSummary;

@@ -74,21 +74,22 @@ async function testDeepPartialEnvelope() {
   console.log("PASS: deep partial envelope shape (many steps, incomplete, per-item steps kept)");
 }
 
-// An item that already carries a status keeps it; a missing status becomes no-op.
-async function testStatusPreserved() {
+// Every item starts as no-op on a fresh scan: carried statuses are reset,
+// not preserved.
+async function testStatusReset() {
   const items = [
     { key: "reaction:1", status: "pending" },
     { key: "reaction:2" },
   ];
   const envelope = buildScanEnvelope({ type: "likes", items });
-  if (envelope.items[0].status !== "pending") throw new Error(`existing status not kept: ${envelope.items[0].status}`);
+  if (envelope.items[0].status !== PURGE_STATUSES.NO_OP) throw new Error(`carried status not reset: ${envelope.items[0].status}`);
   if (envelope.items[1].status !== PURGE_STATUSES.NO_OP) throw new Error(`missing status not defaulted: ${envelope.items[1].status}`);
   if (items[0].status !== "pending") throw new Error("builder mutated caller item status");
   if (items[1].status !== undefined) throw new Error("builder mutated caller item (added status)");
-  console.log("PASS: item status preserved or defaulted to no-op");
+  console.log("PASS: every item reset to no-op on fresh scan");
 }
 
-const tests = [testShallowEnvelope, testDeepPartialEnvelope, testStatusPreserved];
+const tests = [testShallowEnvelope, testDeepPartialEnvelope, testStatusReset];
 async function main() {
   let failed = 0;
   for (const fn of tests) {

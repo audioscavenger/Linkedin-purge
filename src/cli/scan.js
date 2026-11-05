@@ -80,12 +80,13 @@ export async function runScan(args) {
 
     const out = path.join(dataDir, `scan-${t}.json`);
     fs.mkdirSync(dataDir, { recursive: true });
-    fs.writeFileSync(out, JSON.stringify(buildScanEnvelope({
+    const envelope = buildScanEnvelope({
       type: t,
       items: result.items,
       steps: result.steps,
       complete: result.complete,
-    }), null, 2));
+    });
+    fs.writeFileSync(out, JSON.stringify(envelope, null, 2));
     if (!result.complete) {
       warn(
         `${t}: the walk hit the timeout after ${result.steps} steps; ` +
@@ -93,13 +94,7 @@ export async function runScan(args) {
       );
     }
 
-    // Generate the selection page from the scan envelope.
-    const envelope = buildScanEnvelope({
-      type: t,
-      items: result.items,
-      steps: result.steps,
-      complete: result.complete,
-    });
+    // Generate the selection page from the same envelope.
     const selectionHtml = generateSelectionPage(envelope);
     const selectionPagePath = path.join(dataDir, `selection-${t}.html`);
     fs.writeFileSync(selectionPagePath, selectionHtml);

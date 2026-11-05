@@ -1,5 +1,4 @@
 // Envelope store: owns one scan envelope file on disk.
-//
 // The store is the single durability seam for per-item Purge Status: `mark`
 // updates one item (matched by Card Identity) and writes the file atomically
 // on the spot, so an interrupted run keeps every status earned so far and the
@@ -36,42 +35,6 @@ class UnknownCardIdentityError extends EnvelopeStoreError {
     this.code = "UNKNOWN_CARD_IDENTITY";
     this.identity = identity;
   }
-}
-
-// Aliases so callers/tests that use a different (but equivalent) name for the
-// same condition still recognise the thrown error.
-const ALIAS_NAMES = [
-  "UnknownIdentityError",
-  "UnknownCardError",
-  "UnknownCardIdError",
-  "CardNotFoundError",
-  "UnknownItemError",
-  "EnvelopeStoreError",
-];
-for (const alias of ALIAS_NAMES) {
-  const aliasClass = class extends EnvelopeStoreError {};
-  // Make every alias recognise instances of every other alias/error from this
-  // module, so a thrown error matches whichever name a test imports.
-  Object.defineProperty(aliasClass, Symbol.hasInstance, {
-    value: (instance) => instance instanceof EnvelopeStoreError,
-  });
-  Object.defineProperty(aliasClass, "name", { value: alias });
-  if (!(alias in (typeof globalThis !== "undefined" ? globalThis : {}))) {
-    // no-op: keep the binding local
-  }
-  // Export the alias as a property of the constructor function below.
-  EnvelopeStore[alias] = aliasClass;
-}
-
-// We attach aliases after defining EnvelopeStore below; placeholder holder.
-const _aliasClasses = {};
-for (const alias of ALIAS_NAMES) {
-  const aliasClass = class extends EnvelopeStoreError {};
-  Object.defineProperty(aliasClass, Symbol.hasInstance, {
-    value: (instance) => instance instanceof EnvelopeStoreError,
-  });
-  Object.defineProperty(aliasClass, "name", { value: alias });
-  _aliasClasses[alias] = aliasClass;
 }
 
 function parseArgs(args) {
@@ -116,7 +79,6 @@ function parseArgs(args) {
     }
   }
 
-  // Third positional string, if present.
   if (args.length >= 3 && typeof args[2] === "string") {
     if (isStatus(args[2])) {
       // ignore here; handled by mark parsing, not constructor
@@ -145,21 +107,6 @@ function resolveFile(dataDir, type, file) {
     return path.join(path.resolve(dataDir), "scan-envelope.json");
   }
   return null;
-}
-
-function EnvelopeStore(...args) {
-  if (!(this instanceof EnvelopeStore)) return new EnvelopeStore(...args);
-
-  const parsed = parseArgs(args);
-  this.dataDir = parsed.dataDir;
-  this.type = parsed.type;
-  this.file = resolveFile(parsed.dataDir, parsed.type, parsed.file);
-  this.envelope = parsed.envelope || null;
-  this.loaded = false;
-  if (parsed.envelope) this.loaded = true;
-
-  // If a single positional type was passed as second arg but file not resolved
-  // because dataDir missing, keep type for later.
 }
 
 function normaliseMarkArgs(args) {
@@ -201,292 +148,184 @@ function normaliseMarkArgs(args) {
   return { type, identity, status };
 }
 
-EnvelopeStore.prototype._resolveType = function (type) {
-  return type || this.type || null;
-};
+class EnvelopeStore {
+  constructor(...args) {
+    if (!(this instanceof EnvelopeStore)) return new EnvelopeStore(...args);
 
-EnvelopeStore.prototype._resolveFile = function (type) {
-  const t = this._resolveType(type);
-  if (this.file && !type) return this.file;
-  if (this.dataDir && t) return path.join(path.resolve(this.dataDir), `scan-${t}.json`);
-  if (this.file && t && this.type && t !== this.type) {
-    // recompute from dataDir if possible
-    if (this.dataDir) return path.join(path.resolve(this.dataDir), `scan-${t}.json`);
+    const parsed = parseArgs(args);
+    this.dataDir = parsed.dataDir;
+    this.type = parsed.type;
+    this.file = resolveFile(parsed.dataDir, parsed.type, parsed.file);
+    this.envelope = parsed.envelope || null;
+    this.loaded = false;
+    if (parsed.envelope) this.loaded = true;
+
+    // If a single positional type was passed as second arg but file not resolved
+    // because dataDir missing, keep type for later.
   }
-  if (this.file) return this.file;
-  return resolveFile(this.dataDir, t, null);
-};
 
-EnvelopeStore.prototype.load = async function (type) {
-  const t = this._resolveType(type);
-  if (t) this.type = t;
-  const file = this._resolveFile(t);
-  if (file) this.file = file;
+  // ---- Prototype methods ----
 
-  if (!file) return null;
-  let raw;
-  try {
-    raw = fs.readFileSync(file, "utf8");
-  } catch {
-    this.envelope = null;
-    this.loaded = true;
-    return null;
-  }
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    this.envelope = null;
-    this.loaded = true;
-    return null;
-  }
-  this.envelope = data;
-  this.loaded = true;
-  return data;
-};
+  _resolveType = function (type) {
+    return type || this.type || null;
+  };
 
-EnvelopeStore.prototype.reload = function (type) {
-  return this.load(type);
-};
+  _resolveFile = function (type) {
+    const t = this._resolveType(type);
+    if (this.file && !type) return this.file;
+    if (this.dataDir && t) return path.join(path.resolve(this.dataDir), `scan-${t}.json`);
+    if (this.file && t && this.type && t !== this.type) {
+      // recompute from dataDir if possible
+      if (this.dataDir) return path.join(path.resolve(this.dataDir), `scan-${t}.json`);
+    }
+    if (this.file) return this.file;
+    return resolveFile(this.dataDir, t, null);
+  };
 
-EnvelopeStore.prototype.getEnvelope = function (type) {
-  if (type && type !== this.type) {
-    // best effort synchronous read
-    const file = this._resolveFile(type);
+  load = async function (type) {
+    const t = this._resolveType(type);
+    if (t) this.type = t;
+    const file = this._resolveFile(t);
+    if (file) this.file = file;
+
+    if (!file) return null;
+    let raw;
     try {
-      return JSON.parse(fs.readFileSync(file, "utf8"));
+      raw = fs.readFileSync(file, "utf8");
     } catch {
+      this.envelope = null;
+      this.loaded = true;
       return null;
     }
-  }
-  return this.envelope;
-};
-
-Object.defineProperty(EnvelopeStore.prototype, "envelopeData", {
-  get() {
-    return this.envelope;
-  },
-});
-
-EnvelopeStore.prototype._ensureLoaded = async function (type) {
-  const t = this._resolveType(type);
-  if (!this.loaded || (t && t !== this.type)) {
-    await this.load(t);
-  }
-  if (!this.envelope) {
-    // try load again (may be null)
-    await this.load(t);
-  }
-};
-
-EnvelopeStore.prototype._findItemIndex = function (envelope, identity) {
-  if (!envelope || !Array.isArray(envelope.items)) return -1;
-  return envelope.items.findIndex((item) => {
-    if (!item || typeof item !== "object") return false;
-    const candidates = [
-      item.cardId,
-      item.cardIdentity,
-      item.identity,
-      item.id,
-      item.key,
-    ];
-    return candidates.some((c) => c !== undefined && c !== null && String(c) === String(identity));
-  });
-};
-
-EnvelopeStore.prototype.mark = async function (...args) {
-  const { type: argType, identity, status } = normaliseMarkArgs(args);
-  const t = this._resolveType(argType);
-  if (t) this.type = t;
-  const file = this._resolveFile(t);
-  if (file) this.file = file;
-
-  if (!isStatus(status)) {
-    throw new Error(`Invalid status for envelope store mark: ${status}`);
-  }
-  if (identity === null || identity === undefined || identity === "") {
-    throw new Error("Envelope store mark requires a card identity");
-  }
-
-  await this._ensureLoaded(t);
-  const envelope = this.envelope;
-  if (!envelope || !Array.isArray(envelope.items)) {
-    throw new Error(`No envelope loaded in ${file}`);
-  }
-
-  const idx = this._findItemIndex(envelope, identity);
-  if (idx === -1) {
-    throw new UnknownCardIdentityError(identity, file);
-  }
-
-  envelope.items[idx] = { ...envelope.items[idx], status };
-  // keep keys/count in sync? count stays length; keys derived maybe.
-  if (Array.isArray(envelope.keys)) {
-    // leave keys as-is
-  }
-  if (typeof envelope.count === "number") {
-    envelope.count = envelope.items.length;
-  }
-
-  // Atomic write.
-  const dir = path.dirname(file);
-  fs.mkdirSync(dir, { recursive: true });
-  const tmp = path.join(
-    dir,
-    `.${path.basename(file)}.${process.pid}.${Date.now()}.tmp`
-  );
-  fs.writeFileSync(tmp, JSON.stringify(envelope, null, 2));
-  fs.renameSync(tmp, file);
-
-  this.envelope = envelope;
-  this.loaded = true;
-  return envelope.items[idx];
-};
-
-// Synchronous variant, in case tests expect sync.
-EnvelopeStore.prototype.markSync = function (...args) {
-  // Delegate by calling the async version is not sync; implement sync copy.
-  const { type: argType, identity, status } = normaliseMarkArgs(args);
-  const t = this._resolveType(argType);
-  if (t) this.type = t;
-  const file = this._resolveFile(t);
-  if (file) this.file = file;
-
-  if (!isStatus(status)) throw new Error(`Invalid status for envelope store mark: ${status}`);
-  if (identity === null || identity === undefined || identity === "") {
-    throw new Error("Envelope store mark requires a card identity");
-  }
-
-  // load sync
-  let envelope = this.envelope;
-  if (!envelope) {
+    let data;
     try {
-      envelope = JSON.parse(fs.readFileSync(file, "utf8"));
+      data = JSON.parse(raw);
     } catch {
-      envelope = null;
+      this.envelope = null;
+      this.loaded = true;
+      return null;
     }
+    this.envelope = data;
+    this.loaded = true;
+    return data;
+  };
+
+  reload = function (type) {
+    return this.load(type);
+  };
+
+  getEnvelope = function (type) {
+    if (type && type !== this.type) {
+      // best effort synchronous read
+      const file = this._resolveFile(type);
+      try {
+        return JSON.parse(fs.readFileSync(file, "utf8"));
+      } catch {
+        return null;
+      }
+    }
+    return this.envelope;
+  };
+
+  _ensureLoaded = async function (type) {
+    const t = this._resolveType(type);
+    if (!this.loaded || (t && t !== this.type)) {
+      await this.load(t);
+    }
+    if (!this.envelope) {
+      // try load again (may be null)
+      await this.load(t);
+    }
+  };
+
+  _findItemIndex = function (envelope, identity) {
+    if (!envelope || !Array.isArray(envelope.items)) return -1;
+    return envelope.items.findIndex((item) => {
+      if (!item || typeof item !== "object") return false;
+      const candidates = [
+        item.cardId,
+        item.cardIdentity,
+        item.identity,
+        item.id,
+        item.key,
+      ];
+      return candidates.some((c) => c !== undefined && c !== null && String(c) === String(identity));
+    });
+  };
+
+  mark = async function (...args) {
+    const { type: argType, identity, status } = normaliseMarkArgs(args);
+    const t = this._resolveType(argType);
+    if (t) this.type = t;
+    const file = this._resolveFile(t);
+    if (file) this.file = file;
+
+    if (!isStatus(status)) {
+      throw new Error(`Invalid status for envelope store mark: ${status}`);
+    }
+    if (identity === null || identity === undefined || identity === "") {
+      throw new Error("Envelope store mark requires a card identity");
+    }
+
+    await this._ensureLoaded(t);
+    const envelope = this.envelope;
+    if (!envelope || !Array.isArray(envelope.items)) {
+      throw new Error(`No envelope loaded in ${file}`);
+    }
+
+    const idx = this._findItemIndex(envelope, identity);
+    if (idx === -1) {
+      throw new UnknownCardIdentityError(identity, file);
+    }
+
+    envelope.items[idx] = { ...envelope.items[idx], status };
+    // keep keys/count in sync? count stays length; keys derived maybe.
+    if (Array.isArray(envelope.keys)) {
+      // leave keys as-is
+    }
+    if (typeof envelope.count === "number") {
+      envelope.count = envelope.items.length;
+    }
+
+    // Atomic write.
+    const dir = path.dirname(file);
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = path.join(
+      dir,
+      `.${path.basename(file)}.${process.pid}.${Date.now()}.tmp`
+    );
+    fs.writeFileSync(tmp, JSON.stringify(envelope, null, 2));
+    fs.renameSync(tmp, file);
+
     this.envelope = envelope;
     this.loaded = true;
-  }
-  if (!envelope || !Array.isArray(envelope.items)) {
-    throw new Error(`No envelope loaded in ${file}`);
-  }
-  const idx = this._findItemIndex(envelope, identity);
-  if (idx === -1) throw new UnknownCardIdentityError(identity, file);
+    return envelope.items[idx];
+  };
 
-  envelope.items[idx] = { ...envelope.items[idx], status };
-  if (typeof envelope.count === "number") envelope.count = envelope.items.length;
-
-  const dir = path.dirname(file);
-  fs.mkdirSync(dir, { recursive: true });
-  const tmp = path.join(dir, `.${path.basename(file)}.${process.pid}.${Date.now()}.tmp`);
-  fs.writeFileSync(tmp, JSON.stringify(envelope, null, 2));
-  fs.renameSync(tmp, file);
-
-  this.envelope = envelope;
-  return envelope.items[idx];
-};
-
-EnvelopeStore.prototype.counts = async function (type) {
-  const t = this._resolveType(type);
-  if (t && t !== this.type) await this.load(t);
-  else if (!this.loaded) await this.load();
-  const env = this.envelope;
-  const result = {};
-  for (const s of KNOWN_STATUSES) result[s] = 0;
-  if (env && Array.isArray(env.items)) {
-    for (const item of env.items) {
-      const s = item && typeof item.status === "string" ? item.status : "no-op";
-      if (!(s in result)) result[s] = 0;
-      result[s]++;
+  counts = async function (type) {
+    const t = this._resolveType(type);
+    if (t && t !== this.type) await this.load(t);
+    else if (!this.loaded) await this.load();
+    const env = this.envelope;
+    const result = {};
+    for (const s of KNOWN_STATUSES) result[s] = 0;
+    if (env && Array.isArray(env.items)) {
+      for (const item of env.items) {
+        const s = item && typeof item.status === "string" ? item.status : "no-op";
+        if (!(s in result)) result[s] = 0;
+        result[s]++;
+      }
     }
-  }
-  return result;
-};
-
-EnvelopeStore.prototype.countsSync = function (type) {
-  const t = this._resolveType(type);
-  let env = this.envelope;
-  if (!env) {
-    const file = this._resolveFile(t);
-    try {
-      env = JSON.parse(fs.readFileSync(file, "utf8"));
-    } catch {
-      env = null;
-    }
-  }
-  const result = {};
-  for (const s of KNOWN_STATUSES) result[s] = 0;
-  if (env && Array.isArray(env.items)) {
-    for (const item of env.items) {
-      const s = item && typeof item.status === "string" ? item.status : "no-op";
-      if (!(s in result)) result[s] = 0;
-      result[s]++;
-    }
-  }
-  return result;
-};
-
-EnvelopeStore.prototype.count = function (statusOrType) {
-  if (isStatus(statusOrType)) {
-    const c = this.countsSync();
-    return c[statusOrType] || 0;
-  }
-  // type
-  const c = this.countsSync(statusOrType);
-  return c;
-};
-
-// Aliases for counts methods.
-EnvelopeStore.prototype.countByStatus = EnvelopeStore.prototype.counts;
-EnvelopeStore.prototype.countsByStatus = EnvelopeStore.prototype.counts;
-EnvelopeStore.prototype.getStatusCounts = EnvelopeStore.prototype.counts;
-EnvelopeStore.prototype.statusCounts = EnvelopeStore.prototype.counts;
-EnvelopeStore.prototype.totals = EnvelopeStore.prototype.counts;
-
-// Alias markSync as markSync only; mark remains async.
-EnvelopeStore.prototype.markSync = EnvelopeStore.prototype.markSync;
-
-// Static-ish helpers on constructor.
-EnvelopeStore.create = function (...args) {
-  return new EnvelopeStore(...args);
-};
-EnvelopeStore.createEnvelopeStore = EnvelopeStore.create;
-
-// Attach alias error classes.
-for (const alias of ALIAS_NAMES) {
-  EnvelopeStore[alias] = _aliasClasses[alias];
-}
-// Also attach UnknownCardIdentityError.
-EnvelopeStore.UnknownCardIdentityError = UnknownCardIdentityError;
-EnvelopeStore.EnvelopeStoreError = EnvelopeStoreError;
-
-// Make alias classes available as module-level exports too.
-export {
-  EnvelopeStoreError,
-  UnknownCardIdentityError,
-};
-for (const alias of ALIAS_NAMES) {
-  // export aliases
+    return result;
+  };
 }
 
-// Export aliases as named exports.
-export const UnknownIdentityError = _aliasClasses.UnknownIdentityError;
-export const UnknownCardError = _aliasClasses.UnknownCardError;
-export const UnknownCardIdError = _aliasClasses.UnknownCardIdError;
-export const CardNotFoundError = _aliasClasses.CardNotFoundError;
-export const UnknownItemError = _aliasClasses.UnknownItemError;
-
-// Factory functions.
+// ---- Factory function ----
 export function createEnvelopeStore(...args) {
   return new EnvelopeStore(...args);
 }
-export function envelopeStore(...args) {
-  return new EnvelopeStore(...args);
-}
-export function openEnvelopeStore(...args) {
-  return new EnvelopeStore(...args);
-}
 
+// ---- Exports ----
+export { EnvelopeStoreError, UnknownCardIdentityError };
 export { EnvelopeStore };
 export default EnvelopeStore;
