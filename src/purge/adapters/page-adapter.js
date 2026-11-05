@@ -16,6 +16,12 @@ export class PageAdapter {
     return this.page.evaluate((k) => window.LP.deleteOneCard(k), key);
   }
 
+  // Collect all card IDs (container element ids) from the activity list.
+  // These are used as stable identifiers for full-purge mode.
+  async collectCardIds() {
+    return this.page.evaluate(() => window.LP.collectCardIds());
+  }
+
   async loadStep() {
     return this.page.evaluate(() => window.LP.scrollActivityListToBottom());
   }

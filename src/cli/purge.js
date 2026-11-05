@@ -119,27 +119,33 @@ export async function runPurge(args) {
       // The adapters are per type: neither flow wires checkpoint or report
       // anymore (both retired in tickets 23/24). A selection run persists
       // statuses straight into the selection envelope through the store; a
-      // full purge run wires nothing writable.
+      // full purge run wires the envelopeStore to persist statuses.
       const runner = new PurgeRunner({
         pageAdapter: new PageAdapter(page),
         confirmAdapter: new ConfirmAdapter(),
-        envelopeStore: inputFile ? new EnvelopeStore(path.resolve(inputFile)) : null,
+        envelopeStore: inputFile ? new EnvelopeStore(path.resolve(inputFile)) : new EnvelopeStore(path.resolve(dataDir, `scan-${target.type}.json`)),
       });
 
       // The runner asks its own confirmation prompt once per type.
       results.push(await runner.run({ type: target.type, ...runOptions }));
-      // Generate selection page from the runner result (best‑effort, never fail the scan)
+      // Regenerate the selection page from the UPDATED envelope (the runner
+      // wrote statuses through envelopeStore.mark, which does atomic writes).
+      // Best effort: never fail the scan.
       try {
-        const envelope = buildScanEnvelope({
-          type: target.type,
-          items: [],
-          steps: 1,
-          complete: true,
-        });
+        const envelopeFile = inputFile ? path.resolve(inputFile) : path.resolve(dataDir, `scan-${target.type}.json`);
+        let envelope = null;
+        try {
+          envelope = JSON.parse(fs.readFileSync(envelopeFile, "utf8"));
+        } catch (readErr) {
+          warn(`Could not read updated envelope from ${envelopeFile}: ${readErr.message}`);
+        }
+        if (!envelope) {
+          envelope = buildScanEnvelope({ type: target.type, items: [], steps: 1, complete: true });
+        }
         const selectionHtml = generateSelectionPage(envelope);
         const selectionPagePath = path.join(dataDir, `selection-${target.type}.html`);
         fs.writeFileSync(selectionPagePath, selectionHtml);
-        log(`Selection page written to: ${selectionPagePath}`);
+        log(`Selection page written to: ${path.relative(process.cwd(), selectionPagePath)}`);
         await openPage(`file://${selectionPagePath}`);
       } catch (err) {
         warn(`Failed to generate selection page: ${err.message}`);

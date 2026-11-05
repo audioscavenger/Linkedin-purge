@@ -12,6 +12,7 @@ class FakePageAdapter {
   }
   async collect() { return [...this.keys]; }
   async collectKeys() { return this.collect(); }
+  async collectCardIds() { return this.keys.map(key => key); }
   async oneCardAct(key) {
     if (!this.keys.includes(key)) {
       return { ok: false, skip: false, cardId: key, error: "card not found" };

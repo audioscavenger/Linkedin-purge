@@ -1,6 +1,7 @@
 // Core PurgeRunner logic
 
 import { PURGE_STATUSES } from "./status.js";
+import { warn } from "../logger.js";
 
 export class PurgeRunner {
   constructor({
@@ -96,10 +97,10 @@ export class PurgeRunner {
     }
 
     // Full purge mode (no selection): walk the Activity List and act on every
-    // collected card by its identity. No checkpoint and no report are kept -
-    // both were retired in 0.5.0 (tickets 23/24). Processed keys are tracked
-    // in memory only for this run, so a card is never acted on twice within a
-    // single run.
+    // collected card by its Card Identity (container element id). Statuses are
+    // persisted through envelopeStore (same as selection mode). Processed cardIds
+    // are tracked in memory only for this run, so a card is never acted on twice
+    // within a single run.
     const processedLocally = new Set();
     let deleted = 0;
     let emptyScrolls = 0;
@@ -107,9 +108,9 @@ export class PurgeRunner {
     let confirmed = false;
     while (true) {
       if (timeoutMs > 0 && Date.now() - purgeStart > timeoutMs) break;
-      const keys = await this.pageAdapter.collectKeys();
-      const newKeys = keys.filter((k) => !processedLocally.has(k));
-      if (newKeys.length === 0) {
+      const cardIds = await this.pageAdapter.collectCardIds();
+      const newCardIds = cardIds.filter((id) => !processedLocally.has(id));
+      if (newCardIds.length === 0) {
         emptyScrolls++;
         if (emptyScrolls >= (options.maxEmptyScrolls || 8)) break;
         await this.pageAdapter.waitForTimeout(1200);
@@ -119,7 +120,7 @@ export class PurgeRunner {
       // Confirm once, on the first batch of work.
       if (!confirmed) {
         const ok = await this.confirmAdapter.confirm(
-          `Delete ${newKeys.length} ${type} items? Type YES to proceed: `
+          `Delete ${newCardIds.length} ${type} items? Type YES to proceed: `
         );
         if (!ok) {
           return { type, deleted: 0, durationMs: Date.now() - startTime, counts: null };
@@ -127,10 +128,21 @@ export class PurgeRunner {
         confirmed = true;
       }
       let roundCount = 0;
-      for (const key of newKeys) {
-        processedLocally.add(key);
-        const result = await this.pageAdapter.oneCardAct(key);
-        if (result && result.ok) deleted++;
+      for (const cardId of newCardIds) {
+        processedLocally.add(cardId);
+        const result = await this.pageAdapter.oneCardAct(cardId);
+        if (result && result.ok) {
+          deleted++;
+          // Best-effort: a missing scan envelope (e.g. purge without a prior
+          // scan) must not crash the run.
+          if (this.envelopeStore) {
+            try { await this.envelopeStore.mark(cardId, PURGE_STATUSES.PURGED); } catch (err) { warn(`Could not persist purged status for ${cardId}: ${err.message}`); }
+          }
+        } else if (this.envelopeStore) {
+          const err = (result && result.error) || "";
+          const notFound = /not.?found/i.test(err);
+          try { await this.envelopeStore.mark(cardId, notFound ? PURGE_STATUSES.NOT_FOUND : PURGE_STATUSES.FAILED); } catch (err2) { warn(`Could not persist status for ${cardId}: ${err2.message}`); }
+        }
         roundCount++;
         if (roundCount % batchSize === 0) {
           const pause = Math.floor(Math.random() * (options.batchMax - options.batchMin + 1)) + options.batchMin;

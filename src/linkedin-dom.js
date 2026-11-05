@@ -322,6 +322,10 @@ async function collectCommentItems(seenKeys, links) {
 
 // --- Shared ---
 
+function collectCardIds() {
+  return activityCards().map((card) => card.id).filter(Boolean);
+}
+
 function collectKeys() {
   if (isCommentsPage()) return collectCommentKeys();
   if (isReactionsPage()) return collectReactionKeys();
@@ -543,6 +547,7 @@ window.LP = {
   isCommentsPage,
   isReactionsPage,
   collectKeys,
+  collectCardIds,
   collectItems,
   readGrowthSignal,
   scrollActivityListToBottom,
