@@ -6,9 +6,9 @@
 
 ## Unreleased
 
-## Unreleased
+## Released
 
-* [ ] 0.5.0 - Review-first purge: scan, review on a generated page, select, purge a selection, statuses on the page; Card Identity replaces drift-prone keys; `--links` captures item/post links; the scan envelope is the only state, retiring checkpoint and report.
+* [x] v0.5.0 - Review-first purge: scan, review on a generated page, select, purge a selection, statuses on the page; Card Identity replaces drift-prone keys; `--links` captures item/post links; the scan envelope is the only state, retiring checkpoint and report.
     * Test runner prefactor: one script runs every file under `tests/`, so adding a test file never edits `package.json` again (`npm run test`/`check`/`health` share it).
     * Purge Status vocabulary: five named statuses (`no-op`, `pending`, `purged`, `failed`, `not-found`) with a finality check, so a typo cannot invent a sixth value.
     * Card Identity from the card container: every item carries `cardId` read from the card's own container element id, stable across page loads; the live page check asserts it on both tabs.
@@ -33,8 +33,6 @@
     * ADR 0003 records the client-side Selection Page (static file, embedded data, browser download, no picker, no server); ADR 0004 records the scan envelope as the only state, retiring checkpoint and report.
     * README and navigation document the new flow (scan, review, select, export, purge, statuses on the page) and list the new modules, no longer listing the retired ones.
     * GLOSSARY keeps Selection and Purge Status, retires Checkpoint and Report Entry, and makes the Key versus Card Identity distinction plain.
-
-## Released
 
 * [x] 0.4.0 - Full activity walk restored as `scan --deep`, a purge that finds its own tab, and a live check that catches LinkedIn markup changes.
     * Browser launch recovers from locked profiles: kills leftover headless/CDP browser instances from previous runs and retries the launch; when a browser you have open holds the profile, it says so in one line (with the PIDs) instead of dumping the Playwright launch log.
