@@ -8,6 +8,13 @@
 
 ## Released
 
+* [x] v0.5.2 - Scan and purge are headless by default; `--headed` replaces `--headless`
+    * `--headed` is the only override: scan and purge run headless by default, and `--headed` opens a visible browser for debugging; login stays headed with no flag.
+    * Config key `behavior.headless` is replaced by `behavior.headed` (default false); a legacy `behavior.headless` key is ignored with a one-line deprecation warning naming `behavior.headed`, and config.json is never rewritten.
+    * Passing the removed `--headless` to scan or purge is refused loudly: non-zero exit, one line pointing at `--headed`, no browser launched (same precedent as `--reset-checkpoint`).
+    * Help screen, README and agent guidance document only `--headed`/`behavior.headed`.
+    * Tests pin the headless value a command resolves through an injectable browser launch seam, and assert the refusal and help screen in subprocess tests; no test launches a real browser.
+
 * [x] v0.5.1 - Rename copy-chromium-profile to login-import-profile
     * Rename the `copy-chromium-profile` command to `login-import-profile` to clarify that it imports an existing logged-in Chromium profile into `.profile-chromium/`, as an alternative to `npm run login` which opens a browser for manual login.
 
