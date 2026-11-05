@@ -30,6 +30,8 @@ Assertions:
   - Unchecking the LIKE filter leaves one visible row (LOVE)
   - Sorting by author puts Ada first, toggling direction puts Cy first
   - Author filter matching nothing shows the empty state and 0 rows
+  - Ticking a row shows 1 selected with master indeterminate
+  - Master selects exactly the filtered rows (3, then 1 under filter, then deselects only those)
 
 Exits 0 on pass, 1 on a named failure (assertion name, expectation, observed).
 
@@ -118,7 +120,44 @@ async function assertPage() {
     }
     await page.fill("#filter-author", "");
 
-    log("PASS: selection page browser check - row count, first row, filters, empty state and sorted order verified");
+    // 6. Selection counts. Initially nothing ticked.
+    const initialSelected = await page.evaluate(() => document.getElementById("selected-count").textContent);
+    if (initialSelected !== "0") {
+      err(`FAIL: assertion selected-initial - expected "0" selected, observed "${initialSelected}"`);
+      return false;
+    }
+    // Tick the first visible row checkbox -> 1 selected, master indeterminate.
+    await page.click("table#selection-table tbody tr:nth-child(1) .row-select");
+    const oneSelected = await page.evaluate(() => ({ n: document.getElementById("selected-count").textContent, master: document.getElementById("master-select").indeterminate, checked: document.getElementById("master-select").checked }));
+    if (oneSelected.n !== "1" || !oneSelected.master || oneSelected.checked) {
+      err(`FAIL: assertion select-one - expected 1 selected with master indeterminate, observed count=${oneSelected.n} indeterminate=${oneSelected.master} checked=${oneSelected.checked}`);
+      return false;
+    }
+    // Master selects exactly the filtered rows: with all rows visible, all 3.
+    await page.click("#master-select");
+    const allSelected = await page.evaluate(() => ({ n: document.getElementById("selected-count").textContent, checked: document.getElementById("master-select").checked, indet: document.getElementById("master-select").indeterminate }));
+    if (allSelected.n !== "3" || !allSelected.checked || allSelected.indet) {
+      err(`FAIL: assertion select-all-visible - expected 3 selected and master checked, observed count=${allSelected.n} checked=${allSelected.checked} indeterminate=${allSelected.indet}`);
+      return false;
+    }
+    // Filter to LOVE only: exactly one row visible, selection preserved (3), master checked (all visible selected).
+    await page.click('.state-filter[value="LIKE"]');
+    const filteredSelected = await page.evaluate(() => ({ n: document.getElementById("selected-count").textContent, visible: [...document.querySelectorAll("#selection-table tbody tr")].filter((r) => r.style.display !== "none").length, master: document.getElementById("master-select").checked }));
+    if (filteredSelected.n !== "3" || filteredSelected.visible !== 1 || !filteredSelected.master) {
+      err(`FAIL: assertion selection-preserved-under-filter - expected 3 selected over 1 visible row with master checked, observed ${JSON.stringify(filteredSelected)}`);
+      return false;
+    }
+    // Untick master under the filter: deselects exactly the filtered (LOVE) row.
+    await page.click("#master-select");
+    const deselected = await page.evaluate(() => ({ n: document.getElementById("selected-count").textContent, master: document.getElementById("master-select").checked, indet: document.getElementById("master-select").indeterminate }));
+    if (deselected.n !== "2" || deselected.master || deselected.indet) {
+      err(`FAIL: assertion deselect-filtered - expected 2 selected, master unchecked, observed ${JSON.stringify(deselected)}`);
+      return false;
+    }
+    // Restore the filter for any later checks.
+    await page.click('.state-filter[value="LIKE"]');
+
+    log("PASS: selection page browser check - row count, first row, filters, empty state, sorted order and master-select counts verified");
     return true;
   } finally {
     await browser.close();

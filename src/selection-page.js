@@ -48,12 +48,12 @@ export function generateSelectionPage(input) {
   </label>
   <button id="sort-dir" type="button" title="Toggle sort direction">&#8593; asc</button>
 </div>
-<p id="row-status"><span id="row-count">${items.length}</span> of ${items.length} rows shown</p>
+<p id="selection-status"><span id="selected-count">0</span> selected &nbsp;&middot;&nbsp; <span id="row-count">${items.length}</span> of <span id="total-count">${items.length}</span> rows shown</p>
 <div id="empty-state" hidden>No items match the current filters.</div>
 <table id="selection-table">
   <thead>
     <tr>
-      <th>Select</th>
+      <th><input type="checkbox" id="master-select" title="Select every visible row"></th>
       <th>State</th>
       <th>Author</th>
       <th>Date</th>
@@ -81,6 +81,53 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
   var dirEl = document.getElementById("sort-dir");
   var stateBoxes = Array.prototype.slice.call(document.querySelectorAll(".state-filter"));
   var asc = true;
+
+  var masterEl = document.getElementById("master-select");
+  var selectedCountEl = document.getElementById("selected-count");
+  var totalCountEl = document.getElementById("total-count");
+
+  // Selection counts: selected = ticked checkboxes; filtered = rows visible
+  // under the current filter; total = rows in the table. The master checkbox
+  // reflects only the filtered rows: it selects exactly them and nothing
+  // excluded by a filter, and it never silently changes rows outside it.
+  function visibleRowsNow() {
+    var out = [];
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].style.display !== "none") out.push(rows[i]);
+    }
+    return out;
+  }
+  function rowBox(r) { return r.querySelector(".row-select"); }
+  function updateSelection() {
+    var visible = visibleRowsNow();
+    var total = rows.length;
+    var selected = 0;
+    var visSel = 0;
+    for (var i = 0; i < rows.length; i++) {
+      if (rowBox(rows[i]).checked) selected++;
+    }
+    for (var i = 0; i < visible.length; i++) {
+      if (rowBox(visible[i]).checked) visSel++;
+    }
+    selectedCountEl.textContent = String(selected);
+    totalCountEl.textContent = String(total);
+    if (!visible.length) {
+      masterEl.checked = false;
+      masterEl.indeterminate = false;
+      return;
+    }
+    masterEl.checked = visSel === visible.length;
+    masterEl.indeterminate = visSel > 0 && visSel < visible.length;
+  }
+  masterEl.addEventListener("change", function () {
+    var visible = visibleRowsNow();
+    var wanted = masterEl.checked;
+    for (var i = 0; i < visible.length; i++) rowBox(visible[i]).checked = wanted;
+    updateSelection();
+  });
+  for (var i = 0; i < rows.length; i++) {
+    rowBox(rows[i]).addEventListener("change", updateSelection);
+  }
 
   // Parse a date-ish cell into [year, month, day] so "Sep 16" and
   // "September 12, 2025" compare deterministically. Year-less dates keep
@@ -145,6 +192,7 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
     for (var i = 0; i < visible.length; i++) tbody.appendChild(visible[i]);
     rowCountEl.textContent = String(visible.length);
     emptyEl.hidden = visible.length !== 0;
+    updateSelection();
     return visible.length;
   }
 
