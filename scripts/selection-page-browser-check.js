@@ -14,6 +14,7 @@
 // named failure otherwise.
 
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import fs from "node:fs";
 import os from "node:os";
 import { launchBrowser } from "../src/browser.js";
@@ -61,7 +62,7 @@ async function assertPage() {
   const browser = await launchBrowser({ profileDir, headless: true });
   try {
     const page = await browser.newPage();
-    await page.goto(`file://${tmpPath}`);
+    await page.goto(pathToFileURL(tmpPath).href);
     await page.waitForSelector("table#selection-table", { state: "attached" });
 
     // Single download listener used by both export assertions: set a flag so we

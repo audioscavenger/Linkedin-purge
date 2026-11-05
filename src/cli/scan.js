@@ -116,7 +116,9 @@ export async function runScan(args) {
     }));
 
     // Open the page in the OS default browser; best effort only.
-    await openPage(`file://${selectionPagePath}`);
+    // Pass the plain path: the platform openers (open / xdg-open / start) take
+    // a file path, not a URL, and path.resolve mangles a file:// URL on Windows.
+    await openPage(selectionPagePath);
   }
   await context.close();
 }

@@ -8,6 +8,11 @@
 
 ## Released
 
+* [x] v0.5.3 - Fix selection page opening on Windows; honest login wording
+    * Fixed the selection page failing to open on Windows: scan and purge passed a `file://` URL to the OS opener, whose `path.resolve` joined it onto the working directory as if `file:` were a drive letter, producing a mangled path like `E:\Gitea\Linkedin-purge\file:E:\Gitea\Linkedin-purge\data\selection-comments.html`.
+    * `login` no longer claims to "save the profile": the help line now says it uses the profile directory in place, and the closing message warns to make sure the browser does not purge cookies on close.
+    * Fixed the selection page browser check harness on Windows: it built the page URL as `file://` plus a Windows path, which is not a valid file URL; it now uses `pathToFileURL` so `page.goto` gets a correct URL on every platform.
+
 * [x] v0.5.2 - Scan and purge are headless by default; `--headed` replaces `--headless`
     * `--headed` is the only override: scan and purge run headless by default, and `--headed` opens a visible browser for debugging; login stays headed with no flag.
     * Config key `behavior.headless` is replaced by `behavior.headed` (default false); a legacy `behavior.headless` key is ignored with a one-line deprecation warning naming `behavior.headed`, and config.json is never rewritten.

@@ -53,8 +53,8 @@ Usage:
   npx linkedin-purge <command> [--flags]
 
 Commands:
-  login                    Open a headed browser to log in; saves the profile.
-  login-import-profile    Import a logged-in Chromium profile into .profile-chromium/.
+  login                    Open a headed browser to log in; uses the profile directory in place.
+  login-import-profile     Import a logged-in Chromium profile into .profile-chromium/.
   scan                     Collect item counts for --type (dry-run, no deletion).
   purge                    Scan, confirm, then delete with pacing.
   status                   Show per-type purge statuses from the scan envelope.

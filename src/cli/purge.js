@@ -156,7 +156,7 @@ export async function runPurge(args) {
         const selectionPagePath = path.join(dataDir, `selection-${target.type}.html`);
         fs.writeFileSync(selectionPagePath, selectionHtml);
         log(`Selection page written to: ${path.relative(process.cwd(), selectionPagePath)}`);
-        await openPage(`file://${selectionPagePath}`);
+        await openPage(selectionPagePath);
       } catch (err) {
         warn(`Failed to generate selection page: ${err.message}`);
       }

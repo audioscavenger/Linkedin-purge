@@ -22,5 +22,5 @@ export async function runLogin(args) {
     });
   });
   await context.close();
-  log("Profile saved to " + profileDir);
+  log("Browser closed. Make sure purge cookies on close is not enabled!");
 }
