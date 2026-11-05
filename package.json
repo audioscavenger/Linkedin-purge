@@ -18,6 +18,7 @@
     "verify:page": "node scripts/verify-page.js",
     "verify:selection-page": "node scripts/selection-page-browser-check.js",
     "check": "node scripts/check-all.js && node scripts/test-runner.js",
+    "check-changelog": "node scripts/check-changelog.js",
     "health": "node scripts/health.js",
     "lint": "echo 'No linter configured; running full check' && npm run check",
     "test": "node scripts/test-runner.js",
