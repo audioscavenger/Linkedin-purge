@@ -2,6 +2,7 @@
 // `purge --input` reads (ADR 0001). No browser, no page: the builder is a pure
 // function, so the shallow and deep-partial shapes are pinned here.
 import { buildScanEnvelope } from "../src/scan-envelope.js";
+import { PURGE_STATUSES } from "../src/purge/status.js";
 
 // A shallow scan keeps the historical envelope contract: one step, complete,
 // every item in step 0, and every pre-existing field meaning unchanged.
@@ -33,6 +34,7 @@ async function testShallowEnvelope() {
   if (envelope.complete !== true) throw new Error("A shallow scan is complete");
   for (const item of envelope.items) {
     if (item.step !== 0) throw new Error(`Shallow item ${item.key} expected step 0, got ${item.step}`);
+    if (item.status !== PURGE_STATUSES.NO_OP) throw new Error(`Shallow item ${item.key} expected status no-op, got ${item.status}`);
   }
   // Pre-existing item fields survive unchanged, and the caller's items are not
   // mutated by the builder.
@@ -40,6 +42,7 @@ async function testShallowEnvelope() {
     throw new Error("Item fields were not preserved");
   }
   if (items[0].step !== undefined) throw new Error("The builder mutated the caller's items");
+  if (items[0].status !== undefined) throw new Error("The builder mutated the caller's items (status)");
 
   console.log("PASS: shallow envelope shape (one step, complete, every item step 0)");
 }
@@ -64,12 +67,28 @@ async function testDeepPartialEnvelope() {
   if (envelope.keys.join(",") !== "reaction:0,reaction:37") throw new Error(`keys wrong: [${envelope.keys}]`);
   const steps = envelope.items.map((it) => it.step).join(",");
   if (steps !== "0,5") throw new Error(`Per-item steps lost: [${steps}]`);
+  for (const item of envelope.items) {
+    if (item.status !== PURGE_STATUSES.NO_OP) throw new Error(`Deep item ${item.key} expected status no-op, got ${item.status}`);
+  }
 
   console.log("PASS: deep partial envelope shape (many steps, incomplete, per-item steps kept)");
 }
 
-const tests = [testShallowEnvelope, testDeepPartialEnvelope];
+// An item that already carries a status keeps it; a missing status becomes no-op.
+async function testStatusPreserved() {
+  const items = [
+    { key: "reaction:1", status: "pending" },
+    { key: "reaction:2" },
+  ];
+  const envelope = buildScanEnvelope({ type: "likes", items });
+  if (envelope.items[0].status !== "pending") throw new Error(`existing status not kept: ${envelope.items[0].status}`);
+  if (envelope.items[1].status !== PURGE_STATUSES.NO_OP) throw new Error(`missing status not defaulted: ${envelope.items[1].status}`);
+  if (items[0].status !== "pending") throw new Error("builder mutated caller item status");
+  if (items[1].status !== undefined) throw new Error("builder mutated caller item (added status)");
+  console.log("PASS: item status preserved or defaulted to no-op");
+}
 
+const tests = [testShallowEnvelope, testDeepPartialEnvelope, testStatusPreserved];
 async function main() {
   let failed = 0;
   for (const fn of tests) {
