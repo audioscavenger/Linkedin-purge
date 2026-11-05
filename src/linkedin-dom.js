@@ -151,6 +151,28 @@ function extractAuthorAndDate(container) {
   return { author, dateTime };
 }
 
+function cleanText(str, maxLen) {
+  if (!str) return null;
+  const cleaned = str.replace(/\s+/g, " ").trim();
+  if (!cleaned) return null;
+  if (cleaned.length <= maxLen) return cleaned;
+  return cleaned.slice(0, maxLen - 3).trim() + "...";
+}
+
+function extractCommentText(card) {
+  // Comment body text inside the comment card
+  const commentBodyEl = card.querySelector(".update-components-text, .comment-item__text, span[dir='ltr']");
+  if (!commentBodyEl) return null;
+  return cleanText(commentBodyEl.textContent, 280);
+}
+
+function extractPostExcerpt(card) {
+  // Post body excerpt from the card
+  const postTextEl = card.querySelector(".feed-shared-update-v2__description, .update-components-text, span[dir='ltr']");
+  if (!postTextEl) return null;
+  return cleanText(postTextEl.textContent, 140);
+}
+
 // Find the nearest role="listitem" ancestor (the card) from a button.
 function findCard(btn) {
   let el = btn;
@@ -167,11 +189,13 @@ function findCard(btn) {
 // fallbacks when the card or its pieces are absent. The scan path and both
 // delete flows read through here, so every record for the same card comes
 // from one place.
-function readCardMeta(btn) {
-  const meta = { cardId: null, postHref: null, author: null, dateTime: null };
+function readCardMeta(btn, isComment = false) {
+  const meta = { cardId: null, text: null, postExcerpt: null, postHref: null, author: null, dateTime: null };
   const card = findCard(btn);
   if (card) {
     if (card.id) meta.cardId = card.id;
+    if (isComment) meta.text = extractCommentText(card);
+    meta.postExcerpt = extractPostExcerpt(card);
     const feedLink = card.querySelector("a[href*='/feed/update/']");
     if (feedLink) meta.postHref = feedLink.getAttribute("href");
     Object.assign(meta, extractAuthorAndDate(card));
@@ -190,8 +214,8 @@ function collectReactionItems(seenKeys) {
     if (state.toLowerCase() === "no reaction") return;
     const key = reactionKeyForIndex(idx);
     if (!key || seen.has(key)) return;
-    const meta = readCardMeta(btn);
-    items.push({ key, cardId: meta.cardId, state, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
+    const meta = readCardMeta(btn, false);
+    items.push({ key, cardId: meta.cardId, text: null, postExcerpt: meta.postExcerpt, state, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
   });
   return items;
 }
@@ -206,8 +230,8 @@ function collectCommentItems(seenKeys) {
     const key = commentKeyForButton(btn);
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    const meta = readCardMeta(btn);
-    items.push({ key, cardId: meta.cardId, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
+    const meta = readCardMeta(btn, true);
+    items.push({ key, cardId: meta.cardId, text: meta.text, postExcerpt: meta.postExcerpt, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
   }
   return items;
 }

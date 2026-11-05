@@ -5,13 +5,13 @@ import { checkActivityTab } from "../src/page-check.js";
 function itemsFor(tab) {
   if (tab === "comments") {
     return [
-      { key: "replaceableComment_1", cardId: "urn:li:activity:12345", author: "Ada", postHref: "/feed/update/1", dateTime: "Sep 16" },
-      { key: "replaceableComment_2", cardId: "urn:li:activity:67890", author: "Bo", postHref: null, dateTime: "Sep 17" },
+      { key: "replaceableComment_1", cardId: "urn:li:activity:12345", text: "comment 1", postExcerpt: "excerpt 1", author: "Ada", postHref: "/feed/update/1", dateTime: "Sep 16" },
+      { key: "replaceableComment_2", cardId: "urn:li:activity:67890", text: "comment 2", postExcerpt: "excerpt 2", author: "Bo", postHref: null, dateTime: "Sep 17" },
     ];
   }
   return [
-    { key: "reaction:0", cardId: "urn:li:activity:11111", state: "LIKE", author: "Ada", postHref: "/feed/update/1", dateTime: "Sep 16" },
-    { key: "reaction:1", cardId: "urn:li:activity:22222", state: "LOVE", author: "Bo", postHref: null, dateTime: "Sep 17" },
+    { key: "reaction:0", cardId: "urn:li:activity:11111", text: null, postExcerpt: "excerpt 1", state: "LIKE", author: "Ada", postHref: "/feed/update/1", dateTime: "Sep 16" },
+    { key: "reaction:1", cardId: "urn:li:activity:22222", text: null, postExcerpt: "excerpt 2", state: "LOVE", author: "Bo", postHref: null, dateTime: "Sep 17" },
   ];
 }
 

@@ -46,8 +46,8 @@ const OTHER_TAB = { reactions: "comments", comments: "reactions" };
 // state; comments have none (the delete flow, not the collector, stamps
 // COMMENTS_STATE into a report). Every item also carries its key.
 const METADATA_FIELDS = {
-  reactions: ["cardId", "state", "author", "postHref", "dateTime"],
-  comments: ["cardId", "author", "postHref", "dateTime"],
+  reactions: ["cardId", "text", "postExcerpt", "state", "author", "postHref", "dateTime"],
+  comments: ["cardId", "text", "postExcerpt", "author", "postHref", "dateTime"],
 };
 
 const TIMED_OUT = Symbol("page-call-timed-out");
