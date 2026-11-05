@@ -3,6 +3,7 @@
 ## Editing files
 
 - The 'edit' tool is completely deprecated and non-functional in this environment.
+- No em-dashes anywhere in this repo's prose (docs, `README.md`, `CHANGELOG.md`, ADRs, changesets, code comments). Where a sentence reaches for one, rewrite it instead with a comma, colon, period, parentheses, or a conjunction, whichever the sentence actually wants; never do a blind character substitution.
 
 ## Commands
 
