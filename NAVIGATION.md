@@ -22,7 +22,7 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 | `src/cli/selection.js` | `loadSelection()` - loads a `selection-<type>.json` export envelope and answers which items are actionable (anything not final and not a no-op), keyed by Card Identity |
 | `src/cli/purge.js` | `runPurge()` - full purge lifecycle (browser + `PurgeRunner`), one Purge Run per Activity target; with `--input` it acts on a selection envelope and writes each item's status into it |
 | `src/cli/status.js` | `runStatus()` - reports per-type counts by status from the scan envelope |
-| `src/cli/copy-chromium-profile.js` | `runCopyChromiumProfile()` - copies Chromium profile files |
+| `src/cli/login-import-profile.js` | `runLoginImportProfile()` - imports a logged-in Chromium profile into `.profile-chromium/`. |
 
 ## Activity Traversal
 

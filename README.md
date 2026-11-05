@@ -30,7 +30,7 @@ or copy it into the project (recommended, avoids lock issues) and run against
 the copy:
 
 ```sh
-npm run copy-chromium-profile
+npm run login-import-profile
 npm run scan
 npm run purge
 ```

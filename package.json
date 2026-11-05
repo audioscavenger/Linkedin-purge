@@ -10,7 +10,7 @@
   },
   "scripts": {
     "login": "node src/cli.js login",
-    "copy-chromium-profile": "node src/cli.js copy-chromium-profile",
+    "login-import-profile": "node src/cli.js login-import-profile",
     "scan": "node src/cli.js scan",
     "purge": "node src/cli.js purge",
     "status": "node src/cli.js status",

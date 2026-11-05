@@ -2,14 +2,14 @@
 import { err } from "../logger.js";
 
 import { runLogin } from "./login.js";
-import { runCopyChromiumProfile } from "./copy-chromium-profile.js";
+import { runLoginImportProfile } from "./login-import-profile.js";
 import { runScan } from "./scan.js";
 import { runPurge } from "./purge.js";
 import { runStatus } from "./status.js";
 
 const KNOWN_COMMANDS = new Set([
   "login",
-  "copy-chromium-profile",
+  "login-import-profile",
   "scan",
   "purge",
   "status",
@@ -27,7 +27,7 @@ export async function main() {
 
   try {
     if (command === "login") await runLogin(args);
-    else if (command === "copy-chromium-profile") await runCopyChromiumProfile(args);
+    else if (command === "login-import-profile") await runLoginImportProfile(args);
     else if (command === "scan") await runScan(args);
     else if (command === "purge") await runPurge(args);
     else if (command === "status") await runStatus(args);
@@ -54,7 +54,7 @@ Usage:
 
 Commands:
   login                    Open a headed browser to log in; saves the profile.
-  copy-chromium-profile    Copy the portable Chromium profile into .profile-chromium.
+  login-import-profile    Import a logged-in Chromium profile into .profile-chromium/.
   scan                     Collect item counts for --type (dry-run, no deletion).
   purge                    Scan, confirm, then delete with pacing.
   status                   Show per-type purge statuses from the scan envelope.

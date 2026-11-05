@@ -1,10 +1,10 @@
-// CLI copy-chromium-profile command
+// CLI login-import-profile command
 import fs from "node:fs";
 import path from "node:path";
 import { log, err } from "../logger.js";
 import { resolveFlag } from "./config.js";
 
-export async function runCopyChromiumProfile(args) {
+export async function runLoginImportProfile(args) {
   const src = getFlag(args, "source", "E:/wintools/PortableApps/chromium-win64/profile");
   const dest = path.resolve(resolveFlag(args, "profile-dir", "paths.profileDir", ".profile-chromium"));
   log(`Source profile: ${src}`);
