@@ -1,9 +1,8 @@
 // CLI purge command
 import path from "node:path";
 import { launchBrowser, injectDomHelpers } from "../browser.js";
-import { resetCheckpoint } from "../checkpoint.js";
 import { log, warn } from "../logger.js";
-import { PurgeRunner, PageAdapter, CheckpointAdapter, ReporterAdapter, ConfirmAdapter } from "../purge.js";
+import { PurgeRunner, PageAdapter, ReporterAdapter, ConfirmAdapter } from "../purge.js";
 import { EnvelopeStore } from "../envelope-store.js";
 import { loadSelection } from "./selection.js";
 import { activityTargets } from "../activity-targets.js";
@@ -11,13 +10,20 @@ import { isLoggedOut } from "../login-guard.js";
 import { resolveFlag, asBool, asInt, loadConfig } from "./config.js";
 
 export async function runPurge(args) {
+  // Loudly refuse the retired flag instead of silently ignoring it: statuses
+  // live in the scan envelope now (ticket 23). Nothing is purged, no browser
+  // is launched.
+  if (args.includes("--reset-checkpoint")) {
+    console.error("--reset-checkpoint was removed in 0.5.0: purge statuses now live in the scan envelope (data/scan-<type>.json). Pass nothing instead - the envelope is updated item by item as purge runs.");
+    process.exit(1);
+  }
+
   // CLI flag > config.json > built-in default.
   const profileDir = resolveFlag(args, "profile-dir", "paths.profileDir", ".profile-chromium");
   const dataDir = path.resolve(resolveFlag(args, "data-dir", "paths.dataDir", "data"));
   const typeArg = getFlag(args, "type", "all");
   const chromiumPath = resolveFlag(args, "chromium-path", "paths.chromiumPath", null);
   const limitArg = asInt(resolveFlag(args, "limit", "behavior.limit", 0), 0);
-  const resetCheckpointArg = asBool(resolveFlag(args, "reset-checkpoint", "behavior.resetCheckpoint", false), false);
   const headless = asBool(resolveFlag(args, "headless", "behavior.headless", false), false);
   // Optional: restrict deletion to a selection from --input. This is the
   // v0.5.0 review-first flow: scan writes data/selection-<type>.html from the
@@ -52,12 +58,6 @@ export async function runPurge(args) {
   // type fails without a visit. A selection file carries its own type.
   const targetType = selection && selection.type ? selection.type : typeArg;
   const targets = activityTargets(targetType);
-
-  // Reset checkpoint if requested
-  if (!inputFile && resetCheckpointArg) {
-    for (const target of targets) resetCheckpoint(dataDir, target.type);
-    log("Checkpoints reset.");
-  }
 
   const context = await launchBrowser({ profileDir, headless, chromiumPath });
   const page = await context.newPage();
@@ -112,11 +112,11 @@ export async function runPurge(args) {
         return;
       }
 
-      // The adapters are per type:
-      // - the legacy full-purge flow wires checkpoint + report (both are
-      //   retired by tickets 23/24);
-      // - a selection run wires neither: statuses land straight into the
-      //   selection envelope through the store, atomically, item by item.
+      // The adapters are per type: the legacy full-purge flow wires nothing
+      // checkpoint-shaped anymore (ticket 23); both flows wire a reporter.
+      // A selection run persists statuses straight into the selection
+      // envelope through the store. A selection run skips the reporter too:
+      // statuses are the durable record now.
       const runner = inputFile
         ? new PurgeRunner({
             pageAdapter: new PageAdapter(page),
@@ -125,7 +125,6 @@ export async function runPurge(args) {
           })
         : new PurgeRunner({
             pageAdapter: new PageAdapter(page),
-            checkpointAdapter: new CheckpointAdapter(dataDir, target.type),
             reporterAdapter: new ReporterAdapter({ dataDir }),
             confirmAdapter: new ConfirmAdapter(),
           });

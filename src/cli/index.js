@@ -71,8 +71,7 @@ Parameters:
   --action-max <ms>               Max per-action delay                 (default: 5000)
   --batch-min <ms>                Min batch pause                      (default: 30000)
   --batch-max <ms>                Max batch pause                      (default: 60000)
-  --reset-checkpoint              Clear checkpoint before running      (purge only)
-  --input <file>                  Only purge keys found in this JSON file (purge only)
+  --input <file>                  Purge only the selection in this JSON file (purge only)
   --headless                      Run the browser headless
   --links                         Capture a link for every item (opens each card's menu; about one second per item; default: false)
   -h, --help                      Show this help (works with any command)
