@@ -1,6 +1,6 @@
 // CLI status command
 import path from "node:path";
-import { loadCheckpoint } from "../checkpoint.js";
+import { EnvelopeStore } from "../envelope-store.js";
 import { log } from "../logger.js";
 import { resolveFlag } from "./config.js";
 
@@ -14,10 +14,29 @@ export async function runStatus(args) {
     throw new Error(`Unknown type: ${type}`);
   }
 
+  const results = [];
   for (const t of typesToRun(typeArg)) {
-    const cp = loadCheckpoint(dataDir, t);
-    log(`${t}: ${cp.processed.size} processed`);
+    const store = new EnvelopeStore(dataDir, t);
+    await store.load();
+    if (!store.envelope || !Array.isArray(store.envelope.items)) {
+      log(`${t}: no scan yet`);
+      results.push({ type: t, hasEnvelope: false, counts: null });
+      continue;
+    }
+    const counts = await store.counts();
+    log(
+      `${t}: ${counts.purged} purged, ${counts.failed} failed, ` +
+        `${counts["not-found"]} not found, ${counts.pending} pending, ` +
+        `${counts["no-op"]} no-op`
+    );
+    log(
+      `${t}: purged=${counts.purged} failed=${counts.failed} ` +
+        `not-found=${counts["not-found"]} pending=${counts.pending} ` +
+        `no-op=${counts["no-op"]}`
+    );
+    results.push({ type: t, hasEnvelope: true, counts });
   }
+  return results;
 }
 
 function getFlag(args, name, defaultVal) {
