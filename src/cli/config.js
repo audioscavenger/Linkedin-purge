@@ -25,7 +25,7 @@ const DEFAULT_CONFIG = {
     timeout: 3600000,
   },
   behavior: {
-    headless: false,
+    headed: false,
     limit: 0,
     resetCheckpoint: false,
     deepScan: false,
@@ -83,6 +83,21 @@ export function asBool(v, fallback = false) {
 export function asInt(v, fallback = 0) {
   const n = typeof v === "string" ? parseInt(v, 10) : v;
   return Number.isFinite(n) ? n : fallback;
+}
+
+/**
+ * Resolve the headless value for a command.
+ * Precedence: CLI --headed > config behavior.headed > built-in default (headless).
+ * A legacy behavior.headless key in config.json triggers a one-line deprecation
+ * warning naming the replacement key; the config file is never rewritten.
+ */
+export function resolveHeadless(args) {
+  const config = loadConfig();
+  if (config.behavior && config.behavior.headless !== undefined) {
+    console.error("config.json: 'behavior.headless' is deprecated and ignored; use 'behavior.headed' instead.");
+  }
+  const headed = asBool(resolveFlag(args, "headed", "behavior.headed", false), false);
+  return !headed; // true = headless, false = headed
 }
 
 function isPlainObject(v) {

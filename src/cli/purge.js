@@ -8,7 +8,7 @@ import { EnvelopeStore } from "../envelope-store.js";
 import { loadSelection } from "./selection.js";
 import { activityTargets } from "../activity-targets.js";
 import { isLoggedOut } from "../login-guard.js";
-import { resolveFlag, asBool, asInt, loadConfig } from "./config.js";
+import { resolveFlag, asBool, asInt, loadConfig, resolveHeadless } from "./config.js";
 import { buildScanEnvelope } from "../scan-envelope.js";
 import { openPage } from "../browser-opener.js";
 import { generateSelectionPage } from "../selection-page.js";
@@ -28,7 +28,7 @@ export async function runPurge(args) {
   const typeArg = getFlag(args, "type", "all");
   const chromiumPath = resolveFlag(args, "chromium-path", "paths.chromiumPath", null);
   const limitArg = asInt(resolveFlag(args, "limit", "behavior.limit", 0), 0);
-  const headless = asBool(resolveFlag(args, "headless", "behavior.headless", false), false);
+  const headless = resolveHeadless(args);
   // Optional: restrict deletion to a selection from --input. This is the
   // v0.5.0 review-first flow: scan writes data/selection-<type>.html from the
   // scan envelope, the person ticks the items worth deleting, Export writes
