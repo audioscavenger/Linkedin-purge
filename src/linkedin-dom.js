@@ -206,24 +206,103 @@ function readCardMeta(btn, isComment = false) {
 // Collect rich metadata for each reaction item (state, author, postHref, dateTime).
 // Keys already seen are skipped before metadata extraction, so a deep walk reads
 // each card once instead of re-reading the whole list on every load step.
-function collectReactionItems(seenKeys) {
+// Link capture constants: menu polling budget, capture budget, poll cadence and
+// the single retry allowed when a menu or capture misses.
+const LINK_MENU_TIMEOUT_MS = 2000;
+const LINK_CAPTURE_TIMEOUT_MS = 2000;
+const LINK_POLL_INTERVAL_MS = 100;
+const LINK_RETRY_COUNT = 1;
+
+// Capture one link from a card by opening its control menu, choosing the right
+// "Copy link to ..." item, and hooking the page's own clipboard write. Returns
+// the captured URL or null when the menu or the capture never arrives; a
+// missing link never throws, so an unsupported card just yields null.
+async function captureCardLink(card, isComment) {
+  if (!card) return null;
+  const menuBtn = card.querySelector("button[aria-label*='Open control menu']");
+  if (!menuBtn) return null;
+  const wanted = isComment ? "copy link to comment" : "copy link to post";
+
+  for (let attempt = 0; attempt <= LINK_RETRY_COUNT; attempt++) {
+    let captured = null;
+    const clipboard = navigator.clipboard;
+    const originalWriteText = clipboard ? clipboard.writeText : null;
+    if (clipboard) {
+      clipboard.writeText = (text) => {
+        captured = text;
+        return Promise.resolve();
+      };
+    }
+    const copyListener = (e) => {
+      try {
+        const text = e.clipboardData ? e.clipboardData.getData("text/plain") : null;
+        if (text) captured = text;
+      } catch (err) {
+        // ignore
+      }
+    };
+    document.addEventListener("copy", copyListener);
+
+    try {
+      menuBtn.click();
+      let option = null;
+      const menuDeadline = Date.now() + LINK_MENU_TIMEOUT_MS;
+      while (Date.now() < menuDeadline && !option) {
+        const candidates = [...document.querySelectorAll("button, [role='menuitem'], [role='option'], a")];
+        option = candidates.find((el) => {
+          if (el.offsetParent === null && el !== document.body) return false;
+          const label = (el.innerText || el.textContent || "").trim().toLowerCase();
+          return label === wanted;
+        });
+        if (!option) await sleep(LINK_POLL_INTERVAL_MS);
+      }
+      if (option) {
+        option.click();
+        const captureDeadline = Date.now() + LINK_CAPTURE_TIMEOUT_MS;
+        while (Date.now() < captureDeadline && !captured) {
+          await sleep(LINK_POLL_INTERVAL_MS);
+        }
+      }
+    } catch (err) {
+      // ignore; retry below
+    } finally {
+      document.removeEventListener("copy", copyListener);
+      if (clipboard && originalWriteText) clipboard.writeText = originalWriteText;
+    }
+
+    try { document.body.click(); } catch (err) { /* ignore */ }
+    await sleep(100);
+
+    if (captured) return captured;
+  }
+  return null;
+}
+
+async function collectReactionItems(seenKeys, links) {
   const seen = new Set(seenKeys || []);
   const items = [];
-  reactionButtons().forEach((btn, idx) => {
+  const buttons = reactionButtons();
+  for (let idx = 0; idx < buttons.length; idx++) {
+    const btn = buttons[idx];
     const state = reactionState(btn);
-    if (state.toLowerCase() === "no reaction") return;
+    if (state.toLowerCase() === "no reaction") continue;
     const key = reactionKeyForIndex(idx);
-    if (!key || seen.has(key)) return;
+    if (!key || seen.has(key)) continue;
     const meta = readCardMeta(btn, false);
-    items.push({ key, cardId: meta.cardId, text: null, postExcerpt: meta.postExcerpt, state, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
-  });
+    let itemHref = null;
+    if (links) {
+      const card = findCard(btn);
+      itemHref = await captureCardLink(card, false);
+    }
+    items.push({ key, cardId: meta.cardId, text: null, postExcerpt: meta.postExcerpt, state, author: meta.author, postHref: meta.postHref, itemHref, dateTime: meta.dateTime });
+  }
   return items;
 }
 
 // Collect rich metadata for each comment item (author, postHref, dateTime).
 // Same incremental contract as reactions: keys already seen are skipped before
 // metadata extraction.
-function collectCommentItems(seenKeys) {
+async function collectCommentItems(seenKeys, links) {
   const items = [];
   const seen = new Set(seenKeys || []);
   for (const btn of commentMenuButtons()) {
@@ -231,7 +310,12 @@ function collectCommentItems(seenKeys) {
     if (!key || seen.has(key)) continue;
     seen.add(key);
     const meta = readCardMeta(btn, true);
-    items.push({ key, cardId: meta.cardId, text: meta.text, postExcerpt: meta.postExcerpt, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime });
+    let itemHref = null;
+    if (links) {
+      const card = findCard(btn);
+      itemHref = await captureCardLink(card, true);
+    }
+    items.push({ key, cardId: meta.cardId, text: meta.text, postExcerpt: meta.postExcerpt, author: meta.author, postHref: meta.postHref, itemHref, dateTime: meta.dateTime });
   }
   return items;
 }
@@ -244,9 +328,9 @@ function collectKeys() {
   return [];
 }
 
-function collectItems(seenKeys) {
-  if (isCommentsPage()) return collectCommentItems(seenKeys);
-  if (isReactionsPage()) return collectReactionItems(seenKeys);
+async function collectItems(seenKeys, links) {
+  if (isCommentsPage()) return collectCommentItems(seenKeys, links);
+  if (isReactionsPage()) return collectReactionItems(seenKeys, links);
   return [];
 }
 

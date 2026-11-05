@@ -46,8 +46,8 @@ const OTHER_TAB = { reactions: "comments", comments: "reactions" };
 // state; comments have none (the delete flow, not the collector, stamps
 // COMMENTS_STATE into a report). Every item also carries its key.
 const METADATA_FIELDS = {
-  reactions: ["cardId", "text", "postExcerpt", "state", "author", "postHref", "dateTime"],
-  comments: ["cardId", "text", "postExcerpt", "author", "postHref", "dateTime"],
+  reactions: ["cardId", "text", "postExcerpt", "state", "author", "postHref", "itemHref", "dateTime"],
+  comments: ["cardId", "text", "postExcerpt", "author", "postHref", "itemHref", "dateTime"],
 };
 
 const TIMED_OUT = Symbol("page-call-timed-out");
@@ -126,7 +126,11 @@ export async function checkActivityTab({
   callTimeoutMs = DEFAULT_CALL_TIMEOUT_MS,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
   growthWaitMs = DEFAULT_GROWTH_WAIT_MS,
+  links = false,
+  captureLinks = null,
+  withLinks = null,
 }) {
+  const linksEnabled = links === true || captureLinks === true || withLinks === true;
   const detector = DETECTOR_BY_TAB[tab];
   if (!detector) throw new Error(`Unknown activity tab: ${tab}`);
   const otherDetector = DETECTOR_BY_TAB[OTHER_TAB[tab]];
@@ -225,7 +229,8 @@ export async function checkActivityTab({
   );
 
   // --- Item metadata: the shape the scan envelope writes and purge --input reads.
-  const read = await call("item metadata", "collectItems", () => page.collectItems([]));
+  const collectCall = (seenKeys) => (linksEnabled ? page.collectItems(seenKeys, true) : page.collectItems(seenKeys));
+  const read = await call("item metadata", "collectItems", () => collectCall([]));
   if (!read.ok) return finish();
   const items = Array.isArray(read.value) ? read.value : [];
   facts.items = items.length;
@@ -277,7 +282,7 @@ export async function checkActivityTab({
   // depends on to stay linear.
   const handed = items.slice(0, -1).map((item) => (item ? item.key : null)).filter((key) => key != null);
   const lastKey = items.length ? items[items.length - 1].key : null;
-  const fresh = await call("seen keys", "collectItems", () => page.collectItems(handed));
+  const fresh = await call("seen keys", "collectItems", () => collectCall(handed));
   if (!fresh.ok) return finish();
   const freshKeys = (Array.isArray(fresh.value) ? fresh.value : [])
     .map((item) => (item ? item.key : null))
@@ -308,12 +313,19 @@ export async function checkActivityTab({
 // Adapt a Playwright page to the check's seam. One object, one evaluate per
 // in-page helper, so the browser edge stays thin and this module never imports
 // Playwright. The bound and the failure naming live in checkActivityTab().
-export function createCheckPage(page) {
+export function createCheckPage(page, options = {}) {
+  const links = typeof options === "boolean" ? options : !!(options && (options.links || options.captureLinks || options.withLinks));
   return {
     isReactionsPage: () => page.evaluate(() => window.LP.isReactionsPage()),
     isCommentsPage: () => page.evaluate(() => window.LP.isCommentsPage()),
     readGrowthSignal: () => page.evaluate(() => window.LP.readGrowthSignal()),
     scrollActivityListToBottom: () => page.evaluate(() => window.LP.scrollActivityListToBottom()),
-    collectItems: (seenKeys) => page.evaluate((keys) => window.LP.collectItems(keys), seenKeys),
+    collectItems: (seenKeys, linksFlag) => {
+      const useLinks = links || linksFlag === true;
+      if (useLinks) {
+        return page.evaluate((keys) => window.LP.collectItems(keys, true), seenKeys);
+      }
+      return page.evaluate((keys) => window.LP.collectItems(keys), seenKeys);
+    },
   };
 }

@@ -12,6 +12,7 @@ function itemsFor(tab) {
         postExcerpt: "This is a post excerpt",
         author: "Ada",
         postHref: "/feed/update/1",
+        itemHref: "/item/1",
         dateTime: "Sep 16",
       },
     ];
@@ -25,6 +26,7 @@ function itemsFor(tab) {
       state: "LIKE",
       author: "Bo",
       postHref: "/feed/update/2",
+      itemHref: "/item/2",
       dateTime: "Sep 17",
     },
   ];
