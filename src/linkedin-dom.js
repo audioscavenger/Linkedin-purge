@@ -467,93 +467,75 @@ async function deleteCommentButton(btn) {
   return { ok: true, key };
 }
 
-// --- Delete first eligible ---
+// --- Delete one card (by Card Identity) ---
 
-async function deleteFirstEligible(eligibleKeys) {
-  // Plain membership test only: the runner owns the eligibility rule
-  // (checkpoint-processed excluded, input-set filter) and hands us its
-  // precomputed list. We simply take the first visible item whose key is in it.
-  // Contract: the runner always passes an array - no null-guards here.
-  const eligibleSet = new Set(eligibleKeys);
-  const isEligible = (k) => eligibleSet.has(k);
+// Act on exactly one card, named by its Card Identity (the id of the card's
+// own container element, which the collectors record as `cardId`). Nothing
+// here hunts for a positional key: the caller names the card, the card
+// names itself. Failures are named ("refused: ..." / "card not found"),
+// never retried inside the page. The result always carries the cardId.
+async function deleteOneCard(cardId) {
+  if (!cardId) {
+    return { ok: false, skip: false, cardId: null, error: "cardId is required" };
+  }
+  const card = document.getElementById(cardId);
+  if (!card) {
+    return { ok: false, skip: false, cardId, error: "card not found" };
+  }
 
   if (isCommentsPage()) {
-    const buttons = commentMenuButtons();
-    // find first button whose key is in the eligible list passed in
-    let targetBtn = null;
-    let targetKey = null;
-    for (const btn of buttons) {
-      const k = commentKeyForButton(btn);
-      if (k && isEligible(k)) {
-        targetBtn = btn;
-        targetKey = k;
-        break;
-      }
+    const btn = [...card.querySelectorAll("button")].find((b) =>
+      /View more options for .* comment/i.test(b.getAttribute("aria-label") || "")
+    );
+    if (!btn) {
+      return { ok: false, skip: false, cardId, error: "refused: comment menu button not found in card" };
     }
-    if (!targetBtn) {
-      return { ok: false, key: null, skip: false, error: "no eligible item" };
+    const meta = readCardMeta(btn, true);
+    const res = await deleteCommentButton(btn);
+    if (!res.ok) {
+      return {
+        ...res,
+        ok: false,
+        skip: false,
+        cardId,
+        key: res.key || null,
+        error: `refused: ${res.error || "comment still present"}`,
+        state: COMMENTS_STATE,
+        author: meta.author,
+        postHref: meta.postHref,
+        dateTime: meta.dateTime,
+      };
     }
-    // Record card metadata from the pristine card BEFORE the destructive
-    // menu -> delete -> confirm sequence: once the comment is gone, the card is
-    // gone too. readCardMeta reads through the canonical extractor (the same
-    // one the scan path uses), which takes the post author from the "Open
-    // control menu for post by" label first, skipping the commenter's own
-    // profile link, with ordered fallbacks, then the date text and the <time>
-    // element. ("author" is the post author, never the account being purged.)
-    const meta = readCardMeta(targetBtn);
-    const res = await deleteCommentButton(targetBtn);
-    // Same result shape as reaction deletions on every path (success and
-    // failure alike): ok, key, skip, state, author, postHref, dateTime.
-    return { ...res, key: res.key || targetKey, state: COMMENTS_STATE, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime };
+    return { ok: true, cardId, key: res.key || null, state: COMMENTS_STATE, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime };
   }
 
   if (isReactionsPage()) {
-    const buttons = reactionButtons().filter((b) => reactionState(b).toLowerCase() !== "no reaction");
-    let targetBtn = null;
-    let targetKey = null;
-    for (const btn of buttons) {
-      const k = reactionKeyForButton(btn);
-      if (k && isEligible(k)) {
-        targetBtn = btn;
-        targetKey = k;
-        break;
-      }
+    const btn = [...card.querySelectorAll("button")].find(isReactionButton);
+    if (!btn) {
+      return { ok: false, skip: false, cardId, error: "refused: no reaction button found in card" };
     }
-    if (!targetBtn) {
-      return { ok: false, key: null, skip: false, error: "no eligible item" };
-    }
-    // Record card metadata from the pristine card BEFORE the destructive
-    // toggle click: readCardMeta reads through the canonical extractor (the
-    // same one the scan path uses), which takes the post author from the
-    // "Open control menu for post by" label first, skipping the reactor's own
-    // profile link, with ordered fallbacks, then the date text and the <time>
-    // element. ("author" is the post author, never the account being purged.)
-    // The old post-click walk that took the first /in/ or /company/ link could
-    // record the purged account's own name; extraction now happens before the
-    // click and never after.
-    const meta = readCardMeta(targetBtn);
-    // Click to toggle to "no reaction"
-    targetBtn.click();
+    const meta = readCardMeta(btn, false);
+    const key = reactionKeyForButton(btn);
+    btn.click();
     await sleep(1500);
-    // Verify state changed to no reaction
-    const newState = reactionState(targetBtn);
+    const newState = reactionState(btn);
     if (newState.toLowerCase() !== "no reaction") {
-      // Failed to remove; return metadata about what we tried to delete
       return {
         ok: false,
-        key: targetKey,
         skip: false,
-        error: "reaction not removed (possible rate limit)",
+        cardId,
+        key,
+        error: "refused: reaction not removed (possible rate limit)",
         state: newState,
         author: meta.author,
         postHref: meta.postHref,
-        dateTime: meta.dateTime
+        dateTime: meta.dateTime,
       };
     }
-    return { ok: true, key: targetKey, state: newState, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime };
+    return { ok: true, cardId, key, state: newState, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime };
   }
 
-  return { ok: false, key: null, skip: false, error: "not on a supported page" };
+  return { ok: false, skip: false, cardId, error: "not on a supported page" };
 }
 
 // --- window.LP ---
@@ -564,5 +546,5 @@ window.LP = {
   collectItems,
   readGrowthSignal,
   scrollActivityListToBottom,
-  deleteFirstEligible,
+  deleteOneCard,
 };
