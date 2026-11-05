@@ -9,6 +9,8 @@ import { buildScanEnvelope } from "../scan-envelope.js";
 import { buildScanSummary } from "../scan-summary.js";
 import { activityTargets } from "../activity-targets.js";
 import { isLoggedOut } from "../login-guard.js";
+import { openPage } from "../browser-opener.js";
+import { generateSelectionPage } from "../selection-page.js";
 
 export async function runScan(args) {
   // CLI flag > config.json > built-in default.
@@ -90,13 +92,30 @@ export async function runScan(args) {
           `the file holds the ${result.items.length} items collected so far and is marked complete: false.`
       );
     }
+
+    // Generate the selection page from the scan envelope.
+    const envelope = buildScanEnvelope({
+      type: t,
+      items: result.items,
+      steps: result.steps,
+      complete: result.complete,
+    });
+    const selectionHtml = generateSelectionPage(envelope);
+    const selectionPagePath = path.join(dataDir, `selection-${t}.html`);
+    fs.writeFileSync(selectionPagePath, selectionHtml);
+    log(`Selection page written to: ${selectionPagePath}`);
+
+    // The summary prints the page's relative path.
     log(buildScanSummary({
       type: t,
       result,
       links,
       elapsedMs,
-      pagePath: path.relative(process.cwd(), out),
+      pagePath: path.relative(process.cwd(), selectionPagePath),
     }));
+
+    // Open the page in the OS default browser; best effort only.
+    await openPage(`file://${selectionPagePath}`);
   }
   await context.close();
 }
