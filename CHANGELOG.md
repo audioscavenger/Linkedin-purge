@@ -6,11 +6,33 @@
 
 ## Unreleased
 
-* [ ] 0.5.0 - Documentation pass: Gitea MCP issue-tracker conventions, triage label mapping, and v0.5.0 spec records.
-    * Updated issue tracker documentation in `docs/agents/issue-tracker.md` with Gitea MCP issue tracker conventions.
-    * Updated triage label reference in `docs/agents/triage-labels.md` with mapping of skill roles to tracker labels.
-    * Documented v0.5.0 release notes, spec records, and tracker conventions.
-    * Closed shipped deep-scan and purge-module-deepening specs with proper documentation.
+## Unreleased
+
+* [ ] 0.5.0 - Review-first purge: scan, review on a generated page, select, purge a selection, statuses on the page; Card Identity replaces drift-prone keys; `--links` captures item/post links; the scan envelope is the only state, retiring checkpoint and report.
+    * Test runner prefactor: one script runs every file under `tests/`, so adding a test file never edits `package.json` again (`npm run test`/`check`/`health` share it).
+    * Purge Status vocabulary: five named statuses (`no-op`, `pending`, `purged`, `failed`, `not-found`) with a finality check, so a typo cannot invent a sixth value.
+    * Card Identity from the card container: every item carries `cardId` read from the card's own container element id, stable across page loads; the live page check asserts it on both tabs.
+    * In-page comment text and post excerpt: comment items carry `text` (truncated to 280 with an ellipsis), reaction items carry `null`; every item carries `postExcerpt` (truncated to 140), null when the card has no post body.
+    * Scan envelope starts every item as `no-op`: a fresh scan states plainly that nothing is chosen or acted on; an item that already carries a status keeps it.
+    * `--links` plumbing: CLI flag (also `behavior.links` in config, CLI wins, default off) reaches the page seam as an option; the help screen states the measured cost of about one second per item.
+    * In-page link capture through the card menu: each item gets `itemHref` and `postHref` by opening the card's control menu and capturing the URL from the page's own clipboard write; menu polling with one retry.
+    * Scan prints a short summary per type: items found, first-render count, load steps, completeness, link-bearing count (when `--links`), and elapsed time.
+    * Selection page generator: a pure function turns an envelope into a self-contained HTML page with the data embedded, written to `data/selection-<type>.html`; table shows checkbox, state, author, date, text or excerpt, and status; the link column appears only when at least one item has a link.
+    * Browser check harness for the generated page: opens a generated page in Chromium and asserts the table renders from the embedded data (`npm run verify:selection-page`, not part of `check`/`health`).
+    * Page filters and sorting: narrow the table by reaction state (multiselect), author (case-insensitive contains) and date range; sort by date or author; empty result shows a clear empty state.
+    * Page selection: each row has a checkbox, a master checkbox selects exactly the rows matching the current filter, and the page always shows how many rows are selected, how many match the filter and how many exist in total.
+    * Page export: an Export button downloads `selection-<type>.json` holding only the ticked items at `status: pending`, with narrowed `count`/`keys`, `scannedAt` preserved and `selectedAt` added; exporting with nothing ticked is refused with a visible message.
+    * Scan generates the page, prints its path and opens it: after each type the scan writes `data/selection-<type>.html`, adds the relative path to its summary, and opens it in the OS default browser (best effort).
+    * Envelope store with per-item marks: one module owns the scan envelope file, marks one item's status by Card Identity with an atomic write on the spot, and answers counts by status.
+    * Status transition rules: `purged` is final; `pending`, `failed` and `not-found` are retried; `no-op` is never acted on.
+    * Purge walks, matches and stops early: reads a selection, walks the Activity List through the load-step operation, matches cards by Card Identity, acts on selected items that are not already `purged`, and stops the moment every selected item is final; writes `purged` on success, `failed` on refusal, through the store.
+    * Purge marks not-found and retries what is not final: an unmatched selection ends as `not-found` reported by identity; a second run acts again on `pending`, `failed` and `not-found`, and skips `purged` items.
+    * Purge command reads a selection and drives the runner: `purge --input <selection>` acts on the selection and prints counts by status at the end; a selection with nothing actionable exits without prompting; the command no longer wires a checkpoint or a report writer.
+    * `--reset-checkpoint` is refused loudly and removed from the help screen.
+    * Deleted the checkpoint and report code: the checkpoint store, its adapter, the report writer adapter and their exports are gone; no code path writes a checkpoint file or a date-stamped report; old `data/checkpoint-*.json` and `data/report-*.json` files are ignored.
+    * ADR 0003 records the client-side Selection Page (static file, embedded data, browser download, no picker, no server); ADR 0004 records the scan envelope as the only state, retiring checkpoint and report.
+    * README and navigation document the new flow (scan, review, select, export, purge, statuses on the page) and list the new modules, no longer listing the retired ones.
+    * GLOSSARY keeps Selection and Purge Status, retires Checkpoint and Report Entry, and makes the Key versus Card Identity distinction plain.
 
 ## Released
 

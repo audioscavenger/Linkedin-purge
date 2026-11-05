@@ -1,7 +1,9 @@
 # linkedin-purge
 
 Purge your own LinkedIn comments and reactions (likes) using a real browser
-(Playwright) with randomized pacing, checkpointing, and dry-run confirmation.
+(Playwright) with randomized pacing and review-first selection: scan once,
+review what the scan found on one page, pick the items to delete, export them,
+and purge exactly that selection.
 
 ## Setup (bundled Chromium)
 
@@ -60,16 +62,40 @@ npm run scan -- --type likes
 # Count the whole activity list, not just the first page
 npm run scan -- --type likes --deep
 npm run scan -- --type all --deep
+```
 
-# Delete comments + reactions, with dry-run confirmation
-npm run purge
+Every scan writes `data/scan-<type>.json` (the scan envelope) and then writes and
+opens `data/selection-<type>.html` in your default browser: one page per item
+type, with one row per item (checkbox, reaction state, author, date, comment
+text or post excerpt, status, and - when `--links` was used - a link column).
+Review it, tick the items to delete, and click **Export** to download
+`data/selection-<type>.json`, which holds only the ticked items at
+`status: pending`. Then purge exactly that selection:
 
-# Only reactions, reset prior checkpoint
-npm run purge -- --type likes --reset-checkpoint
+```sh
+# Purge only the ticked items from the exported selection
+npm run purge -- --input data/selection-likes.json
+```
 
-# Progress
+`purge --input` walks the Activity List, matches cards by their Card Identity,
+acts on every selected item that is not already purged, and stops as soon as
+every selected item is final (purged, failed, or not-found). It writes each
+item's status into the scan envelope as it goes, then regenerates the page and
+opens it, so you can see on the same page what was purged, what failed, and
+what you left alone.
+
+```sh
+# Full purge (legacy): act on every item on the page
+npm run purge -- --type likes
+```
+
+## Progress
+
 npm run status
 ```
+
+reports per-type status counts (purged, failed, not-found, pending, no-op)
+from the scan envelope, and says "no scan yet" when a type has no envelope.
 
 ## What a scan covers
 
@@ -111,8 +137,9 @@ The following command-line parameters are accepted:
 
 - `--type` - Type of items to process: `comments`, `likes`, or `all` (default)
 - `--deep` - Walk the whole Activity List instead of collecting the first render (default: false; scan only; also `behavior.deepScan` in `config.json`)
+- `--links` - Capture a link for every item (opens each card's menu; about one second per item; default: false). The link column on the Selection Page appears only when at least one item has a link, with empty cells for items without one.
 - `--profile-dir` - Chromium profile directory path  
-- `--data-dir` - Data directory for reports/checkpoints (default: data)
+- `--data-dir` - Data directory for scan envelopes and selection pages (default: data)
 - `--chromium-path` - Path to Chromium binary
 - `--cdp` - Attach to running Chromium via CDP endpoint (e.g. http://localhost:9222)
 - `--limit` - Stop after deleting n items (0 = unlimited)
@@ -121,8 +148,9 @@ The following command-line parameters are accepted:
 - `--action-max` - Maximum per-action delay in ms (default 5000) 
 - `--batch-min` - Minimum per-10 batch pause in ms (default 30000)
 - `--batch-max` - Maximum per-10 batch pause in ms (default 60000)
-- `--reset-checkpoint` - Delete checkpoint before run (purge only)
 - `--help` / `-h` - Show the full usage screen with parameters and examples (works with any command)
+
+`--reset-checkpoint` was removed in v0.5.0: purge statuses now live in the scan envelope, written one item at a time as purge runs, so there is no checkpoint to reset. Passing it exits non-zero without starting a browser.
 
 ## Configuration
 
@@ -152,7 +180,6 @@ CLI flags always take precedence.
   "behavior": {
     "headless": false,
     "limit": 0,
-    "resetCheckpoint": false,
     "deepScan": false
   }
 }
@@ -190,37 +217,19 @@ built-in default of 3600000 (one hour) applies for both scan and purge, exactly
 as it does when the key is left out. To run longer but still bounded, raise the
 number. A plain scan reads one page and never consults the timeout at all.
 
-## Reports
+## Statuses on the page
 
-Every purge run writes a JSON report under `data/report-<type>-<timestamp>.json`.
-Each entry includes metadata so you can filter later:
+Every item in the scan envelope carries a Purge Status: `no-op` (not chosen),
+`pending` (chosen, not yet acted on), `purged` (deleted), `failed` (refused),
+or `not-found` (card never appeared). A fresh scan starts every item at
+`no-op`, so a new scan resets statuses - nothing carries over from a previous
+run.
 
-```jsonc
-{ "type": "likes", "deleted": 1, "items": [
-  { "key": "reaction:0",
-    "ts": "2026-10-25T21:03:05.874Z",
-    "state": "Like",            // reaction type (Like, Funny, Celebrate, Love)
-    "author": "Eric Derewonko", // target user or company name
-    "postHref": "https://www.linkedin.com/feed/update/urn:li:activity:7507971921796456448/",
-    "dateTime": "2026-04-20T15:09:00Z"
-  }
-] }
-```
+`npm run status` reports per-type counts by status from the scan envelope, and
+says "no scan yet" when a type has no envelope yet.
 
-Every scan writes `data/scan-<type>.json` in the scan envelope that
-`purge --input` reads, with the walk's facts added:
-
-```jsonc
-{ "type": "likes", "count": 2,
-  "keys": ["reaction:0", "reaction:2"],
-  "items": [
-    { "key": "reaction:0", "state": "Like", "author": "...", "postHref": "...", "dateTime": "...", "step": 0 },
-    { "key": "reaction:2", "state": "Love", "author": "...", "postHref": "...", "dateTime": "...", "step": 4 }
-  ],
-  "scannedAt": "2026-10-27T09:12:44.001Z",
-  "steps": 15,
-  "complete": true }
-```
+Old `data/checkpoint-*.json` and `data/report-*.json` files from v0.4.0 and
+earlier are left untouched and unread: they are not part of v0.5.0.
 
 ## Pacing
 
@@ -232,8 +241,8 @@ preferred values.
 ## Safety
 
 - Dry-run scan + explicit `YES` confirmation before any deletion.
-- Checkpoint saved every 10 deletions; Ctrl+C stops after the current item.
-- JSON report written per run under `data/`.
+- `purge --input` stops as soon as every selected item is final; Ctrl+C stops after the current item.
+- Nothing is written to disk by the Selection Page itself; it only reads and exports.
 
 ## Disclaimer
 
