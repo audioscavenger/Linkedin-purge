@@ -32,33 +32,6 @@ export class PageAdapter {
   async wait(ms) { throw new Error("Not implemented"); }
 }
 
-// Adapter: persists checkpoint of processed keys
-export class CheckpointAdapter {
-  constructor(dataDir, type) {
-    // Implementation in concrete adapter
-  }
-
-  async load() { throw new Error("Not implemented"); }
-  async has(key) { throw new Error("Not implemented"); }
-  async add(key) { throw new Error("Not implemented"); }
-  async size() { throw new Error("Not implemented"); }
-  async save() { throw new Error("Not implemented"); }
-  async reset() { throw new Error("Not implemented"); }
-}
-
-// Adapter: writes the purge report JSON and owns the Report Entry: stamps
-// the action timestamp itself, pins the canonical field set (key, ts, state,
-// author, postHref, dateTime), and normalizes absent fields to null.
-export class ReporterAdapter {
-  constructor({ dataDir = "data" } = {}) {
-    // Implementation in concrete adapter
-  }
-
-  async open(type) { throw new Error("Not implemented"); }
-  async write(item) { throw new Error("Not implemented"); }
-  async close() { throw new Error("Not implemented"); }
-}
-
 // Adapter: prompts user for confirmation before destructive action
 export class ConfirmAdapter {
   async confirm(message) { throw new Error("Not implemented"); }

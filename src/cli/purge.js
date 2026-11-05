@@ -2,7 +2,7 @@
 import path from "node:path";
 import { launchBrowser, injectDomHelpers } from "../browser.js";
 import { log, warn } from "../logger.js";
-import { PurgeRunner, PageAdapter, ReporterAdapter, ConfirmAdapter } from "../purge.js";
+import { PurgeRunner, PageAdapter, ConfirmAdapter } from "../purge.js";
 import { EnvelopeStore } from "../envelope-store.js";
 import { loadSelection } from "./selection.js";
 import { activityTargets } from "../activity-targets.js";
@@ -112,22 +112,15 @@ export async function runPurge(args) {
         return;
       }
 
-      // The adapters are per type: the legacy full-purge flow wires nothing
-      // checkpoint-shaped anymore (ticket 23); both flows wire a reporter.
-      // A selection run persists statuses straight into the selection
-      // envelope through the store. A selection run skips the reporter too:
-      // statuses are the durable record now.
-      const runner = inputFile
-        ? new PurgeRunner({
-            pageAdapter: new PageAdapter(page),
-            confirmAdapter: new ConfirmAdapter(),
-            envelopeStore: new EnvelopeStore(path.resolve(inputFile)),
-          })
-        : new PurgeRunner({
-            pageAdapter: new PageAdapter(page),
-            reporterAdapter: new ReporterAdapter({ dataDir }),
-            confirmAdapter: new ConfirmAdapter(),
-          });
+      // The adapters are per type: neither flow wires checkpoint or report
+      // anymore (both retired in tickets 23/24). A selection run persists
+      // statuses straight into the selection envelope through the store; a
+      // full purge run wires nothing writable.
+      const runner = new PurgeRunner({
+        pageAdapter: new PageAdapter(page),
+        confirmAdapter: new ConfirmAdapter(),
+        envelopeStore: inputFile ? new EnvelopeStore(path.resolve(inputFile)) : null,
+      });
 
       // The runner asks its own confirmation prompt once per type.
       results.push(await runner.run({ type: target.type, ...runOptions }));
@@ -148,8 +141,7 @@ export async function runPurge(args) {
 function reportSummary(results) {
   for (const result of results) {
     if (result.deleted > 0) {
-      log(`${result.type}: ${result.deleted} items deleted, ${result.processed} processed`);
-      if (result.reportPath) log(`Report written: ${result.reportPath}`);
+      log(`${result.type}: ${result.deleted} items deleted`);
     } else if (result.deleted === 0) {
       log(`${result.type}: purge cancelled or nothing to delete.`);
     }
