@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { launchBrowser, injectDomHelpers } from "../browser.js";
 import { log, warn } from "../logger.js";
-import { resolveFlag, asBool, loadConfig } from "./config.js";
+import { resolveFlag, asBool, loadConfig, resolveHeadless } from "./config.js";
 import { ActivityLoader, createActivityPage } from "../activity-loader.js";
 import { buildScanEnvelope } from "../scan-envelope.js";
 import { buildScanSummary } from "../scan-summary.js";
@@ -33,9 +33,7 @@ export async function runScan(args) {
   // unknown type fails without a visit.
   const targets = activityTargets(typeArg);
 
-  // Scan is the exception per user spec: defaults to headless=true.
-  // Config's `behavior.headless` (false) is a global default for purge/login.
-  const headless = asBool(getFlag(args, "headless"), true);
+const headless = resolveHeadless(args);
   const context = await launchBrowser({ profileDir, headless, chromiumPath });
   const page = await context.newPage();
   const linkedinDomPath = path.resolve("./src/linkedin-dom.js");

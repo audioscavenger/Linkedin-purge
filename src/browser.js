@@ -29,7 +29,9 @@ export function findChromiumBinary() {
   return null;
 }
 
-export async function launchBrowser({ profileDir, headless = false, chromiumPath }) {
+// Default implementation: launch Chromium with the given options.
+// This is the real launch, used when no test stub is installed.
+async function defaultLaunchBrowser({ profileDir, headless = false, chromiumPath }) {
   fs.mkdirSync(profileDir, { recursive: true });
   const exe = chromiumPath || findChromiumBinary();
   const opts = {
@@ -53,6 +55,29 @@ export async function launchBrowser({ profileDir, headless = false, chromiumPath
     if (!isProfileLockFailure(error)) throw error;
     return launchAfterRecovery({ profileDir, opts, exe });
   }
+}
+
+// The public launchBrowser delegates to an injectable impl,
+// mirroring src/browser-opener.js. Keep the existing launchBrowser name
+// so scan/purge/login keep importing it.
+let launchBrowserImpl = defaultLaunchBrowser;
+
+/**
+ * Inject a custom launchBrowser implementation (used by unit tests).
+ */
+export function setLaunchBrowserImpl(fn) {
+  launchBrowserImpl = fn;
+}
+
+/**
+ * Reset the launchBrowser back to the default implementation.
+ */
+export function resetLaunchBrowserImpl() {
+  launchBrowserImpl = defaultLaunchBrowser;
+}
+
+export async function launchBrowser({ profileDir, headless = false, chromiumPath }) {
+  return launchBrowserImpl({ profileDir, headless, chromiumPath });
 }
 
 // The recovery path. Reads only through the pure helpers in
