@@ -6,6 +6,12 @@
 
 ## Unreleased
 
+* [ ] 0.5.0 - Documentation pass: Gitea MCP issue-tracker conventions, triage label mapping, and v0.5.0 spec records.
+    * Updated issue tracker documentation in `docs/agents/issue-tracker.md` with Gitea MCP issue tracker conventions.
+    * Updated triage label reference in `docs/agents/triage-labels.md` with mapping of skill roles to tracker labels.
+    * Documented v0.5.0 release notes, spec records, and tracker conventions.
+    * Closed shipped deep-scan and purge-module-deepening specs with proper documentation.
+
 ## Released
 
 * [x] 0.4.0 - Full activity walk restored as `scan --deep`, a purge that finds its own tab, and a live check that catches LinkedIn markup changes.
