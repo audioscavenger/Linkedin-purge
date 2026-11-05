@@ -1,9 +1,24 @@
 # AGENTS.md
 
-## Editing files
+## Editing & comments
 
-- The 'edit' tool is completely deprecated and non-functional in this environment.
+### File edits
+
+- Files under 100 lines: prefer `write` (full rewrite) over piecemeal edits.
+- No `sed`. Only `sd` (literal replace) is permitted, and only if necessary. Otherwise use `write`.
+- Thread-safe: when editing, verify the file after writing (read back or run tests) before proceeding.
+
+### Comments & documentation
+
+- Comments MUST BE ADDED while implementing, not retrofitted when the user notices they are missing.
+- JSDocs (`/** ... */`) required on all public functions/classes; always include `@param` / `@returns` when meaning needs more than one line.
+- No more than 2 consecutive `//` comment lines may carry meaning. When a third consecutive line is needed, replace them with a block comment `/* ... */` (or `/** ... */` for JSDoc).
+- Module-level explanation must describe interaction with other modules (dependency graph / architecture, not just what the file does alone).
+
+## House style
+
 - No em-dashes anywhere in this repo's prose (docs, `README.md`, `CHANGELOG.md`, ADRs, changesets, code comments). Where a sentence reaches for one, rewrite it instead with a comma, colon, period, parentheses, or a conjunction, whichever the sentence actually wants; never do a blind character substitution.
+- Machine-wide file, encoding, and line-ending rules live in the global `~/.config/opencode/AGENTS.md`, not here.
 
 ## Commands
 
