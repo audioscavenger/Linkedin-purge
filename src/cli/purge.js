@@ -22,6 +22,14 @@ export async function runPurge(args) {
     process.exit(1);
   }
 
+  // Loudly refuse the retired flag instead of silently ignoring it: purge is
+  // headless by default now, and --headed is the override. Nothing is
+  // purged, no browser is launched.
+  if (args.includes("--headless")) {
+    console.error("--headless was removed: scan and purge are headless by default. Use --headed to open a visible window instead.");
+    process.exit(1);
+  }
+
   // CLI flag > config.json > built-in default.
   const profileDir = resolveFlag(args, "profile-dir", "paths.profileDir", ".profile-chromium");
   const dataDir = path.resolve(resolveFlag(args, "data-dir", "paths.dataDir", "data"));
