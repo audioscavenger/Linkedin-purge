@@ -123,7 +123,9 @@ export async function runPurge(args) {
       const runner = new PurgeRunner({
         pageAdapter: new PageAdapter(page),
         confirmAdapter: new ConfirmAdapter(),
-        envelopeStore: inputFile ? new EnvelopeStore(path.resolve(inputFile)) : new EnvelopeStore(path.resolve(dataDir, `scan-${target.type}.json`)),
+        // Statuses live in the scan envelope for both selection mode and
+        // full-purge mode; the scan envelope is the only state (ticket 23/24).
+        envelopeStore: new EnvelopeStore(path.resolve(dataDir, `scan-${target.type}.json`)),
       });
 
       // The runner asks its own confirmation prompt once per type.

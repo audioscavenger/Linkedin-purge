@@ -1,15 +1,17 @@
 // Core PurgeRunner logic
 
-import { PURGE_STATUSES } from "./status.js";
+import {
+  PURGE_STATUSES,
+  isActionable,
+  isFinalStatus,
+  outcomeToStatus,
+} from "./status.js";
 import { warn } from "../logger.js";
 
 export class PurgeRunner {
   constructor({
     pageAdapter,
     confirmAdapter,
-    // Selection runs persist statuses straight into the selection envelope
-    // through the store (src/envelope-store.js), so an interrupted run keeps
-    // every status earned so far.
     envelopeStore,
   }) {
     this.pageAdapter = pageAdapter;
@@ -29,13 +31,8 @@ export class PurgeRunner {
     let summaryCounts = null;
 
     if (inputKeys) {
-      // Selection mode (tickets 19 & 20): act on the selected items that are
-      // not already final, and stop the moment every selected item is dealt
-      // with. The runner holds no writable state of its own; each result is
-      // stamped with the status vocabulary:
-      // success -> purged, refusal -> failed, no card left -> not-found.
-      // Failed and not-found are retried on the next run; purged and no-op
-      // are never acted on again.
+      // Selection mode (tickets 18/19/30): walk the Activity List via loadStep,
+      // match cards by Card Identity, stop when every selected item is final.
       const prior = this.envelopeStore ? await this.envelopeStore.load(type) : null;
       const priorStatus = new Map();
       if (prior && Array.isArray(prior.items)) {
@@ -46,47 +43,101 @@ export class PurgeRunner {
       }
       const counts = { purged: 0, failed: 0, notFound: 0, noOp: 0 };
       let deleted = 0;
-      // Only items that are not already final are actionable. Already-final
-      // items (`purged`, `no-op`) are counted as no-op but not acted on.
-      const actionable = [];
-      for (const k of options.inputKeys) {
-        const st = priorStatus.get(k);
-        if (st === PURGE_STATUSES.PURGED || st === PURGE_STATUSES.NO_OP) {
+
+      // Build the set of selected cardIds that are not yet final.
+      // Already-final items (`purged`, `no-op`) are counted as no-op but not acted on.
+      const remaining = new Set();
+      for (const key of options.inputKeys) {
+        const st = priorStatus.get(key);
+        if (isFinalStatus(st) || st === PURGE_STATUSES.NO_OP) {
           counts.noOp++;
         } else {
-          actionable.push(k);
+          remaining.add(key);
         }
       }
-      if (actionable.length === 0) {
+      if (remaining.size === 0) {
         return { type, deleted: 0, durationMs: Date.now() - startTime, counts };
       }
+
+      // Confirm once with the actionable count.
       const confirmed = await this.confirmAdapter.confirm(
-        `Delete ${actionable.length} ${type} items? Type YES to proceed: `
+        `Delete ${remaining.size} ${type} items? Type YES to proceed: `
       );
       if (!confirmed) {
         return { type, deleted: 0, durationMs: Date.now() - startTime, counts };
       }
-      for (const key of actionable) {
-        const result = await this.pageAdapter.oneCardAct(key);
 
-        if (result && result.ok) {
-          // Success: mark `purged` through the store.
-          deleted++;
-          counts.purged++;
-          if (this.envelopeStore) await this.envelopeStore.mark(key, PURGE_STATUSES.PURGED);
-        } else {
-          const err = (result && result.error) || "";
-          // A card that is not on the page is `not-found`, reported by
-          // identity; anything else (refused, rate limit) is `failed`. Both
-          // are retried on the next run, and neither is final.
-          const notFound = /not.?found/i.test(err);
-          if (notFound) counts.notFound++;
-          else counts.failed++;
-          if (this.envelopeStore) {
-            await this.envelopeStore.mark(key, notFound ? PURGE_STATUSES.NOT_FOUND : PURGE_STATUSES.FAILED);
+      // Walk the Activity List via loadStep (scroll-and-poll).
+      let emptySteps = 0;
+      const maxEmptySteps = options.maxEmptyScrolls || 8;
+
+      while (remaining.size > 0) {
+        if (timeoutMs > 0 && Date.now() - startTime > timeoutMs) break;
+
+        const cardIds = await this.pageAdapter.collectCardIds();
+
+        // For each card on the current page that is in remaining, act on it.
+        let actedThisStep = false;
+        for (const cardId of cardIds) {
+          if (!remaining.has(cardId)) continue;
+          if (actedThisStep && remaining.size === 0) break;
+
+          const result = await this.pageAdapter.oneCardAct(cardId);
+          const status = outcomeToStatus(result?.ok ?? false, result?.error);
+          remaining.delete(cardId);
+
+          if (status === PURGE_STATUSES.PURGED) {
+            deleted++;
+            counts.purged++;
+          } else if (status === PURGE_STATUSES.NOT_FOUND) {
+            counts.notFound++;
+          } else {
+            counts.failed++;
           }
+
+          if (this.envelopeStore) {
+            try {
+              await this.envelopeStore.mark(cardId, status);
+            } catch (err) {
+              warn(`Could not persist status for ${cardId}: ${err.message}`);
+            }
+          }
+
+          actedThisStep = true;
+
+          // Stop early if all selected items are dealt with.
+          if (remaining.size === 0) break;
         }
+
+        if (remaining.size === 0) break;
+
+        // If no new cards were acted on this step, check if we've exhausted the list.
+        if (!actedThisStep) {
+          emptySteps++;
+          if (emptySteps >= maxEmptySteps) {
+            // List exhausted: mark any remaining selected items as not-found.
+            for (const cardId of remaining) {
+              counts.notFound++;
+              if (this.envelopeStore) {
+                try {
+                  await this.envelopeStore.mark(cardId, PURGE_STATUSES.NOT_FOUND);
+                } catch (err) {
+                  warn(`Could not persist not-found for ${cardId}: ${err.message}`);
+                }
+              }
+            }
+            remaining.clear();
+            break;
+          }
+        } else {
+          emptySteps = 0;
+        }
+
+        // Load the next step (scroll and wait for new cards).
+        await this.pageAdapter.loadStep();
+        await this.pageAdapter.wait(1200);
       }
+
       summaryCounts = counts;
       return {
         type,
@@ -113,7 +164,7 @@ export class PurgeRunner {
       if (newCardIds.length === 0) {
         emptyScrolls++;
         if (emptyScrolls >= (options.maxEmptyScrolls || 8)) break;
-        await this.pageAdapter.waitForTimeout(1200);
+        await this.pageAdapter.wait(1200);
         continue;
       }
       emptyScrolls = 0;
@@ -131,7 +182,8 @@ export class PurgeRunner {
       for (const cardId of newCardIds) {
         processedLocally.add(cardId);
         const result = await this.pageAdapter.oneCardAct(cardId);
-        if (result && result.ok) {
+        const status = outcomeToStatus(result?.ok ?? false, result?.error);
+        if (status === PURGE_STATUSES.PURGED) {
           deleted++;
           // Best-effort: a missing scan envelope (e.g. purge without a prior
           // scan) must not crash the run.
@@ -139,14 +191,12 @@ export class PurgeRunner {
             try { await this.envelopeStore.mark(cardId, PURGE_STATUSES.PURGED); } catch (err) { warn(`Could not persist purged status for ${cardId}: ${err.message}`); }
           }
         } else if (this.envelopeStore) {
-          const err = (result && result.error) || "";
-          const notFound = /not.?found/i.test(err);
-          try { await this.envelopeStore.mark(cardId, notFound ? PURGE_STATUSES.NOT_FOUND : PURGE_STATUSES.FAILED); } catch (err2) { warn(`Could not persist status for ${cardId}: ${err2.message}`); }
+          try { await this.envelopeStore.mark(cardId, status); } catch (err2) { warn(`Could not persist status for ${cardId}: ${err2.message}`); }
         }
         roundCount++;
         if (roundCount % batchSize === 0) {
           const pause = Math.floor(Math.random() * (options.batchMax - options.batchMin + 1)) + options.batchMin;
-          await this.pageAdapter.waitForTimeout(pause);
+          await this.pageAdapter.wait(pause);
         }
       }
     }

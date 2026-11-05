@@ -4,14 +4,12 @@
 export class PurgeRunner {
   constructor({
     pageAdapter,
-    checkpointAdapter,
-    reporterAdapter,
     confirmAdapter,
+    envelopeStore,
   }) {
     this.pageAdapter = pageAdapter;
-    this.checkpointAdapter = checkpointAdapter;
-    this.reporterAdapter = reporterAdapter;
     this.confirmAdapter = confirmAdapter;
+    this.envelopeStore = envelopeStore || null;
   }
 
   async run(options = {}) {
@@ -26,7 +24,8 @@ export class PageAdapter {
     this.page = page;
   }
 
-  async collect() { throw new Error("Not implemented"); }
+  async collectKeys() { throw new Error("Not implemented"); }
+  async collectCardIds() { throw new Error("Not implemented"); }
   async oneCardAct(key) { throw new Error("Not implemented"); }
   async loadStep() { throw new Error("Not implemented"); }
   async wait(ms) { throw new Error("Not implemented"); }
