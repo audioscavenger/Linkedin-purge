@@ -82,7 +82,7 @@ async function main() {
   const html2 = generateSelectionPage(noLinks);
   assert.ok(!html2.includes("<th>Link</th>"), "link header absent when no item has a link");
 
-  const checkboxCount = (html.match(/<input type="checkbox">/g) || []).length;
+  const checkboxCount = (html.match(/<input type="checkbox"/g) || []).length - (html.match(/class="state-filter"/g) || []).length;
   assert.strictEqual(checkboxCount, items.length, "one checkbox per item");
 
   console.log("PASS: selection page generator");
