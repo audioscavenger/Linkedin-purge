@@ -6,6 +6,7 @@ import { log, warn } from "../logger.js";
 import { resolveFlag, asBool, loadConfig } from "./config.js";
 import { ActivityLoader, createActivityPage } from "../activity-loader.js";
 import { buildScanEnvelope } from "../scan-envelope.js";
+import { buildScanSummary } from "../scan-summary.js";
 import { activityTargets } from "../activity-targets.js";
 import { isLoggedOut } from "../login-guard.js";
 
@@ -71,7 +72,9 @@ export async function runScan(args) {
       onStep: (event) => log(stepLine(t, event)),
     });
     // Deep walks the Activity List; plain scan reads the first render only.
+    const startedAt = Date.now();
     const result = deep ? await loader.collectAll() : await loader.readFirstRender();
+    const elapsedMs = Date.now() - startedAt;
 
     const out = path.join(dataDir, `scan-${t}.json`);
     fs.mkdirSync(dataDir, { recursive: true });
@@ -87,7 +90,13 @@ export async function runScan(args) {
           `the file holds the ${result.items.length} items collected so far and is marked complete: false.`
       );
     }
-    log(`${t}: ${result.items.length} items, ${result.steps} steps, ${result.complete ? "complete" : "INCOMPLETE"} -> ${out}`);
+    log(buildScanSummary({
+      type: t,
+      result,
+      links,
+      elapsedMs,
+      pagePath: path.relative(process.cwd(), out),
+    }));
   }
   await context.close();
 }
@@ -99,6 +108,8 @@ function stepLine(type, event) {
   const where = target && (target.id || target.tag) ? ` target=${target.tag || "?"}${target.id ? "#" + target.id : ""}` : "";
   return `${type} step ${event.step}: ${event.total} items (+${event.added}), waited ${event.waitedMs}ms${where}`;
 }
+
+export * from "../scan-summary.js";
 
 function getFlag(args, name, defaultVal) {
   const idx = args.indexOf(`--${name}`);
