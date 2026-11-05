@@ -10,7 +10,7 @@ export function generateSelectionPage(input) {
   const type = envelope && envelope.type ? String(envelope.type) : "likes";
   const items = Array.isArray(envelope && envelope.items) ? envelope.items : [];
   const hasLinks = items.some(hasLink);
-  const rows = items.map((item) => renderRow(item, hasLinks)).join("\n");
+  const rows = items.map((item, itemIdx) => renderRow(item, hasLinks, itemIdx)).join("\n");
   const embedded = JSON.stringify(envelope == null ? {} : envelope).replace(/</g, "\\u003c");
   const distinctStates = [...new Set(items.map((it) => (it && it.state != null ? String(it.state) : "")))].sort();
   const stateBoxes = distinctStates.map(
@@ -47,8 +47,10 @@ export function generateSelectionPage(input) {
     </select>
   </label>
   <button id="sort-dir" type="button" title="Toggle sort direction">&#8593; asc</button>
+  <button id="export-btn" type="button" title="Download the ticked items as selection-<type>.json">Export</button>
 </div>
 <p id="selection-status"><span id="selected-count">0</span> selected &nbsp;&middot;&nbsp; <span id="row-count">${items.length}</span> of <span id="total-count">${items.length}</span> rows shown</p>
+<div id="export-message" style="color:#b00020;font-size:.9rem;margin-top:.4rem;display:none"></div>
 <div id="empty-state" hidden>No items match the current filters.</div>
 <table id="selection-table">
   <thead>
@@ -85,6 +87,8 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
   var masterEl = document.getElementById("master-select");
   var selectedCountEl = document.getElementById("selected-count");
   var totalCountEl = document.getElementById("total-count");
+  var exportBtnEl = document.getElementById("export-btn");
+  var exportMsgEl = document.getElementById("export-message");
 
   // Selection counts: selected = ticked checkboxes; filtered = rows visible
   // under the current filter; total = rows in the table. The master checkbox
@@ -120,8 +124,16 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
     masterEl.indeterminate = visSel > 0 && visSel < visible.length;
   }
   masterEl.addEventListener("change", function () {
+    // Select all visible rows unless every visible row is already selected,
+    // in which case deselect them all. This is computed from the actual
+    // selection state (not the master's checked attribute, which the browser
+    // flips natively on click and can no longer be trusted).
     var visible = visibleRowsNow();
-    var wanted = masterEl.checked;
+    var visSel = 0;
+    for (var i = 0; i < visible.length; i++) {
+      if (rowBox(visible[i]).checked) visSel++;
+    }
+    var wanted = visSel < visible.length;
     for (var i = 0; i < visible.length; i++) rowBox(visible[i]).checked = wanted;
     updateSelection();
   });
@@ -206,6 +218,58 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
     dirEl.innerHTML = asc ? "&#8593; asc" : "&#8595; desc";
     apply();
   });
+
+  // Export: gather the ticked items (by data-index back into the items array),
+  // stamp each status: pending, narrow count/keys to them, preserve scannedAt
+  // and add selectedAt, then trigger a download named selection-<type>.json.
+  // Exporting with nothing ticked is refused with a visible message; nothing
+  // is written to disk by the page itself.
+  exportBtnEl.addEventListener("click", function () {
+    var data = window.SELECTION_DATA || {};
+    var allItems = Array.isArray(data.items) ? data.items : [];
+    var type = data && typeof data.type === "string" ? data.type : "likes";
+    var checked = [];
+    for (var i = 0; i < rows.length; i++) {
+      var box = rowBox(rows[i]);
+      if (box && box.checked) checked.push(rows[i]);
+    }
+    exportMsgEl.style.display = "none";
+    if (!checked.length) {
+      exportMsgEl.textContent = "Nothing selected - tick at least one item before exporting.";
+      exportMsgEl.style.display = "";
+      return;
+    }
+    var selectedItems = checked.map(function (r) {
+      var idx = Number(r.getAttribute("data-index"));
+      var item = allItems[idx];
+      if (!item) return null;
+      var copy = {};
+      for (var k in item) if (Object.prototype.hasOwnProperty.call(item, k)) copy[k] = item[k];
+      copy.status = "pending";
+      return copy;
+    }).filter(Boolean);
+    var exportEnvelope = {
+      type: type,
+      items: selectedItems,
+      count: selectedItems.length,
+      keys: selectedItems.map(function (it) { return it.key != null ? it.key : (it.cardId != null ? it.cardId : null); }).filter(Boolean),
+      scannedAt: data.scannedAt || null,
+      selectedAt: new Date().toISOString(),
+    };
+    window.__lastExport = exportEnvelope;
+    var blob = new Blob([JSON.stringify(exportEnvelope, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "selection-" + type + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    exportMsgEl.textContent = "Exported " + selectedItems.length + " item" + (selectedItems.length === 1 ? "" : "s") + " to selection-" + type + ".json";
+    exportMsgEl.style.color = "#006620";
+    exportMsgEl.style.display = "";
+  });
 })();
 </script>
 </body>
@@ -248,7 +312,7 @@ function textOrExcerpt(item) {
   if (item.excerpt != null && String(item.excerpt).trim() !== "") return String(item.excerpt);
   return "";
 }
-function renderRow(item, hasLinks) {
+function renderRow(item, hasLinks, itemIdx) {
   const it = item && typeof item === "object" ? item : {};
   const state = escapeHtml(it.state != null ? it.state : "");
   const stateRaw = escapeAttr(it.state != null ? String(it.state) : "");
@@ -261,7 +325,7 @@ function renderRow(item, hasLinks) {
   const status = escapeHtml(it.status != null ? it.status : "");
   const link = linkValue(it);
   const linkCell = hasLinks ? (link ? `<td><a href="${escapeAttr(link)}" target="_blank" rel="noopener noreferrer">link</a></td>` : "<td></td>") : "";
-  return `    <tr data-state="${stateRaw}" data-author="${authorRaw}" data-date="${dateRaw}">
+  return `    <tr data-index="${itemIdx}" data-state="${stateRaw}" data-author="${authorRaw}" data-date="${dateRaw}">
       <td><input type="checkbox" class="row-select"></td>
       <td>${state}</td>
       <td>${author}</td>

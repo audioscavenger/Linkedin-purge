@@ -1,8 +1,9 @@
 // Selection page browser check harness.
 // Opens a generated page in Playwright Chromium and asserts the table
-// renders from the embedded data. NOT part of `npm run check` or
-// `npm run health` (needs a browser). No login needed - unlike
-// `npm run verify:page` which opens LinkedIn with your profile.
+// renders from the embedded data, filters/sort/master-select behave, and
+// the Export button produces a downloadable selection envelope.
+// NOT part of `npm run check` or `npm run health` (needs a browser). No login
+// needed - unlike `npm run verify:page` which opens LinkedIn with your profile.
 //
 // Usage: node scripts/selection-page-browser-check.js [--help]
 //   --help  show this help and exit
@@ -31,7 +32,10 @@ Assertions:
   - Sorting by author puts Ada first, toggling direction puts Cy first
   - Author filter matching nothing shows the empty state and 0 rows
   - Ticking a row shows 1 selected with master indeterminate
-  - Master selects exactly the filtered rows (3, then 1 under filter, then deselects only those)
+  - Master selects exactly the filtered rows (3, then 1 under filter)
+  - Export downloads selection-<type>.json holding only ticked items with
+    status: pending, narrowed count/keys, scannedAt preserved, selectedAt added
+  - Exporting with nothing ticked is refused with a visible message
 
 Exits 0 on pass, 1 on a named failure (assertion name, expectation, observed).
 
@@ -46,6 +50,7 @@ async function assertPage() {
       { key: "reaction:2", cardId: "card-secret-2", state: "LOVE", author: "Bo", dateTime: "Sep 17", text: null, postExcerpt: "second excerpt", postHref: null, status: "pending" },
       { key: "reaction:3", cardId: "card-secret-3", state: "LIKE", author: "Cy", dateTime: "Sep 18", text: null, postExcerpt: "third excerpt", postHref: null, status: "no-op" },
     ],
+    scannedAt: "2026-11-05T00:00:00.000Z",
   };
 
   const html = generateSelectionPage(env);
@@ -58,6 +63,14 @@ async function assertPage() {
     const page = await browser.newPage();
     await page.goto(`file://${tmpPath}`);
     await page.waitForSelector("table#selection-table", { state: "attached" });
+
+    // Single download listener used by both export assertions: set a flag so we
+    // can tell whether a download was initiated without depending on download
+    // path() (which is flaky for blob: URLs in headless Chromium).
+    let downloadStarted = false;
+    page.on("download", () => {
+      downloadStarted = true;
+    });
 
     const cellText = (selector) => page.evaluate((s) => document.querySelector(s).textContent, selector);
     const visibleRows = () => page.evaluate(() => [...document.querySelectorAll("#selection-table tbody tr")].filter((r) => r.style.display !== "none").length);
@@ -157,7 +170,70 @@ async function assertPage() {
     // Restore the filter for any later checks.
     await page.click('.state-filter[value="LIKE"]');
 
-    log("PASS: selection page browser check - row count, first row, filters, empty state, sorted order and master-select counts verified");
+    // 7. Export nothing ticked -> refused with visible message, no download.
+    // Clear every row checkbox so nothing is selected, regardless of prior state.
+    await page.evaluate(() => {
+      document.querySelectorAll(".row-select").forEach((b) => (b.checked = false));
+      var m = document.getElementById("master-select");
+      m.checked = false;
+      m.indeterminate = false;
+    });
+    await page.click("#export-btn");
+    if (downloadStarted) {
+      err("FAIL: assertion export-empty - expected no download when nothing ticked, but a download started");
+      return false;
+    }
+    const refusedMsg = await page.evaluate(() => document.getElementById("export-message").textContent);
+    if (!refusedMsg || refusedMsg.indexOf("Nothing selected") === -1) {
+      err(`FAIL: assertion export-empty-message - expected visible refusal message, observed "${refusedMsg}"`);
+      return false;
+    }
+
+    // 8. Tick Ada (row 1) and Cy (row 3), export, confirm a download was
+    // initiated, and assert the exported envelope equals the selection.
+    await page.click("table#selection-table tbody tr:nth-child(1) .row-select");
+    await page.click("table#selection-table tbody tr:nth-child(3) .row-select");
+    await page.click("#export-btn");
+    if (!downloadStarted) {
+      err("FAIL: assertion export-download - expected a download to be initiated, but none was");
+      return false;
+    }
+    // Content is asserted deterministically via the page's own export envelope.
+    const exported = await page.evaluate(() => window.__lastExport);
+    if (!exported) {
+      err("FAIL: assertion export-envelope - page produced no export envelope");
+      return false;
+    }
+    if (exported.type !== "likes") {
+      err(`FAIL: assertion export-envelope-type - expected "likes", observed "${exported.type}"`);
+      return false;
+    }
+    if (exported.count !== 2) {
+      err(`FAIL: assertion export-count - expected 2, observed ${exported.count}`);
+      return false;
+    }
+    if (JSON.stringify(exported.keys) !== JSON.stringify(["reaction:1", "reaction:3"])) {
+      err(`FAIL: assertion export-keys - expected ["reaction:1","reaction:3"], observed ${JSON.stringify(exported.keys)}`);
+      return false;
+    }
+    if (exported.scannedAt !== "2026-11-05T00:00:00.000Z") {
+      err(`FAIL: assertion export-scannedat - expected 2026-11-05T00:00:00.000Z, observed ${exported.scannedAt}`);
+      return false;
+    }
+    if (!exported.selectedAt || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/.test(exported.selectedAt)) {
+      err(`FAIL: assertion export-selectedat - expected ISO timestamp, observed "${exported.selectedAt}"`);
+      return false;
+    }
+    const exportedItems = exported.items.map((it) => ({ key: it.key, cardId: it.cardId, state: it.state, author: it.author, status: it.status }));
+    const expectedItems = [
+      { key: "reaction:1", cardId: "card-secret-1", state: "LIKE", author: "Ada", status: "pending" },
+      { key: "reaction:3", cardId: "card-secret-3", state: "LIKE", author: "Cy", status: "pending" },
+    ];
+    if (JSON.stringify(exportedItems) !== JSON.stringify(expectedItems)) {
+      err(`FAIL: assertion export-items - expected ${JSON.stringify(expectedItems)}, observed ${JSON.stringify(exportedItems)}`);
+      return false;
+    }
+    log("PASS: selection page browser check - row count, first row, filters, empty state, sorted order, master-select counts and export envelope verified");
     return true;
   } finally {
     await browser.close();
