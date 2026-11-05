@@ -15,13 +15,13 @@ function assert(condition, message) {
 function itemsFor(tab) {
   if (tab === "comments") {
     return [
-      { key: "replaceableComment_1", cardId: "urn:li:activity:1", text: "comment 1", postExcerpt: "excerpt 1", author: "Ada", postHref: "/feed/update/1", dateTime: "Sep 16" },
-      { key: "replaceableComment_2", cardId: "urn:li:activity:2", text: "comment 2", postExcerpt: "excerpt 2", author: "Bo", postHref: null, dateTime: "Sep 17" },
+      { key: "replaceableComment_1", cardId: "urn:li:activity:1", text: "comment 1", postExcerpt: "excerpt 1", author: "Ada", postHref: "/feed/update/1", itemHref: "/item/1", dateTime: "Sep 16" },
+      { key: "replaceableComment_2", cardId: "urn:li:activity:2", text: "comment 2", postExcerpt: "excerpt 2", author: "Bo", postHref: null, itemHref: null, dateTime: "Sep 17" },
     ];
   }
   return [
-    { key: "reaction:0", cardId: "urn:li:activity:1", text: null, postExcerpt: "excerpt 1", state: "LIKE", author: "Ada", postHref: "/feed/update/1", dateTime: "Sep 16" },
-    { key: "reaction:1", cardId: "urn:li:activity:2", text: null, postExcerpt: "excerpt 2", state: "LOVE", author: "Bo", postHref: null, dateTime: "Sep 17" },
+    { key: "reaction:0", cardId: "urn:li:activity:1", text: null, postExcerpt: "excerpt 1", state: "LIKE", author: "Ada", postHref: "/feed/update/1", itemHref: "/item/0", dateTime: "Sep 16" },
+    { key: "reaction:1", cardId: "urn:li:activity:2", text: null, postExcerpt: "excerpt 2", state: "LOVE", author: "Bo", postHref: null, itemHref: null, dateTime: "Sep 17" },
   ];
 }
 
@@ -206,20 +206,20 @@ async function testPaginationOnSecondScroll() {
 // the check reads reactions' state field and does not demand it from comments.
 async function testMissingMetadata() {
   const items = [
-    { key: "reaction:0", cardId: "urn:li:activity:1", text: null, postExcerpt: "ex", author: "Ada", postHref: "/feed/update/1", dateTime: "Sep 16" }, // no state
-    { key: "reaction:1", cardId: "urn:li:activity:2", text: null, postExcerpt: "ex", state: "LOVE", postHref: null, dateTime: "Sep 17" }, // no author
+    { key: "reaction:0", cardId: "urn:li:activity:1", text: null, postExcerpt: "ex", author: "Ada", postHref: "/feed/update/1", itemHref: "/item/0", dateTime: "Sep 16" }, // no state
+    { key: "reaction:1", cardId: "urn:li:activity:2", text: null, postExcerpt: "ex", state: "LOVE", postHref: null, itemHref: null, dateTime: "Sep 17" }, // no author
   ];
   const result = await check(fakePage({ items }));
   const failure = failureFor(result, "collectItems");
 
   assert(failure, `Expected a collectItems failure; ${failureText(result)}`);
   assert(failure.step === "item metadata", `Expected the item metadata step, got ${failure.step}`);
-  assert(failure.expected.includes("cardId, text, postExcerpt, state, author, postHref and dateTime"), `Bad metadata expectation: ${failure.expected}`);
+  assert(failure.expected.includes("cardId, text, postExcerpt, state, author, postHref, itemHref and dateTime"), `Bad metadata expectation: ${failure.expected}`);
   assert(failure.observed.includes("no state on item 0"), `Missing state not named: ${failure.observed}`);
   assert(failure.observed.includes("no author on item 1"), `Missing author not named: ${failure.observed}`);
 
   // Comments carry no state, so the same shape without state passes on that tab.
-  const commentItems = [{ key: "replaceableComment_1", cardId: "urn:li:activity:1", text: "text", postExcerpt: "ex", author: "Ada", postHref: null, dateTime: "Sep 16" }];
+  const commentItems = [{ key: "replaceableComment_1", cardId: "urn:li:activity:1", text: "text", postExcerpt: "ex", author: "Ada", postHref: null, itemHref: null, dateTime: "Sep 16" }];
   const comments = await check(fakePage({ tab: "comments", items: commentItems }), { tab: "comments" });
   assert(comments.ok, `Comments must not be asked for a state field; ${failureText(comments)}`);
 
@@ -229,9 +229,9 @@ async function testMissingMetadata() {
 // Duplicate keys would make the walk drop a card silently (the merge is keyed).
 async function testDuplicateKeys() {
   const items = [
-    { key: "reaction:0", state: "LIKE", author: "Ada", postHref: null, dateTime: "Sep 16" },
-    { key: "reaction:0", state: "LOVE", author: "Bo", postHref: null, dateTime: "Sep 17" },
-    { key: "reaction:1", state: "LIKE", author: "Cy", postHref: null, dateTime: "Sep 18" },
+    { key: "reaction:0", state: "LIKE", author: "Ada", postHref: null, itemHref: null, dateTime: "Sep 16" },
+    { key: "reaction:0", state: "LOVE", author: "Bo", postHref: null, itemHref: null, dateTime: "Sep 17" },
+    { key: "reaction:1", state: "LIKE", author: "Cy", postHref: null, itemHref: null, dateTime: "Sep 18" },
   ];
   const result = await check(fakePage({ items }));
   const uniqueFailure = failures(result).find((r) => r.step === "unique keys");
