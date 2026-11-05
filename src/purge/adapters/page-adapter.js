@@ -5,22 +5,22 @@ export class PageAdapter {
     this.page = page;
   }
 
-  async collectKeys() {
+  async collect() {
     return this.page.evaluate(() => window.LP.collectKeys());
   }
 
-  // Takes the runner-precomputed eligible-key list; the in-page side does a
-  // plain membership test over it (the eligibility rule lives in the runner).
-  // The contract is one list: the runner always passes an array, so no
-  // defensive copy or null-guard here.
-  async deleteFirstEligible(eligibleKeys) {
-    return this.page.evaluate(
-      (keys) => window.LP.deleteFirstEligible(keys),
-      eligibleKeys
-    );
+  // Act on exactly one card by its card identity / key.
+  // The runner pre-computes eligibility; the adapter just hands the key
+  // to window.LP.deleteOneCard.
+  async oneCardAct(key) {
+    return this.page.evaluate((k) => window.LP.deleteOneCard(k), key);
   }
 
-  async waitForTimeout(ms) {
+  async loadStep() {
+    return this.page.evaluate(() => window.LP.scrollActivityListToBottom());
+  }
+
+  async wait(ms) {
     return this.page.waitForTimeout(ms);
   }
 }

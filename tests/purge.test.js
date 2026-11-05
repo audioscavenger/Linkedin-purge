@@ -13,15 +13,22 @@ class FakePageAdapter {
     this.keys = keys;
     this.deleteResult = deleteResult;
   }
-  async collectKeys() { return [...this.keys]; }
-  // Mirrors the in-page contract: a plain membership check over the
-  // eligible list the runner computes and hands over. No skip/allowed logic here.
+  async collect() { return [...this.keys]; }
+  async collectKeys() { return this.collect(); }
+  async oneCardAct(key) {
+    if (!this.keys.includes(key)) {
+      return { ok: false, skip: false, cardId: key, error: "card not found" };
+    }
+    return { ok: true, cardId: key, key, state: "no reaction", author: "Test Author", postHref: "/feed/update/1", dateTime: "2026-01-01T00:00:00Z" };
+  }
   async deleteFirstEligible(eligibleKeys) {
     const eligibleSet = new Set(eligibleKeys || []);
     const nextKey = this.keys.find(k => eligibleSet.has(k));
     if (!nextKey) return { ok: false, key: null, skip: false, error: "no eligible item" };
     return { ok: true, key: nextKey, state: "no reaction", author: "Test Author", postHref: "/feed/update/1", dateTime: "2026-01-01T00:00:00Z" };
   }
+  async loadStep() { return Promise.resolve(); }
+  async wait(ms) { return Promise.resolve(); }
   async waitForTimeout(ms) { return Promise.resolve(); }
 }
 

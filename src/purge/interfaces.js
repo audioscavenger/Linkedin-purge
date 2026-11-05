@@ -26,9 +26,10 @@ export class PageAdapter {
     this.page = page;
   }
 
-  async collectKeys() { throw new Error("Not implemented"); }
-  async deleteFirstEligible(eligibleKeys) { throw new Error("Not implemented"); }
-  async waitForTimeout(ms) { throw new Error("Not implemented"); }
+  async collect() { throw new Error("Not implemented"); }
+  async oneCardAct(key) { throw new Error("Not implemented"); }
+  async loadStep() { throw new Error("Not implemented"); }
+  async wait(ms) { throw new Error("Not implemented"); }
 }
 
 // Adapter: persists checkpoint of processed keys
