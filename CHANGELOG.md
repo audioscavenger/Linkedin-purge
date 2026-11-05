@@ -8,6 +8,9 @@
 
 ## Released
 
+* [x] v0.5.1 - Rename copy-chromium-profile to login-import-profile
+    * Rename the `copy-chromium-profile` command to `login-import-profile` to clarify that it imports an existing logged-in Chromium profile into `.profile-chromium/`, as an alternative to `npm run login` which opens a browser for manual login.
+
 * [x] v0.5.0 - Review-first purge: scan, review on a generated page, select, purge a selection, statuses on the page; Card Identity replaces drift-prone keys; `--links` captures item/post links; the scan envelope is the only state, retiring checkpoint and report.
     * Test runner prefactor: one script runs every file under `tests/`, so adding a test file never edits `package.json` again (`npm run test`/`check`/`health` share it).
     * Purge Status vocabulary: five named statuses (`no-op`, `pending`, `purged`, `failed`, `not-found`) with a finality check, so a typo cannot invent a sixth value.
