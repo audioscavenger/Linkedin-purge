@@ -4,10 +4,11 @@ import { launchBrowser, injectDomHelpers } from "../browser.js";
 import { resetCheckpoint } from "../checkpoint.js";
 import { log, warn } from "../logger.js";
 import { PurgeRunner, PageAdapter, CheckpointAdapter, ReporterAdapter, ConfirmAdapter } from "../purge.js";
+import { EnvelopeStore } from "../envelope-store.js";
+import { loadSelection } from "./selection.js";
 import { activityTargets } from "../activity-targets.js";
 import { isLoggedOut } from "../login-guard.js";
 import { resolveFlag, asBool, asInt, loadConfig } from "./config.js";
-import { loadInputKeys } from "./input-keys.js";
 
 export async function runPurge(args) {
   // CLI flag > config.json > built-in default.
@@ -18,8 +19,26 @@ export async function runPurge(args) {
   const limitArg = asInt(resolveFlag(args, "limit", "behavior.limit", 0), 0);
   const resetCheckpointArg = asBool(resolveFlag(args, "reset-checkpoint", "behavior.resetCheckpoint", false), false);
   const headless = asBool(resolveFlag(args, "headless", "behavior.headless", false), false);
-  // Optional: restrict deletion to a specific set of keys (from --input file).
+  // Optional: restrict deletion to a selection from --input. This is the
+  // v0.5.0 review-first flow: scan writes data/selection-<type>.html from the
+  // scan envelope, the person ticks the items worth deleting, Export writes
+  // data/selection-<type>.json with status: pending, and purge --input acts
+  // on that file. Selected items outside the selection are never touched.
   const inputFile = getFlag(args, "input", null);
+
+  // Load the selection before the browser launches, so an unusable file fails
+  // without a visit. Statuses already final (purged) or no-op are skipped;
+  // anything pending/failed/not-found is actionable, and a selection with
+  // zero actionable items exits without prompting.
+  let selection = null;
+  if (inputFile) {
+    selection = loadSelection(inputFile);
+    log(`Selection: ${selection.total} items in ${inputFile} (${selection.actionable} actionable).`);
+    if (selection.actionable === 0) {
+      log("Nothing actionable in the selection; exiting without prompting.");
+      return;
+    }
+  }
 
   // Timing options, all overridable via CLI.
   const timing = loadConfig().timing || {};
@@ -30,11 +49,12 @@ export async function runPurge(args) {
 
   // One Purge Run per concrete type, each on the Activity List tab where its
   // page detector matches. Resolved before the browser launches, so an unknown
-  // type fails without a visit.
-  const targets = activityTargets(typeArg);
+  // type fails without a visit. A selection file carries its own type.
+  const targetType = selection && selection.type ? selection.type : typeArg;
+  const targets = activityTargets(targetType);
 
   // Reset checkpoint if requested
-  if (resetCheckpointArg) {
+  if (!inputFile && resetCheckpointArg) {
     for (const target of targets) resetCheckpoint(dataDir, target.type);
     log("Checkpoints reset.");
   }
@@ -60,11 +80,7 @@ export async function runPurge(args) {
   const baseUrl = `https://www.linkedin.com/in/${username}/recent-activity/`;
 
   // Load input keys if --input was specified
-  let inputKeys = null;
-  if (inputFile) {
-    inputKeys = loadInputKeys(inputFile);
-    log(`Loaded ${inputKeys.length} keys from ${inputFile}`);
-  }
+  const inputKeys = selection ? selection.identities : null;
 
   // Everything a run needs except its type, which is per target.
   const runOptions = {
@@ -96,16 +112,23 @@ export async function runPurge(args) {
         return;
       }
 
-      // The adapters are per type: the checkpoint and the report are named
-      // after the concrete type being purged, never after the --type argument,
-      // so `all` writes checkpoint-comments.json + checkpoint-likes.json rather
-      // than a checkpoint-all.json that nothing would ever resume.
-      const runner = new PurgeRunner({
-        pageAdapter: new PageAdapter(page),
-        checkpointAdapter: new CheckpointAdapter(dataDir, target.type),
-        reporterAdapter: new ReporterAdapter({ dataDir }),
-        confirmAdapter: new ConfirmAdapter(),
-      });
+      // The adapters are per type:
+      // - the legacy full-purge flow wires checkpoint + report (both are
+      //   retired by tickets 23/24);
+      // - a selection run wires neither: statuses land straight into the
+      //   selection envelope through the store, atomically, item by item.
+      const runner = inputFile
+        ? new PurgeRunner({
+            pageAdapter: new PageAdapter(page),
+            confirmAdapter: new ConfirmAdapter(),
+            envelopeStore: new EnvelopeStore(path.resolve(inputFile)),
+          })
+        : new PurgeRunner({
+            pageAdapter: new PageAdapter(page),
+            checkpointAdapter: new CheckpointAdapter(dataDir, target.type),
+            reporterAdapter: new ReporterAdapter({ dataDir }),
+            confirmAdapter: new ConfirmAdapter(),
+          });
 
       // The runner asks its own confirmation prompt once per type.
       results.push(await runner.run({ type: target.type, ...runOptions }));
@@ -130,6 +153,11 @@ function reportSummary(results) {
       if (result.reportPath) log(`Report written: ${result.reportPath}`);
     } else if (result.deleted === 0) {
       log(`${result.type}: purge cancelled or nothing to delete.`);
+    }
+    if (result.counts) {
+      // Selection runs: per-status tally appended regardless of deletions.
+      const c = result.counts;
+      log(`${result.type}: ${c.purged} purged, ${c.failed} failed, ${c.notFound} not-found, ${c.noOp} no-op`);
     }
   }
   if (results.length > 1) {

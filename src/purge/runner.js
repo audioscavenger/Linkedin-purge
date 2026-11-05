@@ -9,11 +9,16 @@ export class PurgeRunner {
     checkpointAdapter,
     reporterAdapter,
     confirmAdapter,
+    // Selection runs persist statuses straight into the selection envelope
+    // through the store (src/envelope-store.js), so an interrupted run keeps
+    // every status earned so far.
+    envelopeStore,
   }) {
     this.pageAdapter = pageAdapter;
     this.checkpointAdapter = checkpointAdapter;
     this.reporterAdapter = reporterAdapter;
     this.confirmAdapter = confirmAdapter;
+    this.envelopeStore = envelopeStore || null;
   }
 
   async run(options = {}) {
@@ -29,8 +34,22 @@ export class PurgeRunner {
     // branch leaves it null (its entries carry reaction states, not statuses).
     let summaryCounts = null;
 
+    // Both seams are optional. The legacy full-purge flow wires them (they
+    // are being retired in tickets 23/24); a selection run wires neither and
+    // records statuses through the envelope store alone.
+    const checkpoint = this.checkpointAdapter || {
+      load: async () => ({ processed: new Set() }),
+      save: async () => {},
+      add: async () => {},
+    };
+    const reporter = this.reporterAdapter || {
+      open: async () => {},
+      write: async () => {},
+      close: async () => null,
+    };
+
     // Load existing checkpoint
-    const cpResult = await this.checkpointAdapter.load();
+    const cpResult = await checkpoint.load();
     const processedSet = cpResult.processed;
 
     // The eligibility rule lives only here (single-sited): a key is eligible
@@ -39,14 +58,16 @@ export class PurgeRunner {
     // page adapter, which does a plain membership test over the passed list.
     const eligible = (k) => !processedSet.has(k) && (!inputKeys || inputKeys.has(k));
 
-    // Collect keys and filter by checkpoint + input
+    // Collect keys and filter by checkpoint + input. A selection is matched by
+    // Card Identity, which page.collect() cannot see (it yields session keys),
+    // so a selection's pending count is its own size, not a page intersection.
     const keys = await this.pageAdapter.collectKeys();
-    const pendingCount = keys.filter(eligible).length;
+    const pendingCount = inputKeys ? inputKeys.size : keys.filter(eligible).length;
 
     if (pendingCount === 0) {
       // Nothing to do
-      await this.reporterAdapter.open(type);
-      const reportPath = await this.reporterAdapter.close();
+      await reporter.open(type);
+      const reportPath = await reporter.close();
       return {
         type,
         deleted: 0,
@@ -60,13 +81,13 @@ export class PurgeRunner {
       `Delete ${pendingCount} ${type} items? Type YES to proceed: `
     );
     if (!confirmed) {
-      await this.reporterAdapter.open(type);
-      const reportPath = await this.reporterAdapter.close();
+      await reporter.open(type);
+      const reportPath = await reporter.close();
       return { type, deleted: 0, processed: processedSet.size, durationMs: Date.now() - startTime, reportPath };
     }
 
     // Initialize report
-    await this.reporterAdapter.open(type);
+    await reporter.open(type);
 
     let deleted = 0;
 
@@ -94,7 +115,8 @@ export class PurgeRunner {
           deleted++;
           counts.purged++;
           processedSet.add(key);
-          await this.reporterAdapter.write({
+          if (this.envelopeStore) await this.envelopeStore.mark(key, PURGE_STATUSES.PURGED);
+          await reporter.write({
             key: result.key,
             state: PURGE_STATUSES.PURGED,
             author: result.author,
@@ -109,7 +131,10 @@ export class PurgeRunner {
           const notFound = /not.?found/i.test(err);
           if (notFound) counts.notFound++;
           else counts.failed++;
-          await this.reporterAdapter.write({
+          if (this.envelopeStore) {
+            await this.envelopeStore.mark(key, notFound ? PURGE_STATUSES.NOT_FOUND : PURGE_STATUSES.FAILED);
+          }
+          await reporter.write({
             key: result && result.cardId ? result.cardId : key,
             state: notFound ? PURGE_STATUSES.NOT_FOUND : PURGE_STATUSES.FAILED,
             author: null,
@@ -158,7 +183,7 @@ export class PurgeRunner {
           // adapter returned them. The reporter owns the Report Entry: it stamps
           // ts itself and builds the canonical field set at the writer seam, so
           // no null-normalization or timestamp lives here.
-          await this.reporterAdapter.write({
+          await reporter.write({
             key: result.key,
             state: result.state,
             author: result.author,
@@ -167,7 +192,7 @@ export class PurgeRunner {
           });
 
           if (deleted % batchSize === 0) {
-            await this.checkpointAdapter.save();
+            await checkpoint.save();
           }
 
           if (deleted % batchSize === 0) {
@@ -192,8 +217,8 @@ export class PurgeRunner {
     }
 
     // Final save and close
-    await this.checkpointAdapter.save();
-    const reportPath = await this.reporterAdapter.close();
+    await checkpoint.save();
+    const reportPath = await reporter.close();
 
     return {
       type,

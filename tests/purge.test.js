@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { PurgeRunner, PageAdapter, CheckpointAdapter, ReporterAdapter, ConfirmAdapter } from "../src/purge.js";
+import { EnvelopeStore } from "../src/envelope-store.js";
 // The canonical Report Entry field set, named once in the module that owns
 // the entry: import it here instead of re-listing the six names.
 import { REPORT_ENTRY_FIELDS } from "../src/purge/adapters/reporter-adapter.js";
@@ -352,6 +353,46 @@ async function testSelectionRetryRunSkipsPurgedRetriesRest() {
   console.log("PASS: re-run skips purged, retries failed and not-found, leaves no-op alone");
 }
 
+// A selection run persists statuses into the selection envelope through the
+// store: an item purged on the page is marked purged on disk, one whose card
+// is missing ends not-found, and every mark is its own atomic write.
+async function testSelectionMarksEnvelopeAtomically() {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "lp-selmark-"));
+  const file = path.join(tmp, "selection-likes.json");
+  fs.writeFileSync(file, JSON.stringify({
+    type: "likes",
+    items: [
+      { key: "reaction:0", cardId: "card-1", status: "pending" },
+      { key: "reaction:1", cardId: "card-2", status: "pending" },
+    ],
+  }));
+
+  const page = new FakePageAdapter({ keys: ["card-1"] });
+  const cp = new FakeCheckpointAdapter();
+  const reporter = new FakeReporterAdapter();
+  const confirm = new FakeConfirmAdapter(true);
+  const store = new EnvelopeStore(file);
+
+  const runner = new PurgeRunner({
+    pageAdapter: page,
+    checkpointAdapter: cp,
+    reporterAdapter: reporter,
+    confirmAdapter: confirm,
+    envelopeStore: store,
+  });
+  // Selection passes only actionable identities, as the command does.
+  const result = await runner.run({ type: "likes", batchSize: 5, inputKeys: ["card-1", "card-2"] });
+
+  const marked = JSON.parse(fs.readFileSync(file, "utf8"));
+  const by = Object.fromEntries(marked.items.map((i) => [i.cardId, i.status]));
+  if (by["card-1"] !== "purged") throw new Error(`card-1 expected purged on disk, got ${by["card-1"]}`);
+  if (by["card-2"] !== "not-found") throw new Error(`card-2 expected not-found on disk, got ${by["card-2"]}`);
+  if (result.counts.purged !== 1 || result.counts.notFound !== 1) {
+    throw new Error(`bad counts: ${JSON.stringify(result.counts)}`);
+  }
+  console.log("PASS: selection run marks the envelope atomically (purged and not-found)");
+}
+
 const tests = {
   testHappyPath,
   testInputKeysFilter,
@@ -365,6 +406,7 @@ const tests = {
   testSelectionSkipsCheckpointed,
   testSelectionNotFoundMarkedNotFound,
   testSelectionRetryRunSkipsPurgedRetriesRest,
+  testSelectionMarksEnvelopeAtomically,
 };
 
 async function main() {
