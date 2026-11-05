@@ -33,7 +33,7 @@ export async function runScan(args) {
   // unknown type fails without a visit.
   const targets = activityTargets(typeArg);
 
-const headless = resolveHeadless(args);
+  const headless = resolveHeadless(args);
   const context = await launchBrowser({ profileDir, headless, chromiumPath });
   const page = await context.newPage();
   const linkedinDomPath = path.resolve("./src/linkedin-dom.js");
