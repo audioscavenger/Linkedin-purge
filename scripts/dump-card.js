@@ -1,6 +1,35 @@
 /*
+  =============================================================================
   Dump full outerHTML of one comment card (no trimming) to find comment text.
-  Read-only, no scroll, no clicks.
+  =============================================================================
+
+  PURPOSE
+  -------
+  Launches headed with your logged-in Chromium profile, opens the comments
+  Activity List tab (first page only - NO scroll), and writes the full
+  outerHTML of one card (index 0 by default) to /tmp/card-outer.html, plus
+  prints every text node in that card with its tag and classes.
+
+  It is intentionally read-only: no clicks, no deletions, no scroll. Use it
+  when you need to see the complete card DOM to discover where comment text,
+  date, and headline live.
+
+  LAST VERIFIED WORKING
+  ---------------------
+  Fri Nov 06 2026 - against the live LinkedIn Activity List with a logged-in
+  Chromium profile. LinkedIn markup obfuscates class names per deploy, so
+  re-run when scan metadata breaks again.
+
+  HOW TO INVOKE
+  -------------
+    node scripts/dump-card.js              # card index 0 (default)
+    node scripts/dump-card.js 3            # card index 3
+    node scripts/dump-card.js --headless   # no visible window
+
+  REQUIREMENTS
+  ------------
+  - A logged-in Chromium profile (run `npm run login` first if expired).
+  - Node.js with project dependencies installed.
 */
 import path from "node:path";
 import fs from "node:fs";

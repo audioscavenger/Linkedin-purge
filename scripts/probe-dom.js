@@ -1,16 +1,79 @@
 /*
+  =============================================================================
   DOM probe for the LinkedIn Activity List.
+  =============================================================================
 
-  Launches headed with your logged-in Chromium profile, opens the comments and
-  reactions tabs (first page only - no scroll), and dumps per-card DOM
-  structure so exact author/headline/date/text selectors can be written.
+  PURPOSE
+  -------
+  Launches headed with your logged-in Chromium profile (the same one used by
+  scan/purge via config.json), opens the comments and/or reactions Activity
+  List tabs (first page only - NO scroll), and dumps per-card DOM structure
+  so exact author/headline/date/text selectors can be written for
+  src/linkedin-dom.js without guessing.
 
-  Read-only: no clicks, no deletions, no scroll.
+  It is intentionally read-only: it never clicks a card, never deletes
+  anything, and never scrolls. It only reads the DOM that is already on the
+  first page.
 
-  Usage:
-    node scripts/probe-dom.js                    # comments tab
-    node scripts/probe-dom.js reactions          # reactions tab
-    node scripts/probe-dom.js --headless         # no visible window
+  LAST VERIFIED WORKING
+  ---------------------
+  Fri Nov 06 2026 - against the live LinkedIn Activity List with a logged-in
+  Chromium profile at E:/wintools/PortableApps/chromium-win64/profile.
+
+  LinkedIn changes its obfuscated class names and markup to combat scrapers,
+  so the selectors this probe discovers will rot over time. When scan
+  metadata breaks again, re-run this probe against the live DOM and update
+  src/linkedin-dom.js accordingly. Do not trust selectors captured before
+  this date without re-verifying.
+
+  HOW TO INVOKE
+  -------------
+  One script serves BOTH tabs. Pass the Activity type as the first argument:
+
+    node scripts/probe-dom.js                    # comments tab (default)
+    node scripts/probe-dom.js likes              # reactions tab
+    node scripts/probe-dom.js comments           # comments tab (explicit)
+    node scripts/probe-dom.js --headless         # run without a visible window
+
+  `--headless` is optional; by default the browser opens headed so you can
+  watch what it does. config.json paths (profileDir, chromiumPath) are honored
+  if present; defaults are .profile-chromium and auto-detected Chromium.
+
+  REQUIREMENTS
+  ------------
+  - A logged-in Chromium profile (run `npm run login` first if the session
+    has expired).
+  - Node.js with the project dependencies installed (playwright).
+
+  QUIRKS ENCOUNTERED SO FAR (as of Fri Nov 06 2026)
+  -------------------------------------------------
+  1. The first /in/ link on BOTH tabs is always the viewer ("me"), never the
+     poster. Author must be taken from a non-viewer /in/ or /company/ link,
+     or from the control-menu aria-label "Open control menu for post by X".
+  2. Poster links carry the name plus a connection-degree suffix, e.g.
+     "Brad Bassham  • 1st", "Yusuf. M • 3rd+". Strip the suffix.
+  3. LinkedIn class names are obfuscated and change per deploy (fa4l40,
+     gvyl4n, etc.). Do not hardcode them; find structural selectors instead.
+  4. Comment text spans do NOT carry dir='ltr'. The comment body is found by
+     scanning all text-bearing elements and picking the longest meaningful
+     one that is not UI chrome ("Feed post", "New comment in your group",
+     "Load more comments", impression counts, viewer badge).
+  5. Dates are relative ("1mo", "1w", "3d"), not calendar dates, and appear in
+     text blocks, not <time datetime>.
+  6. The viewer's own profile badge leaks into the first /in/ link text
+     ("Eric Derewonko Verified Profile You ... Implementation Consultant @
+     nQ Zebraworks | Automating Business Processes"). Never use link
+     .textContent verbatim for comments; extract the poster name only.
+  7. Card containers (div[role="listitem"]) have no id (cardId is null) in
+     the current DOM - Card Identity is read from the card element's id
+     attribute when present, otherwise unknown at probe time.
+
+  OUTPUT
+  ------
+  For each of the first 4 cards on the tab it prints:
+    cardId, menuAria (who the post is by), LINKS (href + fullText + nameSpan
+    + classes), TIMES, TEXT_CANDIDATES, HEADLINE_CANDIDATES, TEXT_BLOCKS, and
+    a trimmed OUTERHTML. Review these blocks to write exact selectors.
 */
 import path from "node:path";
 import fs from "node:fs";
