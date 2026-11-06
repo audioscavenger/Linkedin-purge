@@ -22,6 +22,14 @@
   - not-found is recorded once and never retried within a run (ADR 0005); only failed outcomes are retried.
   - Deliberate behaviour changes documented in ADR 0005 and the README parameter list.
 
+- [ ] Scan item metadata fixed for comments and likes (spec #12).
+  - Author: the first `/in/` link on both tabs is the viewer ("me") and is now skipped; the poster name is taken from a non-viewer `/in/` or `/company/` link, with the LinkedIn connection-degree suffix stripped ("Brad Bassham  • 1st" → "Brad Bassham"). Reaction-count garbage ("187 reactions") and headline text ("Implementation Consultant @ ...") are rejected so they can no longer leak into the Author column.
+  - DateTime: relative dates ("1mo", "1w", "3d") are now captured as a fallback when `<time datetime>` and month/day text are absent.
+  - Headline: selectors broadened; also carved from the combined author+degree+headline+date text block when no selector matches. Still blank when LinkedIn's DOM exposes no headline.
+  - Text (comments): comment body now extracted via an extended fallback that scans all text-bearing elements (not just `span[dir='ltr']`, which LinkedIn does not emit) and rejects UI strings, impression counts, and viewer-badge garbage. Reactions correctly stay `null`.
+  - `tests/linkedin-metadata.test.js`: 18 tests, fake DOM, no browser.
+  - `scripts/probe-dom.js` and `scripts/dump-card.js`: diagnostic tools for future DOM discovery, each with a `LAST VERIFIED WORKING` date (Fri Nov 06 2026).
+
 ## Released
 
 - [x] v0.5.6 - Add ESLint + Prettier and wire lint-staged into the pre-commit flow
