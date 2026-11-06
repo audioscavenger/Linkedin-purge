@@ -1,17 +1,19 @@
-// Selection page browser check harness.
-// Opens a generated page in Playwright Chromium and asserts the table
-// renders from the embedded data, filters/sort/master-select behave, and
-// the Export button produces a downloadable selection envelope.
-// NOT part of `npm run check` or `npm run health` (needs a browser). No login
-// needed - unlike `npm run verify:page` which opens LinkedIn with your profile.
-//
-// Usage: node scripts/selection-page-browser-check.js [--help]
-//   --help  show this help and exit
-//
-// Safety: launches Chromium headless via this repo's browser module,
-// generates a fixture page on the fly, and asserts row count, a sample
-// cell, the filter behavior and a sorted order. Exits non-zero with a
-// named failure otherwise.
+/*
+  Selection page browser check harness.
+  Opens a generated page in Playwright Chromium and asserts the table
+  renders from the embedded data, filters/sort/master-select behave, and
+  the Export button produces a downloadable selection envelope.
+  NOT part of `npm run check` or `npm run health` (needs a browser). No login
+  needed - unlike `npm run verify:page` which opens LinkedIn with your profile.
+
+  Usage: node scripts/selection-page-browser-check.js [--help]
+  --help  show this help and exit
+
+  Safety: launches Chromium headless via this repo's browser module,
+  generates a fixture page on the fly, and asserts row count, a sample
+  cell, the filter behavior and a sorted order. Exits non-zero with a
+  named failure otherwise.
+*/
 
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -65,9 +67,11 @@ async function assertPage() {
     await page.goto(pathToFileURL(tmpPath).href);
     await page.waitForSelector("table#selection-table", { state: "attached" });
 
-    // Single download listener used by both export assertions: set a flag so we
-    // can tell whether a download was initiated without depending on download
-    // path() (which is flaky for blob: URLs in headless Chromium).
+/*
+  Single download listener used by both export assertions: set a flag so we
+  can tell whether a download was initiated without depending on download
+  path() (which is flaky for blob: URLs in headless Chromium).
+*/
     let downloadStarted = false;
     page.on("download", () => {
       downloadStarted = true;

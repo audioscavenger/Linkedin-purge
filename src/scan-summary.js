@@ -1,8 +1,10 @@
-// Pure builder for the short scan summary line printed after each type.
-//
-// The scan command owns the walk and the clock; this module owns only the
-// wording, so a unit test can pin the text from a result object with no
-// browser, no page and no timers. Kept free of imports and side effects.
+/*
+  Pure builder for the short scan summary line printed after each type.
+
+  The scan command owns the walk and the clock; this module owns only the
+  wording, so a unit test can pin the text from a result object with no
+  browser, no page and no timers. Kept free of imports and side effects.
+*/
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];

@@ -1,10 +1,12 @@
-// Selection page generator: a pure function from a scan envelope to a
-// self-contained HTML page with the envelope embedded inline.
-//
-// The page embeds its data as JSON and renders one row per item. No Card
-// Identity and no Key are rendered (they are implementation detail, not
-// something a person picks by); selection state lives in each row's
-// checkbox for the tickets that build selection and export on top.
+/*
+  Selection page generator: a pure function from a scan envelope to a
+  self-contained HTML page with the envelope embedded inline.
+
+  The page embeds its data as JSON and renders one row per item. No Card
+  Identity and no Key are rendered (they are implementation detail, not
+  something a person picks by); selection state lives in each row's
+  checkbox for the tickets that build selection and export on top.
+*/
 export function generateSelectionPage(input) {
   const envelope = normalizeEnvelope(input);
   const type = envelope && envelope.type ? String(envelope.type) : "likes";
@@ -106,10 +108,12 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
   var exportBtnEl = document.getElementById("export-btn");
   var exportMsgEl = document.getElementById("export-message");
 
-  // Selection counts: selected = ticked checkboxes; filtered = rows visible
-  // under the current filter; total = rows in the table. The master checkbox
-  // reflects only the filtered rows: it selects exactly them and nothing
-  // excluded by a filter, and it never silently changes rows outside it.
+/*
+  Selection counts: selected = ticked checkboxes; filtered = rows visible
+  under the current filter; total = rows in the table. The master checkbox
+  reflects only the filtered rows: it selects exactly them and nothing
+  excluded by a filter, and it never silently changes rows outside it.
+*/
   function visibleRowsNow() {
     var out = [];
     for (var i = 0; i < rows.length; i++) {
@@ -140,10 +144,12 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
     masterEl.indeterminate = visSel > 0 && visSel < visible.length;
   }
   masterEl.addEventListener("change", function () {
-    // Select all visible rows unless every visible row is already selected,
-    // in which case deselect them all. This is computed from the actual
-    // selection state (not the master's checked attribute, which the browser
-    // flips natively on click and can no longer be trusted).
+/*
+  Select all visible rows unless every visible row is already selected,
+  in which case deselect them all. This is computed from the actual
+  selection state (not the master's checked attribute, which the browser
+  flips natively on click and can no longer be trusted).
+*/
     var visible = visibleRowsNow();
     var visSel = 0;
     for (var i = 0; i < visible.length; i++) {
@@ -157,9 +163,11 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
     rowBox(rows[i]).addEventListener("change", updateSelection);
   }
 
-  // Parse a date-ish cell into [year, month, day] so "Sep 16" and
-  // "September 12, 2025" compare deterministically. Year-less dates keep
-  // year 0, which sorts before any dated one.
+/*
+  Parse a date-ish cell into [year, month, day] so "Sep 16" and
+  "September 12, 2025" compare deterministically. Year-less dates keep
+  year 0, which sorts before any dated one.
+*/
   var MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
   function dateKey(text) {
     var t = String(text || "").trim();
@@ -235,11 +243,13 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
     apply();
   });
 
-  // Export: gather the ticked items (by data-index back into the items array),
-  // stamp each status: todo, narrow count/keys to them, preserve scannedAt
-  // and add selectedAt, then trigger a download named selection-<type>.json.
-  // Exporting with nothing ticked is refused with a visible message; nothing
-  // is written to disk by the page itself.
+/*
+  Export: gather the ticked items (by data-index back into the items array),
+  stamp each status: todo, narrow count/keys to them, preserve scannedAt
+  and add selectedAt, then trigger a download named selection-<type>.json.
+  Exporting with nothing ticked is refused with a visible message; nothing
+  is written to disk by the page itself.
+*/
   exportBtnEl.addEventListener("click", function () {
     var data = window.SELECTION_DATA || {};
     var allItems = Array.isArray(data.items) ? data.items : [];

@@ -1,8 +1,10 @@
-// Unit tests for the default-browser opener (src/browser-opener.js).
-// The opener is injectable, so these tests never touch a real browser:
-// they stub setOpenPage(...) with scripted success/failure and assert how
-// openPage reports it. The default implementation is not exercised here
-// (it would spawn the OS browser); it is a thin exec wrapper.
+/*
+  Unit tests for the default-browser opener (src/browser-opener.js).
+  The opener is injectable, so these tests never touch a real browser:
+  they stub setOpenPage(...) with scripted success/failure and assert how
+  openPage reports it. The default implementation is not exercised here
+  (it would spawn the OS browser); it is a thin exec wrapper.
+*/
 import process from "node:process";
 import { setOpenPage, resetOpenPage, openPage } from "../src/browser-opener.js";
 

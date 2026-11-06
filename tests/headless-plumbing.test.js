@@ -124,9 +124,11 @@ let backup4 = null;
 let existed4 = fs.existsSync(configPath);
 if (existed4) backup4 = fs.readFileSync(configPath, "utf8");
 try {
-  // Write a config that carries the legacy key. resolveHeadless reads it
-  // (loadConfig creates nothing here because the file exists) and must not
-  // touch the file on disk.
+/*
+  Write a config that carries the legacy key. resolveHeadless reads it
+  (loadConfig creates nothing here because the file exists) and must not
+  touch the file on disk.
+*/
   let base = {};
   if (existed4) {
     try { base = JSON.parse(backup4); } catch (e) { base = {}; }

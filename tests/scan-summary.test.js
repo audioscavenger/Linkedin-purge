@@ -1,8 +1,10 @@
-// Unit tests for the scan summary builder.
-//
-// buildScanSummary is a pure function: no browser, no page, no timers. It owns
-// only the wording of the per-type progress line, so the tests pin the text
-// from a result object with nothing but plain JS.
+/*
+  Unit tests for the scan summary builder.
+
+  buildScanSummary is a pure function: no browser, no page, no timers. It owns
+  only the wording of the per-type progress line, so the tests pin the text
+  from a result object with nothing but plain JS.
+*/
 import assert from "node:assert";
 import { buildScanSummary } from "../src/scan-summary.js";
 

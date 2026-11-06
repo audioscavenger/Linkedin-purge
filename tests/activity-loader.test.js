@@ -1,14 +1,18 @@
-// Unit tests for the Activity Loader.
-// No browser, no DOM, no real timers: the loader runs against a fake Activity
-// Page seam that scripts growth signals and item pages, per the deep-scan
-// spec's loader seam.
+/*
+  Unit tests for the Activity Loader.
+  No browser, no DOM, no real timers: the loader runs against a fake Activity
+  Page seam that scripts growth signals and item pages, per the deep-scan
+  spec's loader seam.
+*/
 import { ActivityLoader } from "../src/activity-loader.js";
 
-// One scripted Activity Page: pages[0] is the first render, pages[n] is what
-// the Activity List holds after its n-th growth. The fake mirrors the injected
-// collector's incremental contract: readItems() returns only items whose key is
-// not already in the caller's seen list (unless ignoreSeen is set, which
-// exercises the loader's own de-duplication).
+/*
+  One scripted Activity Page: pages[0] is the first render, pages[n] is what
+  the Activity List holds after its n-th growth. The fake mirrors the injected
+  collector's incremental contract: readItems() returns only items whose key is
+  not already in the caller's seen list (unless ignoreSeen is set, which
+  exercises the loader's own de-duplication).
+*/
 class FakeActivityPage {
   constructor({ pages, growsOnSteps = [], ignoreSeen = false }) {
     this.pages = pages;
@@ -55,10 +59,12 @@ class FakeActivityPage {
   }
 }
 
-// A page whose batches land silently between load steps: a new batch arrives
-// right after one step's read and before the next step's first growth read, so
-// the polling loop never observes growth. This is the case that made a
-// complete envelope omit a whole batch.
+/*
+  A page whose batches land silently between load steps: a new batch arrives
+  right after one step's read and before the next step's first growth read, so
+  the polling loop never observes growth. This is the case that made a
+  complete envelope omit a whole batch.
+*/
 class LateBatchActivityPage {
   constructor({ pages, batchLandsAfterRead = 1 }) {
     this.pages = pages;
@@ -204,9 +210,11 @@ async function testTimeoutCutoff() {
   console.log("PASS: timeout cutoff keeps items and marks the walk incomplete");
 }
 
-// A list that never grows costs exactly the allowed idle steps and returns the
-// first render. Every later read is handed the keys already seen, so no card
-// metadata is extracted twice.
+/*
+  A list that never grows costs exactly the allowed idle steps and returns the
+  first render. Every later read is handed the keys already seen, so no card
+  metadata is extracted twice.
+*/
 async function testNeverGrows() {
   const fake = new FakeActivityPage({ pages: [page(["a", "b"])], growsOnSteps: [] });
   const { loader } = loaderFor(fake, FAST_TIMING);
@@ -322,10 +330,12 @@ async function testAbsentTimeoutUsesDefault() {
   console.log("PASS: absent timeout falls back to the 3600000 ms default");
 }
 
-// Cards can land between one step's last poll and the next step's first growth
-// read. Nothing observes growth, so the step has to read the unseen cards once
-// before it counts toward the idle limit; otherwise a complete envelope can
-// silently omit a whole batch (the under-report user story 7 forbids).
+/*
+  Cards can land between one step's last poll and the next step's first growth
+  read. Nothing observes growth, so the step has to read the unseen cards once
+  before it counts toward the idle limit; otherwise a complete envelope can
+  silently omit a whole batch (the under-report user story 7 forbids).
+*/
 async function testLateBatchIsReconciled() {
   const fake = new LateBatchActivityPage({
     pages: [page(["a", "b"]), page(["a", "b", "c", "d"])],

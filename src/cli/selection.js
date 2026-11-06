@@ -1,14 +1,16 @@
-// Selection loader: reads a selection envelope (as produced by the page's
-// Export button, ticket 13) and answers two questions the purge command
-// needs: how many items are actionable (anything not final and not a no-op),
-// and which identities to act on. Thrown errors name the file and the
-// expected shape, so a stale or partial selection fails loudly rather than
-// producing a silent empty run.
-//
-// A selection item is looked up by Card Identity (`cardId`) with `key` as a
-// fallback for envelopes that predate Card Identity (v0.5.0 ADR-0002). Identity
-// is NOT the positional `reaction:N` key alone: that only survives a single
-// loaded page, so purge --input re-resolves every card by its container id.
+/*
+  Selection loader: reads a selection envelope (as produced by the page's
+  Export button, ticket 13) and answers two questions the purge command
+  needs: how many items are actionable (anything not final and not a no-op),
+  and which identities to act on. Thrown errors name the file and the
+  expected shape, so a stale or partial selection fails loudly rather than
+  producing a silent empty run.
+
+  A selection item is looked up by Card Identity (`cardId`) with `key` as a
+  fallback for envelopes that predate Card Identity (v0.5.0 ADR-0002). Identity
+  is NOT the positional `reaction:N` key alone: that only survives a single
+  loaded page, so purge --input re-resolves every card by its container id.
+*/
 import fs from "node:fs";
 
 const NON_ACTIONABLE = new Set(["deleted", "no-op"]);

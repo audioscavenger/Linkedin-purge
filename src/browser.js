@@ -57,9 +57,11 @@ async function defaultLaunchBrowser({ profileDir, headless = false, chromiumPath
   }
 }
 
-// The public launchBrowser delegates to an injectable impl,
-// mirroring src/browser-opener.js. Keep the existing launchBrowser name
-// so scan/purge/login keep importing it.
+/*
+  The public launchBrowser delegates to an injectable impl,
+  mirroring src/browser-opener.js. Keep the existing launchBrowser name
+  so scan/purge/login keep importing it.
+*/
 let launchBrowserImpl = defaultLaunchBrowser;
 
 /**
@@ -80,9 +82,11 @@ export async function launchBrowser({ profileDir, headless = false, chromiumPath
   return launchBrowserImpl({ profileDir, headless, chromiumPath });
 }
 
-// The recovery path. Reads only through the pure helpers in
-// browser-recovery.js (which the unit tests pin); the IO below is
-// Windows-specific and degrades to "no holders found" when it cannot run.
+/*
+  The recovery path. Reads only through the pure helpers in
+  browser-recovery.js (which the unit tests pin); the IO below is
+  Windows-specific and degrades to "no holders found" when it cannot run.
+*/
 async function launchAfterRecovery({ profileDir, opts, exe }) {
   const holders = classifyHolders(listChromeProcesses(), profileDir);
   const recovery = pickRecovery(holders);
@@ -112,9 +116,11 @@ async function launchAfterRecovery({ profileDir, opts, exe }) {
   try {
     return await baseChromium.launchPersistentContext(profileDir, opts);
   } catch (retryError) {
-    // The retry failed: re-scan for whoever still holds the profile so the
-    // message can name them (typically a browser window the user has open),
-    // and keep the first line of the underlying error as the diagnosis.
+/*
+  The retry failed: re-scan for whoever still holds the profile so the
+  message can name them (typically a browser window the user has open),
+  and keep the first line of the underlying error as the diagnosis.
+*/
     const stillHolding = classifyHolders(listChromeProcesses(), profileDir);
     throw new ProfileInUseError(
       finalFailureMessage({
@@ -129,11 +135,13 @@ async function launchAfterRecovery({ profileDir, opts, exe }) {
 
 // --- IO helpers (Windows; each degrades to "nothing found" on failure) ---
 
-// List every chrome-family process with its command line, so the pure
-// classifyHolders() can decide which of them hold our profile. This is a
-// Windows tool, so a PowerShell query is the right level of plumbing here;
-// if it cannot run (other OS, restricted shell) we simply see no holders and
-// fall through to the stale-lock-file path.
+/*
+  List every chrome-family process with its command line, so the pure
+  classifyHolders() can decide which of them hold our profile. This is a
+  Windows tool, so a PowerShell query is the right level of plumbing here;
+  if it cannot run (other OS, restricted shell) we simply see no holders and
+  fall through to the stale-lock-file path.
+*/
 function listChromeProcesses() {
   const query =
     "Get-CimInstance Win32_Process | " +
@@ -160,11 +168,13 @@ function listChromeProcesses() {
   }
 }
 
-// Force-kill by PID (with its child tree). Called only on stragglers the
-// pure helpers classified as ours; failures are logged, not thrown -- the
-// retry below is the real check that the lock is released. Killing the root
-// PID with /F takes the whole tree down, so "process not found" on a
-// sibling is success, not an error.
+/*
+  Force-kill by PID (with its child tree). Called only on stragglers the
+  pure helpers classified as ours; failures are logged, not thrown -- the
+  retry below is the real check that the lock is released. Killing the root
+  PID with /F takes the whole tree down, so "process not found" on a
+  sibling is success, not an error.
+*/
 function killProcesses(pids) {
   for (const pid of pids) {
     try {

@@ -1,14 +1,16 @@
-// Live page-helper check: opens both Activity tabs headless and asserts that
-// `window.LP` still behaves the way scan and purge assume.
-//
-// This is deliberately not part of `npm run check` or `npm run health`: it opens
-// LinkedIn with your own profile and needs a logged-in session (`npm run login`
-// first). It reads only: it scrolls each tab once and never clicks a card.
-//
-// Every failure names the helper, what was expected and what was observed, and
-// the process exits non-zero. The assertions themselves live in
-// src/page-check.js, which is unit-tested against a fake page; this file is
-// only the browser wiring.
+/*
+  Live page-helper check: opens both Activity tabs headless and asserts that
+  `window.LP` still behaves the way scan and purge assume.
+
+  This is deliberately not part of `npm run check` or `npm run health`: it opens
+  LinkedIn with your own profile and needs a logged-in session (`npm run login`
+  first). It reads only: it scrolls each tab once and never clicks a card.
+
+  Every failure names the helper, what was expected and what was observed, and
+  the process exits non-zero. The assertions themselves live in
+  src/page-check.js, which is unit-tested against a fake page; this file is
+  only the browser wiring.
+*/
 import path from "node:path";
 import { launchBrowser, injectDomHelpers } from "../src/browser.js";
 import { isLoggedOut } from "../src/login-guard.js";

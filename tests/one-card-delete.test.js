@@ -1,8 +1,10 @@
-// Unit tests for the one-card delete by Card Identity (src/linkedin-dom.js).
-// The injected in-page helpers are plain JS with no imports, so the real
-// file is evaluated in a Node vm with a minimal fake DOM and the exported
-// window.LP.deleteOneCard(...) is called from there. No browser required;
-// the live page check covers the real LinkedIn markup.
+/*
+  Unit tests for the one-card delete by Card Identity (src/linkedin-dom.js).
+  The injected in-page helpers are plain JS with no imports, so the real
+  file is evaluated in a Node vm with a minimal fake DOM and the exported
+  window.LP.deleteOneCard(...) is called from there. No browser required;
+  the live page check covers the real LinkedIn markup.
+*/
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import assert from "node:assert";

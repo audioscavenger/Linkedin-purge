@@ -1,7 +1,9 @@
-// Purge status vocabulary, finality, and transition rules.
-// `deleted` is final; `todo`, `failed` and `not-found` are retried;
-// `no-op` is never acted on. One module owns these rules so the runner and
-// the status command cannot invent a status the page does not understand.
+/*
+  Purge status vocabulary, finality, and transition rules.
+  `deleted` is final; `todo`, `failed` and `not-found` are retried;
+  `no-op` is never acted on. One module owns these rules so the runner and
+  the status command cannot invent a status the page does not understand.
+*/
 
 export const PURGE_STATUSES = {
   NO_OP: "no-op",
@@ -13,9 +15,11 @@ export const PURGE_STATUSES = {
 
 const { NO_OP, TODO, DELETED, FAILED, NOT_FOUND } = PURGE_STATUSES;
 
-// Statuses a purge may act on: everything except the final one (`deleted`)
-// and the never-touched one (`no-op`), which are excluded for different
-// reasons (finality vs. not selected).
+/*
+  Statuses a purge may act on: everything except the final one (`deleted`)
+  and the never-touched one (`no-op`), which are excluded for different
+  reasons (finality vs. not selected).
+*/
 export const ACTIONABLE_STATUSES = new Set([TODO, FAILED, NOT_FOUND]);
 export const RETRYABLE_STATUSES = ACTIONABLE_STATUSES;
 export const FINAL_STATUSES = new Set([DELETED]);

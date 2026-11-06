@@ -1,9 +1,11 @@
-// Unit tests for the live page-helper check.
-// No browser, no DOM: the checks run against a fake page seam that scripts the
-// in-page helpers' answers (a growth signal, one scroll, item pages), the same
-// way the Activity Loader tests script their fake page. The only real waiting is
-// the 25 ms call bound in the hung-call test; every other wait runs on a fake
-// clock, so the suite stays fast and deterministic.
+/*
+  Unit tests for the live page-helper check.
+  No browser, no DOM: the checks run against a fake page seam that scripts the
+  in-page helpers' answers (a growth signal, one scroll, item pages), the same
+  way the Activity Loader tests script their fake page. The only real waiting is
+  the 25 ms call bound in the hung-call test; every other wait runs on a fake
+  clock, so the suite stays fast and deterministic.
+*/
 import { checkActivityTab } from "../src/page-check.js";
 
 function assert(condition, message) {
@@ -25,9 +27,11 @@ function itemsFor(tab) {
   ];
 }
 
-// One scripted Activity Page seam. The scroll flips the growth signal from
-// `scrollHeight` to `grownHeight`, which is what real pagination looks like;
-// collectItems honours the incremental contract unless ignoreSeen is set.
+/*
+  One scripted Activity Page seam. The scroll flips the growth signal from
+  `scrollHeight` to `grownHeight`, which is what real pagination looks like;
+  collectItems honours the incremental contract unless ignoreSeen is set.
+*/
 function fakePage(options = {}) {
   const tab = options.tab || "reactions";
   const items = options.items || itemsFor(tab);
@@ -92,9 +96,11 @@ function failureText(result) {
   return failures(result).map((r) => r.message).join(" | ") || "(no failures)";
 }
 
-// Both tabs pass: the opened tab is recognised, the other is not, the growth
-// signal has a shape, the scroll names its element and the list grows, the items
-// carry their metadata with unique keys, and the seen-key contract holds.
+/*
+  Both tabs pass: the opened tab is recognised, the other is not, the growth
+  signal has a shape, the scroll names its element and the list grows, the items
+  carry their metadata with unique keys, and the seen-key contract holds.
+*/
 async function testBothTabsPass() {
   for (const tab of ["reactions", "comments"]) {
     const result = await check(fakePage({ tab }), { tab });
@@ -243,9 +249,11 @@ async function testDuplicateKeys() {
   console.log("PASS: duplicate keys fail the check and the repeated key is named");
 }
 
-// The incremental contract: collectItems(seenKeys) must return only keys that
-// were not handed in, or a deep walk re-reads every card (and purge's
-// first-eligible lookup sees items it already processed).
+/*
+  The incremental contract: collectItems(seenKeys) must return only keys that
+  were not handed in, or a deep walk re-reads every card (and purge's
+  first-eligible lookup sees items it already processed).
+*/
 async function testLeakedSeenKeys() {
   const result = await check(fakePage({ ignoreSeen: true }));
   const failure = failures(result).find((r) => r.step === "seen keys");
@@ -258,9 +266,11 @@ async function testLeakedSeenKeys() {
   console.log("PASS: a collector that ignores the handed-in keys fails the seen-key contract");
 }
 
-// A hung in-page call is the failure that stalled the comments walk: it must
-// fail with the helper's name and the step, not hang the command. The only real
-// wait here is the 25 ms bound.
+/*
+  A hung in-page call is the failure that stalled the comments walk: it must
+  fail with the helper's name and the step, not hang the command. The only real
+  wait here is the 25 ms bound.
+*/
 async function testHungCallIsNamed() {
   const startedAt = Date.now();
   const result = await check(

@@ -1,6 +1,8 @@
-// Unit tests for the login guard: one three-way URL test shared by scan and
-// purge, so neither command can drift into its own idea of a dead session.
-// No browser: the guard only reads the current URL through the page seam.
+/*
+  Unit tests for the login guard: one three-way URL test shared by scan and
+  purge, so neither command can drift into its own idea of a dead session.
+  No browser: the guard only reads the current URL through the page seam.
+*/
 import { isLoggedOut } from "../src/login-guard.js";
 
 function pageAt(url) {

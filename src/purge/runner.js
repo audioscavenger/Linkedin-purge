@@ -154,11 +154,13 @@ export class PurgeRunner {
       };
     }
 
-    // Full purge mode (no selection): walk the Activity List and act on every
-    // collected card by its Card Identity (container element id). Statuses are
-    // persisted through envelopeStore (same as selection mode). Processed cardIds
-    // are tracked in memory only for this run, so a card is never acted on twice
-    // within a single run.
+/*
+  Full purge mode (no selection): walk the Activity List and act on every
+  collected card by its Card Identity (container element id). Statuses are
+  persisted through envelopeStore (same as selection mode). Processed cardIds
+  are tracked in memory only for this run, so a card is never acted on twice
+  within a single run.
+*/
     const processedLocally = new Set();
     let deleted = 0;
     let emptyScrolls = 0;

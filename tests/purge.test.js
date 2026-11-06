@@ -140,9 +140,11 @@ async function testSelectionNotFoundMarkedNotFound() {
   console.log("PASS: exhausted walk marks unmatched selection not-found and reports it by identity");
 }
 
-// Re-run of the same selection: purged skipped, failed and not-found retried,
-// no-op never touched; results are counted per status. Statuses persist in
-// the envelope store (replacing the retired checkpoint).
+/*
+  Re-run of the same selection: purged skipped, failed and not-found retried,
+  no-op never touched; results are counted per status. Statuses persist in
+  the envelope store (replacing the retired checkpoint).
+*/
 async function testSelectionRetryRunSkipsPurgedRetriesRest() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "lp-retry-"));
   const file = path.join(tmp, "selection-likes.json");
@@ -181,9 +183,11 @@ async function testSelectionRetryRunSkipsPurgedRetriesRest() {
   console.log("PASS: re-run skips purged, retries failed and not-found, leaves no-op alone");
 }
 
-// A selection run persists statuses into the selection envelope through the
-// store: an item purged on the page is marked purged on disk, one whose card
-// is missing ends not-found, and every mark is its own atomic write.
+/*
+  A selection run persists statuses into the selection envelope through the
+  store: an item purged on the page is marked purged on disk, one whose card
+  is missing ends not-found, and every mark is its own atomic write.
+*/
 async function testSelectionMarksEnvelopeAtomically() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "lp-selmark-"));
   const file = path.join(tmp, "selection-likes.json");

@@ -21,9 +21,11 @@ function commentMenuButtons() {
   );
 }
 
-// The comment key inside one node: the first replaceableComment_ id among its
-// descendants, else its own. The card-key path and the button-key path both go
-// through this one lookup, so they cannot drift apart.
+/*
+  The comment key inside one node: the first replaceableComment_ id among its
+  descendants, else its own. The card-key path and the button-key path both go
+  through this one lookup, so they cannot drift apart.
+*/
 function commentKeyIn(node) {
   if (!node) return null;
   const rc = node.querySelector ? node.querySelector("[id^='replaceableComment_']") : null;
@@ -72,11 +74,13 @@ function reactionKeyForIndex(idx) {
 }
 
 function reactionKeyForButton(btn) {
-  // The card keeps its place among the reaction buttons for the life of the
-  // page session: an unliked card stays put with state "no reaction" until the
-  // page is reloaded, and then it disappears. The index is therefore a
-  // session-scoped key, not one that survives a reload (permalinks are not
-  // reachable per item in this UI).
+/*
+  The card keeps its place among the reaction buttons for the life of the
+  page session: an unliked card stays put with state "no reaction" until the
+  page is reloaded, and then it disappears. The index is therefore a
+  session-scoped key, not one that survives a reload (permalinks are not
+  reachable per item in this UI).
+*/
   const all = reactionButtons();
   return reactionKeyForIndex(all.indexOf(btn));
 }
@@ -91,45 +95,49 @@ function collectReactionKeys() {
   return [...keys];
 }
 
-// Extract post author + date from the reaction/comment card's container.
-// This is the single canonical card-metadata extractor: the scan path and both
-// delete flows all call it on the card, so every record for the same item
-// carries the same author and dateTime.
-// "author" is the post author (not the account that performed the like/comment).
-// container should be the role="listitem" ancestor of the button.
-// Interpretation of the LinkedIn card DOM:
-//
-// On a reaction card, the POSTER is not the REACTOR. The visible name the
-// user sees on the reactions page is the header actor of the card: the
-// poster's avatar + name link + headline text. For company posts the header
-// shows the company name ("Zebraworks") and no headline (companies have no
-// personal headline) - the headline cell stays blank.
-//
-// The aria-label "Open control menu for post by X" is NOT reliable for the
-// header actor: for company posts LinkedIn puts the PERSON who posted on
-// behalf of the company there ("Erin Barrio"), while the header still shows
-// "Zebraworks". That is exactly the mismatch the user reported:
-// scan-likes.json had "Erin Barrio" for reaction:13/14/15 while the page
-// shows "Zebraworks".
-//
-// So the extractor prefers the VISIBLE header actor:
-//   1. The first /in/ or /company/ link in DOM order whose text is a name
-//      (the header actor block comes before body and footer links).
-//   2. The aria-label on the control menu button (fallback only).
-//
-// COUNTER-ARGUMENT considered and rejected: "if the aria-label says post by
-// Erin Barrio, Erin IS the author - the header is just decoration." No: the
-// user reviews the reactions page and picks items by what they SEE there.
-// The Author column is a review aid, not a provenance record. Showing
-// "Zebraworks" (visible) is correct; showing "Erin Barrio" (hidden) is a
-// surprise that cannot be verified from the page.
+/*
+  Extract post author + date from the reaction/comment card's container.
+  This is the single canonical card-metadata extractor: the scan path and both
+  delete flows all call it on the card, so every record for the same item
+  carries the same author and dateTime.
+  "author" is the post author (not the account that performed the like/comment).
+  container should be the role="listitem" ancestor of the button.
+  Interpretation of the LinkedIn card DOM:
+
+  On a reaction card, the POSTER is not the REACTOR. The visible name the
+  user sees on the reactions page is the header actor of the card: the
+  poster's avatar + name link + headline text. For company posts the header
+  shows the company name ("Zebraworks") and no headline (companies have no
+  personal headline) - the headline cell stays blank.
+
+  The aria-label "Open control menu for post by X" is NOT reliable for the
+  header actor: for company posts LinkedIn puts the PERSON who posted on
+  behalf of the company there ("Erin Barrio"), while the header still shows
+  "Zebraworks". That is exactly the mismatch the user reported:
+  scan-likes.json had "Erin Barrio" for reaction:13/14/15 while the page
+  shows "Zebraworks".
+
+  So the extractor prefers the VISIBLE header actor:
+  1. The first /in/ or /company/ link in DOM order whose text is a name
+  (the header actor block comes before body and footer links).
+  2. The aria-label on the control menu button (fallback only).
+
+  COUNTER-ARGUMENT considered and rejected: "if the aria-label says post by
+  Erin Barrio, Erin IS the author - the header is just decoration." No: the
+  user reviews the reactions page and picks items by what they SEE there.
+  The Author column is a review aid, not a provenance record. Showing
+  "Zebraworks" (visible) is correct; showing "Erin Barrio" (hidden) is a
+  surprise that cannot be verified from the page.
+*/
 
 function extractAuthorAndDate(container) {
-  // 1. The visible header actor: first /in/ or /company/ link in DOM order
-  // with a plausible name. The header actor block precedes body and footer
-  // links, so the earliest match is the name the page shows. Skips UI text
-  // ("likes this", "X commented this", reaction-state phrases) and the
-  // ellipsis placeholder.
+/*
+  1. The visible header actor: first /in/ or /company/ link in DOM order
+  with a plausible name. The header actor block precedes body and footer
+  links, so the earliest match is the name the page shows. Skips UI text
+  ("likes this", "X commented this", reaction-state phrases) and the
+  ellipsis placeholder.
+*/
   let author = null;
   const authorLinks = container.querySelectorAll("a[href*='/in/'], a[href*='/company/']");
   for (const link of authorLinks) {
@@ -139,10 +147,12 @@ function extractAuthorAndDate(container) {
       break;
     }
   }
-  // 2. Fallback: the "Open control menu for post by X" button has the poster
-  // name in its aria-label. For company posts this can be the person who
-  // posted on behalf, not the visible header actor - which is why this is
-  // only a fallback (see the module note above).
+/*
+  2. Fallback: the "Open control menu for post by X" button has the poster
+  name in its aria-label. For company posts this can be the person who
+  posted on behalf, not the visible header actor - which is why this is
+  only a fallback (see the module note above).
+*/
   if (!author) {
     const menuBtn = container.querySelector("button[aria-label*='Open control menu for post by']");
     if (menuBtn) {
@@ -152,9 +162,11 @@ function extractAuthorAndDate(container) {
     }
   }
 
-  // Look for a date-like text in the card (Month + day pattern like "Sep 16").
-  // Allow trailing text like " • Edited" or other suffixes - just extract the date part.
-  // Normalized to "Oct 5, 2026" when a year is present, else "Oct 5".
+/*
+  Look for a date-like text in the card (Month + day pattern like "Sep 16").
+  Allow trailing text like " • Edited" or other suffixes - just extract the date part.
+  Normalized to "Oct 5, 2026" when a year is present, else "Oct 5".
+*/
   let dateTime = null;
   // Match month name + valid day (01-31), optional year. Reject garbage like "Oct 81".
   const dateRe = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+((?:0?[1-9]|[12]\d|3[01]))(?:\s*,\s*(\d{4}))?/;
@@ -189,9 +201,11 @@ function extractAuthorAndDate(container) {
       if (m) dateTime = toDisplayDate(monthIndex(m[1]), Number(m[2]), m[3] || null);
     }
   }
-  // Headline: the small job-title line under the header actor's name.
-  // Company posts have no personal headline, so this stays null (blank
-  // column) for them - exactly what the user asked for.
+/*
+  Headline: the small job-title line under the header actor's name.
+  Company posts have no personal headline, so this stays null (blank
+  column) for them - exactly what the user asked for.
+*/
   let headline = null;
   const headlineSelectors = [
     ".feed-shared-update-v2__actor--headline",
@@ -220,9 +234,11 @@ function cleanText(str, maxLen) {
 }
 
 function extractCommentText(card) {
-  // Comment body text inside the comment card. Try multiple selectors
-  // (LinkedIn's class names change between versions); fall back to the first
-  // ltr text span that isn't the author/date metadata.
+/*
+  Comment body text inside the comment card. Try multiple selectors
+  (LinkedIn's class names change between versions); fall back to the first
+  ltr text span that isn't the author/date metadata.
+*/
   const selectors = [
     ".update-components-text",
     ".comment-item__text",
@@ -269,12 +285,14 @@ function findCard(btn) {
   return null;
 }
 
-// The one card-metadata reader: resolve the pristine card, pick up its post
-// link, then hand the card to extractAuthorAndDate (still the sole
-// author/date extractor). Returns { postHref, author, dateTime } with null
-// fallbacks when the card or its pieces are absent. The scan path and both
-// delete flows read through here, so every record for the same card comes
-// from one place.
+/*
+  The one card-metadata reader: resolve the pristine card, pick up its post
+  link, then hand the card to extractAuthorAndDate (still the sole
+  author/date extractor). Returns { postHref, author, dateTime } with null
+  fallbacks when the card or its pieces are absent. The scan path and both
+  delete flows read through here, so every record for the same card comes
+  from one place.
+*/
 function readCardMeta(btn, isComment = false) {
   const meta = { cardId: null, text: null, postExcerpt: null, postHref: null, author: null, dateTime: null };
   const card = findCard(btn);
@@ -289,20 +307,24 @@ function readCardMeta(btn, isComment = false) {
   return meta;
 }
 
-// Collect rich metadata for each reaction item (state, author, postHref, dateTime).
-// Keys already seen are skipped before metadata extraction, so a deep walk reads
-// each card once instead of re-reading the whole list on every load step.
-// Link capture constants: menu polling budget, capture budget, poll cadence and
-// the single retry allowed when a menu or capture misses.
+/*
+  Collect rich metadata for each reaction item (state, author, postHref, dateTime).
+  Keys already seen are skipped before metadata extraction, so a deep walk reads
+  each card once instead of re-reading the whole list on every load step.
+  Link capture constants: menu polling budget, capture budget, poll cadence and
+  the single retry allowed when a menu or capture misses.
+*/
 const LINK_MENU_TIMEOUT_MS = 2000;
 const LINK_CAPTURE_TIMEOUT_MS = 2000;
 const LINK_POLL_INTERVAL_MS = 100;
 const LINK_RETRY_COUNT = 1;
 
-// Capture one link from a card by opening its control menu, choosing the right
-// "Copy link to ..." item, and hooking the page's own clipboard write. Returns
-// the captured URL or null when the menu or the capture never arrives; a
-// missing link never throws, so an unsupported card just yields null.
+/*
+  Capture one link from a card by opening its control menu, choosing the right
+  "Copy link to ..." item, and hooking the page's own clipboard write. Returns
+  the captured URL or null when the menu or the capture never arrives; a
+  missing link never throws, so an unsupported card just yields null.
+*/
 async function captureCardLink(card, isComment) {
   if (!card) return null;
   const menuBtn = card.querySelector("button[aria-label*='Open control menu']");
@@ -385,9 +407,11 @@ async function collectReactionItems(seenKeys, links) {
   return items;
 }
 
-// Collect rich metadata for each comment item (author, postHref, dateTime).
-// Same incremental contract as reactions: keys already seen are skipped before
-// metadata extraction.
+/*
+  Collect rich metadata for each comment item (author, postHref, dateTime).
+  Same incremental contract as reactions: keys already seen are skipped before
+  metadata extraction.
+*/
 async function collectCommentItems(seenKeys, links) {
   const items = [];
   const seen = new Set(seenKeys || []);
@@ -432,10 +456,12 @@ function activityCards() {
   return [...document.querySelectorAll('[role="listitem"]')];
 }
 
-// The element that actually scrolls the Activity List: the nearest scrollable
-// ancestor of a card, then the element with id "workspace", then the main
-// landmark, then the document scroller. Measured today, all of them land on
-// #workspace, but the derivation order is what survives a rename.
+/*
+  The element that actually scrolls the Activity List: the nearest scrollable
+  ancestor of a card, then the element with id "workspace", then the main
+  landmark, then the document scroller. Measured today, all of them land on
+  #workspace, but the derivation order is what survives a rename.
+*/
 function activityScrollTarget() {
   let node = activityCards()[0] || null;
   for (let i = 0; i < 20 && node; i++) {
@@ -464,10 +490,12 @@ function scrollActivityListToBottom() {
   return { tag: target.tagName || null, id: target.id || null };
 }
 
-// The key of one card, computed without reading its metadata: the comment id
-// path, or the reaction-button predicate plus the session-scoped reaction
-// index. Both come from the collectors' own helpers, so the growth signal and
-// the collectors can never disagree about a card's key.
+/*
+  The key of one card, computed without reading its metadata: the comment id
+  path, or the reaction-button predicate plus the session-scoped reaction
+  index. Both come from the collectors' own helpers, so the growth signal and
+  the collectors can never disagree about a card's key.
+*/
 function cardKey(card) {
   if (isCommentsPage()) return commentKeyIn(card);
   if (isReactionsPage()) {
@@ -477,17 +505,21 @@ function cardKey(card) {
   return null;
 }
 
-// Cheap growth signal: the Activity List's scroll height, its card count and
-// the last card's key. Never extracts card metadata, so polling it while the
-// list grows to hundreds of cards stays cheap. Growth of any of the three means
-// the page loaded more content.
+/*
+  Cheap growth signal: the Activity List's scroll height, its card count and
+  the last card's key. Never extracts card metadata, so polling it while the
+  list grows to hundreds of cards stays cheap. Growth of any of the three means
+  the page loaded more content.
+*/
 function readGrowthSignal() {
   const cards = activityCards();
   const target = activityScrollTarget();
-  // The last keyed card, not merely the last element in the list: LinkedIn ends
-  // the list with tiles that carry no key (a "load more" sentinel, a
-  // placeholder), and taking that tile left lastKey permanently null, which
-  // blinded the cheapest growth clue the walk has.
+/*
+  The last keyed card, not merely the last element in the list: LinkedIn ends
+  the list with tiles that carry no key (a "load more" sentinel, a
+  placeholder), and taking that tile left lastKey permanently null, which
+  blinded the cheapest growth clue the walk has.
+*/
   let lastKey = null;
   for (let i = cards.length - 1; i >= 0 && lastKey == null; i--) lastKey = cardKey(cards[i]);
   return {
@@ -499,10 +531,12 @@ function readGrowthSignal() {
 
 // --- Delete comment flow ---
 
-// Comments have no per-item state (unlike reactions there is no stateful
-// button on the card), so a deleted comment records the activity itself as its
-// state. A stable constant keeps comment results the same shape as reaction
-// results, where state is always a real, non-null value.
+/*
+  Comments have no per-item state (unlike reactions there is no stateful
+  button on the card), so a deleted comment records the activity itself as its
+  state. A stable constant keeps comment results the same shape as reaction
+  results, where state is always a real, non-null value.
+*/
 const COMMENTS_STATE = "Commented";
 
 async function deleteCommentButton(btn) {
@@ -559,11 +593,13 @@ async function deleteCommentButton(btn) {
 
 // --- Delete one card (by Card Identity) ---
 
-// Act on exactly one card, named by its Card Identity (the id of the card's
-// own container element, which the collectors record as `cardId`). Nothing
-// here hunts for a positional key: the caller names the card, the card
-// names itself. Failures are named ("refused: ..." / "card not found"),
-// never retried inside the page. The result always carries the cardId.
+/*
+  Act on exactly one card, named by its Card Identity (the id of the card's
+  own container element, which the collectors record as `cardId`). Nothing
+  here hunts for a positional key: the caller names the card, the card
+  names itself. Failures are named ("refused: ..." / "card not found"),
+  never retried inside the page. The result always carries the cardId.
+*/
 async function deleteOneCard(cardId) {
   if (!cardId) {
     return { ok: false, skip: false, cardId: null, error: "cardId is required" };

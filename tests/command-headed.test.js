@@ -1,9 +1,11 @@
-// Command-level tests for the headless/headed resolution through the launch
-// seam. Mirrors tests/browser-opener.test.js: stub setLaunchBrowserImpl, run the
-// real command function, and assert the headless value it hands to launchBrowser.
-// The config.json is controlled for the whole run so the "default" assertions
-// are order-independent: a behavior.headed left behind by another test file must
-// not flip the default cases.
+/*
+  Command-level tests for the headless/headed resolution through the launch
+  seam. Mirrors tests/browser-opener.test.js: stub setLaunchBrowserImpl, run the
+  real command function, and assert the headless value it hands to launchBrowser.
+  The config.json is controlled for the whole run so the "default" assertions
+  are order-independent: a behavior.headed left behind by another test file must
+  not flip the default cases.
+*/
 import assert from "node:assert";
 import fs from "node:fs";
 import path from "node:path";

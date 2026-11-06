@@ -1,33 +1,37 @@
-// Live page-helper check: the injected half of the tool asserted at the real
-// boundary.
-//
-// `window.LP` (src/linkedin-dom.js) is injected into the page and cannot be
-// unit-tested without a browser, so a LinkedIn markup change would otherwise
-// show up only as a scan of 0 items, a scroll target of nothing, or a growth
-// signal that never moves. This module checks one Activity tab and returns one
-// result per assertion, each naming the in-page helper, what was expected and
-// what was observed. `npm run verify:page` wires a real page to it.
-//
-// The page seam is five plain functions returning plain data, the same shape the
-// Activity Loader takes (plus both page detectors), so the checks run against a
-// fake page in tests and Playwright through createCheckPage():
-//   isReactionsPage()             -> boolean
-//   isCommentsPage()              -> boolean
-//   readGrowthSignal()            -> { scrollHeight, count, lastKey }
-//   scrollActivityListToBottom()  -> { tag, id }
-//   collectItems(seenKeys)        -> [{ key, state?, author, postHref, dateTime }]
-//
-// Every page call is bounded. A Playwright evaluate has no timeout of its own, so
-// a page whose main thread is saturated never returns and the command hangs with
-// no output: that is what stalled a 317-item comments walk. Here it fails naming
-// the helper and the step it was performing.
+/*
+  Live page-helper check: the injected half of the tool asserted at the real
+  boundary.
+
+  `window.LP` (src/linkedin-dom.js) is injected into the page and cannot be
+  unit-tested without a browser, so a LinkedIn markup change would otherwise
+  show up only as a scan of 0 items, a scroll target of nothing, or a growth
+  signal that never moves. This module checks one Activity tab and returns one
+  result per assertion, each naming the in-page helper, what was expected and
+  what was observed. `npm run verify:page` wires a real page to it.
+
+  The page seam is five plain functions returning plain data, the same shape the
+  Activity Loader takes (plus both page detectors), so the checks run against a
+  fake page in tests and Playwright through createCheckPage():
+  isReactionsPage()             -> boolean
+  isCommentsPage()              -> boolean
+  readGrowthSignal()            -> { scrollHeight, count, lastKey }
+  scrollActivityListToBottom()  -> { tag, id }
+  collectItems(seenKeys)        -> [{ key, state?, author, postHref, dateTime }]
+
+  Every page call is bounded. A Playwright evaluate has no timeout of its own, so
+  a page whose main thread is saturated never returns and the command hangs with
+  no output: that is what stalled a 317-item comments walk. Here it fails naming
+  the helper and the step it was performing.
+*/
 
 // How long one page call may take before it counts as hung.
 export const DEFAULT_CALL_TIMEOUT_MS = 15000;
-// How often the growth signal is re-read while waiting for a load step to show
-// up, and how long that wait lasts. These mirror the loader's POLL_INTERVAL_MS
-// and the shipped growthWait default, because the check must exercise the same
-// wait the walk relies on.
+/*
+  How often the growth signal is re-read while waiting for a load step to show
+  up, and how long that wait lasts. These mirror the loader's POLL_INTERVAL_MS
+  and the shipped growthWait default, because the check must exercise the same
+  wait the walk relies on.
+*/
 export const DEFAULT_POLL_INTERVAL_MS = 300;
 export const DEFAULT_GROWTH_WAIT_MS = 3000;
 // How many scrolls the pagination assertion may try before calling the pager
@@ -42,9 +46,11 @@ const DETECTOR_BY_TAB = {
 
 const OTHER_TAB = { reactions: "comments", comments: "reactions" };
 
-// The card metadata the collector promises, per tab. Reactions carry a per-item
-// state; comments have none (the delete flow, not the collector, stamps
-// COMMENTS_STATE into a report). Every item also carries its key.
+/*
+  The card metadata the collector promises, per tab. Reactions carry a per-item
+  state; comments have none (the delete flow, not the collector, stamps
+  COMMENTS_STATE into a report). Every item also carries its key.
+*/
 const METADATA_FIELDS = {
   reactions: ["cardId", "text", "postExcerpt", "state", "author", "postHref", "itemHref", "dateTime"],
   comments: ["cardId", "text", "postExcerpt", "author", "postHref", "itemHref", "dateTime"],
@@ -115,9 +121,11 @@ async function boundedCall(fn, callTimeoutMs) {
   }
 }
 
-// Check one Activity tab. Returns { tab, ok, facts, results }: `facts` carries
-// the numbers the passing line prints (card count, scroll target, growth, item
-// count), `results` one named outcome per assertion.
+/*
+  Check one Activity tab. Returns { tab, ok, facts, results }: `facts` carries
+  the numbers the passing line prints (card count, scroll target, growth, item
+  count), `results` one named outcome per assertion.
+*/
 export async function checkActivityTab({
   tab,
   page,
@@ -196,12 +204,14 @@ export async function checkActivityTab({
       : fail(tab, "scroll target", "scrollActivityListToBottom", targetExpected, "no tag and no id")
   );
 
-  // --- Real pagination: the card count has to grow, the way the walk's own
-  // scrolling expects. Scroll height alone is not proof of a new batch: it moves
-  // by a few pixels on a layout shift, which is how a dead list passed this check
-  // the first time it was run live. A batch that arrives only on the second
-  // scroll is normal (the walk sees the same cadence), so the check scrolls up to
-  // MAX_SCROLL_ATTEMPTS times before calling the pager dead.
+/*
+  --- Real pagination: the card count has to grow, the way the walk's own
+  scrolling expects. Scroll height alone is not proof of a new batch: it moves
+  by a few pixels on a layout shift, which is how a dead list passed this check
+  the first time it was run live. A batch that arrives only on the second
+  scroll is normal (the walk sees the same cadence), so the check scrolls up to
+  MAX_SCROLL_ATTEMPTS times before calling the pager dead.
+*/
   const before = signal;
   let after = signal;
   let attempts = 0;
@@ -277,9 +287,11 @@ export async function checkActivityTab({
       : pass(tab, "unique keys", "collectItems", uniqueExpected, uniqueObserved)
   );
 
-  // --- Seen keys: hand in every key but the last; only the last (and anything
-  // that loaded since) may come back. This is the incremental contract the walk
-  // depends on to stay linear.
+/*
+  --- Seen keys: hand in every key but the last; only the last (and anything
+  that loaded since) may come back. This is the incremental contract the walk
+  depends on to stay linear.
+*/
   const handed = items.slice(0, -1).map((item) => (item ? item.key : null)).filter((key) => key != null);
   const lastKey = items.length ? items[items.length - 1].key : null;
   const fresh = await call("seen keys", "collectItems", () => collectCall(handed));
@@ -310,9 +322,11 @@ export async function checkActivityTab({
   return finish();
 }
 
-// Adapt a Playwright page to the check's seam. One object, one evaluate per
-// in-page helper, so the browser edge stays thin and this module never imports
-// Playwright. The bound and the failure naming live in checkActivityTab().
+/*
+  Adapt a Playwright page to the check's seam. One object, one evaluate per
+  in-page helper, so the browser edge stays thin and this module never imports
+  Playwright. The bound and the failure naming live in checkActivityTab().
+*/
 export function createCheckPage(page, options = {}) {
   const links = typeof options === "boolean" ? options : !!(options && (options.links || options.captureLinks || options.withLinks));
   return {

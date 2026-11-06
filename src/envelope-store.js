@@ -1,9 +1,11 @@
-// Envelope store: owns one scan envelope file on disk.
-// The store is the single durability seam for per-item Purge Status: `mark`
-// updates one item (matched by Card Identity) and writes the file atomically
-// on the spot, so an interrupted run keeps every status earned so far and the
-// caller cannot forget to save. Counts by status are exposed for the status
-// command to reuse.
+/*
+  Envelope store: owns one scan envelope file on disk.
+  The store is the single durability seam for per-item Purge Status: `mark`
+  updates one item (matched by Card Identity) and writes the file atomically
+  on the spot, so an interrupted run keeps every status earned so far and the
+  caller cannot forget to save. Counts by status are exposed for the status
+  command to reuse.
+*/
 import fs from "node:fs";
 import path from "node:path";
 import { PURGE_STATUSES } from "./purge/status.js";

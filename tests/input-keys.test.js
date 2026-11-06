@@ -1,6 +1,8 @@
-// Unit tests for the purge --input loader (scan JSON envelope contract).
-// No browser, no DOM: the loader is exercised as a function over fixture
-// files, per the v0.3.4 spec's input-loader seam.
+/*
+  Unit tests for the purge --input loader (scan JSON envelope contract).
+  No browser, no DOM: the loader is exercised as a function over fixture
+  files, per the v0.3.4 spec's input-loader seam.
+*/
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

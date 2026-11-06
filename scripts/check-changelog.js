@@ -1,6 +1,8 @@
-// Check that package.json's version has a corresponding CHANGELOG.md entry.
-// Runs in pre-commit so a version bump without a changelog entry fails before
-// the commit is created.
+/*
+  Check that package.json's version has a corresponding CHANGELOG.md entry.
+  Runs in pre-commit so a version bump without a changelog entry fails before
+  the commit is created.
+*/
 import fs from "node:fs";
 
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));

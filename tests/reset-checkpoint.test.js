@@ -1,6 +1,8 @@
-// Unit test for the loud refusal of --reset-checkpoint (ticket 23):
-// the flag was removed in 0.5.0; passing it must print one clear line
-// saying so and exit non-zero without launching a browser.
+/*
+  Unit test for the loud refusal of --reset-checkpoint (ticket 23):
+  the flag was removed in 0.5.0; passing it must print one clear line
+  saying so and exit non-zero without launching a browser.
+*/
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

@@ -1,6 +1,8 @@
-// Unit tests for the scan envelope builder: the documented file contract that
-// `purge --input` reads (ADR 0001). No browser, no page: the builder is a pure
-// function, so the shallow and deep-partial shapes are pinned here.
+/*
+  Unit tests for the scan envelope builder: the documented file contract that
+  `purge --input` reads (ADR 0001). No browser, no page: the builder is a pure
+  function, so the shallow and deep-partial shapes are pinned here.
+*/
 import { buildScanEnvelope } from "../src/scan-envelope.js";
 import { PURGE_STATUSES } from "../src/purge/status.js";
 

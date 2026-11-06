@@ -14,17 +14,21 @@ import { openPage } from "../browser-opener.js";
 import { generateSelectionPage } from "../selection-page.js";
 
 export async function runPurge(args) {
-  // Loudly refuse the retired flag instead of silently ignoring it: statuses
-  // live in the scan envelope now (ticket 23). Nothing is purged, no browser
-  // is launched.
+/*
+  Loudly refuse the retired flag instead of silently ignoring it: statuses
+  live in the scan envelope now (ticket 23). Nothing is purged, no browser
+  is launched.
+*/
   if (args.includes("--reset-checkpoint")) {
     console.error("--reset-checkpoint was removed in 0.5.0: purge statuses now live in the scan envelope (data/scan-<type>.json). Pass nothing instead - the envelope is updated item by item as purge runs.");
     process.exit(1);
   }
 
-  // Loudly refuse the retired flag instead of silently ignoring it: purge is
-  // headless by default now, and --headed is the override. Nothing is
-  // purged, no browser is launched.
+/*
+  Loudly refuse the retired flag instead of silently ignoring it: purge is
+  headless by default now, and --headed is the override. Nothing is
+  purged, no browser is launched.
+*/
   if (args.includes("--headless")) {
     console.error("--headless was removed: scan and purge are headless by default. Use --headed to open a visible window instead.");
     process.exit(1);
@@ -37,17 +41,19 @@ export async function runPurge(args) {
   const chromiumPath = resolveFlag(args, "chromium-path", "paths.chromiumPath", null);
   const limitArg = asInt(resolveFlag(args, "limit", "behavior.limit", 0), 0);
   const headless = resolveHeadless(args);
-  // Optional: restrict deletion to a selection from --input. This is the
-  // v0.5.0 review-first flow: scan writes data/selection-<type>.html from the
-  // scan envelope, the person ticks the items worth deleting, Export writes
-  // data/selection-<type>.json with status: todo, and purge --input acts
-  // on that file. Selected items outside the selection are never touched.
+/*
+  Optional: restrict deletion to a selection from --input. This is the
+  v0.5.0 review-first flow: scan writes data/selection-<type>.html from the
+  scan envelope, the person ticks the items worth deleting, Export writes
+  data/selection-<type>.json with status: todo, and purge --input acts
+  on that file. Selected items outside the selection are never touched.
+*/
   const inputFile = getFlag(args, "input", null);
 
-  // Load the selection before the browser launches, so an unusable file fails
-  // without a visit. Statuses already final (deleted) or no-op are skipped;
-  // anything todo/failed/not-found is actionable, and a selection with
-  // zero actionable items exits without prompting.
+  /* Load the selection before the browser launches, so an unusable file fails
+  without a visit. Statuses already final (deleted) or no-op are skipped;
+  anything todo/failed/not-found is actionable, and a selection with
+  zero actionable items exits without prompting. */
   let selection = null;
   if (inputFile) {
     selection = loadSelection(inputFile);
@@ -65,9 +71,11 @@ export async function runPurge(args) {
   const batchMin = asInt(resolveFlag(args, "batch-min", "timing.batchMin", 30000), 30000);
   const batchMax = asInt(resolveFlag(args, "batch-max", "timing.batchMax", 60000), 60000);
 
-  // One Purge Run per concrete type, each on the Activity List tab where its
-  // page detector matches. Resolved before the browser launches, so an unknown
-  // type fails without a visit. A selection file carries its own type.
+/*
+  One Purge Run per concrete type, each on the Activity List tab where its
+  page detector matches. Resolved before the browser launches, so an unknown
+  type fails without a visit. A selection file carries its own type.
+*/
   const targetType = selection && selection.type ? selection.type : typeArg;
   const targets = activityTargets(targetType);
 
@@ -125,10 +133,12 @@ export async function runPurge(args) {
         return;
       }
 
-      // The adapters are per type: neither flow wires checkpoint or report
-      // anymore (both retired in tickets 23/24). A selection run persists
-      // statuses straight into the selection envelope through the store; a
-      // full purge run wires the envelopeStore to persist statuses.
+/*
+  The adapters are per type: neither flow wires checkpoint or report
+  anymore (both retired in tickets 23/24). A selection run persists
+  statuses straight into the selection envelope through the store; a
+  full purge run wires the envelopeStore to persist statuses.
+*/
       const runner = new PurgeRunner({
         pageAdapter: new PageAdapter(page),
         confirmAdapter: new ConfirmAdapter(),
@@ -139,9 +149,11 @@ export async function runPurge(args) {
 
       // The runner asks its own confirmation prompt once per type.
       results.push(await runner.run({ type: target.type, ...runOptions }));
-      // Regenerate the selection page from the UPDATED envelope (the runner
-      // wrote statuses through envelopeStore.mark, which does atomic writes).
-      // Best effort: never fail the scan.
+/*
+  Regenerate the selection page from the UPDATED envelope (the runner
+  wrote statuses through envelopeStore.mark, which does atomic writes).
+  Best effort: never fail the scan.
+*/
       try {
         const envelopeFile = inputFile ? path.resolve(inputFile) : path.resolve(dataDir, `scan-${target.type}.json`);
         let envelope = null;

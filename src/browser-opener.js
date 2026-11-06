@@ -1,11 +1,13 @@
-// Default-browser opener module - injectable for testing.
-// Opens a page in the OS default browser with graceful failure handling.
-//
-// The scan command writes each scan's selection page to data/selection-<type>.html
-// and opens it with this module so the user can review before purging. Opening
-// is best effort: a failure prints the path and never fails the scan. The
-// opener is injectable (setOpenPage) so unit tests cover the success and
-// failure paths without touching any real browser.
+/*
+  Default-browser opener module - injectable for testing.
+  Opens a page in the OS default browser with graceful failure handling.
+
+  The scan command writes each scan's selection page to data/selection-<type>.html
+  and opens it with this module so the user can review before purging. Opening
+  is best effort: a failure prints the path and never fails the scan. The
+  opener is injectable (setOpenPage) so unit tests cover the success and
+  failure paths without touching any real browser.
+*/
 
 import { execFile } from "node:child_process";
 import path from "node:path";

@@ -1,19 +1,21 @@
-// Activity Loader: the one implementation of scroll-and-wait for the LinkedIn
-// Activity List.
-//
-// It owns four operations over a small Activity Page seam:
-//   readItems(seenKeys)  - the items currently rendered, skipping seen cards
-//   readGrowth()         - the cheap growth signal (no card metadata)
-//   scrollToBottom()     - scroll the Activity List and name the element used
-//   loadStep()           - one scroll-and-poll round, reporting whether it grew
-//
-// `readFirstRender()` is what plain scan collects: one read, one step, complete.
-// `collectAll()` walks the list until it stops growing (complete) or until the
-// configured timeout expires (incomplete, keeping what it collected); a timeout
-// of 0 means no limit.
-//
-// The page seam is a plain object, not a Playwright page, so the stopping rules
-// are tested without a browser; `createActivityPage()` adapts a real page to it.
+/*
+  Activity Loader: the one implementation of scroll-and-wait for the LinkedIn
+  Activity List.
+
+  It owns four operations over a small Activity Page seam:
+  readItems(seenKeys)  - the items currently rendered, skipping seen cards
+  readGrowth()         - the cheap growth signal (no card metadata)
+  scrollToBottom()     - scroll the Activity List and name the element used
+  loadStep()           - one scroll-and-poll round, reporting whether it grew
+
+  `readFirstRender()` is what plain scan collects: one read, one step, complete.
+  `collectAll()` walks the list until it stops growing (complete) or until the
+  configured timeout expires (incomplete, keeping what it collected); a timeout
+  of 0 means no limit.
+
+  The page seam is a plain object, not a Playwright page, so the stopping rules
+  are tested without a browser; `createActivityPage()` adapts a real page to it.
+*/
 
 // Poll cadence while waiting for a load step to produce cards. Machine
 // latency, not user preference, so it is a constant and not configuration.
@@ -31,9 +33,11 @@ function defaultSleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Did the Activity List grow between two growth signals? A larger card count, a
-// taller scroll area, or a different last card all count: any of them means the
-// page loaded more content.
+/*
+  Did the Activity List grow between two growth signals? A larger card count, a
+  taller scroll area, or a different last card all count: any of them means the
+  page loaded more content.
+*/
 function grewBetween(before, after) {
   if (!before || !after) return false;
   if (after.count > before.count) return true;
@@ -61,9 +65,11 @@ export class ActivityLoader {
     return numberOr(this.timing.maxEmptyScrolls, DEFAULT_IDLE_LIMIT);
   }
 
-  // Overall walk limit (timing.timeout). 0 means no time limit, the same way
-  // purge's runner treats it (`timeoutMs > 0` guards its check) and the way
-  // `--limit 0` reads. Absent or null falls back to the built-in hour.
+/*
+  Overall walk limit (timing.timeout). 0 means no time limit, the same way
+  purge's runner treats it (`timeoutMs > 0` guards its check) and the way
+  `--limit 0` reads. Absent or null falls back to the built-in hour.
+*/
   get timeoutMs() {
     const value = numberOr(this.timing.timeout, DEFAULT_TIMEOUT_MS);
     return value === 0 ? Number.POSITIVE_INFINITY : value;
@@ -75,9 +81,11 @@ export class ActivityLoader {
     return this.page.readItems(seenKeys);
   }
 
-  // Perform one load step: read the growth signal, scroll the Activity List to
-  // its bottom, then poll until the signal grows or the wait budget expires.
-  // Returns { grew, waitedMs, target }.
+/*
+  Perform one load step: read the growth signal, scroll the Activity List to
+  its bottom, then poll until the signal grows or the wait budget expires.
+  Returns { grew, waitedMs, target }.
+*/
   async loadStep(maxWaitMs = this.growthDeadlineMs) {
     const before = await this.page.readGrowth();
     const target = await this.page.scrollToBottom();
@@ -98,19 +106,23 @@ export class ActivityLoader {
     return { grew, waitedMs: this.now() - startedAt, target: target || null };
   }
 
-  // The first render is one operation: the cards LinkedIn put on the page on
-  // load, one step, complete, every item in step 0. The shallow scan is only
-  // this, and the walk starts with it, so both paths share one read and one
-  // step-0 event.
+/*
+  The first render is one operation: the cards LinkedIn put on the page on
+  load, one step, complete, every item in step 0. The shallow scan is only
+  this, and the walk starts with it, so both paths share one read and one
+  step-0 event.
+*/
   async readFirstRender() {
     const items = (await this.readItems([])) || [];
     this.emitStep({ step: 0, total: items.length, added: items.length, waitedMs: 0, target: null });
     return { items, steps: 1, complete: true };
   }
 
-  // Walk the Activity List to exhaustion. The first render is step 0; each load
-  // step gets the next step number. Growth ends a step immediately and resets
-  // the idle counter; a fruitless step increments it.
+/*
+  Walk the Activity List to exhaustion. The first render is step 0; each load
+  step gets the next step number. Growth ends a step immediately and resets
+  the idle counter; a fruitless step increments it.
+*/
   async collectAll() {
     const startedAt = this.now();
     const items = [];
@@ -128,11 +140,13 @@ export class ActivityLoader {
 
       const step = steps; // zero-based: the first load step after the render is 1
       const result = await this.loadStep(Math.min(this.growthDeadlineMs, remaining));
-      // Read the unseen cards once per step, whether or not the polling loop saw
-      // growth. Cards can land between one step's last poll and the next step's
-      // first growth read, and a growth-only read would drop that batch from a
-      // walk that still calls itself complete. A step that turns up cards this
-      // way was productive after all.
+/*
+  Read the unseen cards once per step, whether or not the polling loop saw
+  growth. Cards can land between one step's last poll and the next step's
+  first growth read, and a growth-only read would drop that batch from a
+  walk that still calls itself complete. A step that turns up cards this
+  way was productive after all.
+*/
       const freshItems = await this.readItems([...seenKeys]);
       added = mergeItems(items, seenKeys, freshItems, step);
       idle = result.grew || added > 0 ? 0 : idle + 1;
@@ -164,10 +178,12 @@ function mergeItems(items, seenKeys, incoming, step) {
   return added;
 }
 
-// Adapt a Playwright page to the Activity Page seam. Kept here so the browser
-// edge is one small, obvious object and the loader never imports Playwright.
-// `options.links` asks the page layer to capture a link for each item it reads
-// (about one second per item); it defaults to off so a plain scan is unchanged.
+/*
+  Adapt a Playwright page to the Activity Page seam. Kept here so the browser
+  edge is one small, obvious object and the loader never imports Playwright.
+  `options.links` asks the page layer to capture a link for each item it reads
+  (about one second per item); it defaults to off so a plain scan is unchanged.
+*/
 export function createActivityPage(page, options = {}) {
   const links = typeof options === "boolean" ? options : !!(options && options.links);
   return {

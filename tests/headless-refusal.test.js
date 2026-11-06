@@ -1,7 +1,9 @@
-// Unit test for the loud refusal of --headless (spec 2): the flag was
-// retired in favor of headless-by-default with --headed as the override.
-// Passing it to scan or purge must print one clear line naming --headed and
-// exit non-zero without launching a browser.
+/*
+  Unit test for the loud refusal of --headless (spec 2): the flag was
+  retired in favor of headless-by-default with --headed as the override.
+  Passing it to scan or purge must print one clear line naming --headed and
+  exit non-zero without launching a browser.
+*/
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

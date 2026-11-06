@@ -1,21 +1,25 @@
-// Purge --input loader: --input accepts only the scan JSON envelope
-// (see docs/adr/0001-purge-input-is-scan-envelope.md).
-//
-// The scan command writes this envelope:
-//   { type, count, keys: [K], items: [{ key: K, ... }], scannedAt }
-// This module extracts the keys; every other shape is rejected.
+/*
+  Purge --input loader: --input accepts only the scan JSON envelope
+  (see docs/adr/0001-purge-input-is-scan-envelope.md).
+
+  The scan command writes this envelope:
+  { type, count, keys: [K], items: [{ key: K, ... }], scannedAt }
+  This module extracts the keys; every other shape is rejected.
+*/
 import fs from "node:fs";
 
-// Load a JSON file and extract the list of keys to purge.
-// Accepts only the scan JSON envelope:
-//   - { items: [{ key: "..." }] }  keys from items[].key
-//   - { keys: ["..."] }            fallback when items is absent
-// Bare arrays (of keys or of strings), lone-key objects, and any other
-// shape are rejected with an error that names the expected shape.
-// Strict per the v0.3.4 spec (US16): a typo in the filtered file must not
-// become a silent empty run, so entries that lack a usable key are
-// rejected (not dropped), and an empty key list fails loudly.
-// Malformed JSON fails loudly rather than producing an empty run.
+/*
+  Load a JSON file and extract the list of keys to purge.
+  Accepts only the scan JSON envelope:
+  - { items: [{ key: "..." }] }  keys from items[].key
+  - { keys: ["..."] }            fallback when items is absent
+  Bare arrays (of keys or of strings), lone-key objects, and any other
+  shape are rejected with an error that names the expected shape.
+  Strict per the v0.3.4 spec (US16): a typo in the filtered file must not
+  become a silent empty run, so entries that lack a usable key are
+  rejected (not dropped), and an empty key list fails loudly.
+  Malformed JSON fails loudly rather than producing an empty run.
+*/
 function loadInputKeys(file) {
   const raw = fs.readFileSync(file, "utf8");
   let data;
@@ -30,9 +34,11 @@ function loadInputKeys(file) {
     throw new Error(`Invalid purge input in ${file}: expected ${expected}, got ${got}.`);
   }
   if (Array.isArray(data.items)) {
-    // Every entry must carry a usable key: an object with a non-empty
-    // string key. Entries without one (strings, nulls, objects missing
-    // the key) are rejected instead of silently dropped to nothing.
+/*
+  Every entry must carry a usable key: an object with a non-empty
+  string key. Entries without one (strings, nulls, objects missing
+  the key) are rejected instead of silently dropped to nothing.
+*/
     for (const entry of data.items) {
       if (typeof entry !== "object" || entry === null || typeof entry.key !== "string" || entry.key === "") {
         throw new Error(

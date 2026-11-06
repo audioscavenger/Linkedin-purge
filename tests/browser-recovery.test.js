@@ -1,10 +1,12 @@
-// Unit tests for the launch-recovery decision helpers in src/browser-recovery.js.
-//
-// Only the pure decision surface is tested here: is this error a
-// profile-lock failure, does this process hold this profile, which holders
-// are stragglers vs. interactive browsers, and which recovery action follows.
-// The IO path (PowerShell listing, taskkill, lock-file clearing) lives in
-// src/browser.js and degrades to "no holders found" when it cannot run.
+/*
+  Unit tests for the launch-recovery decision helpers in src/browser-recovery.js.
+
+  Only the pure decision surface is tested here: is this error a
+  profile-lock failure, does this process hold this profile, which holders
+  are stragglers vs. interactive browsers, and which recovery action follows.
+  The IO path (PowerShell listing, taskkill, lock-file clearing) lives in
+  src/browser.js and degrades to "no holders found" when it cannot run.
+*/
 
 import {
   isProfileLockFailure,

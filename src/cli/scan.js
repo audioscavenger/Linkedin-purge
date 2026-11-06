@@ -13,9 +13,11 @@ import { openPage } from "../browser-opener.js";
 import { generateSelectionPage } from "../selection-page.js";
 
 export async function runScan(args) {
-  // Loudly refuse the retired flag instead of silently ignoring it: scan is
-  // headless by default now, and --headed is the override. Nothing is
-  // scanned, no browser is launched.
+/*
+  Loudly refuse the retired flag instead of silently ignoring it: scan is
+  headless by default now, and --headed is the override. Nothing is
+  scanned, no browser is launched.
+*/
   if (args.includes("--headless")) {
     console.error("--headless was removed: scan and purge are headless by default. Use --headed to open a visible window instead.");
     process.exit(1);
@@ -29,13 +31,15 @@ export async function runScan(args) {
   const cdpEndpoint = getFlag(args, "cdp", null);
   // Deep is opt-in: the CLI flag, then behavior.deepScan, then false.
   const deep = asBool(resolveFlag(args, "deep", "behavior.deepScan", false));
-  // Links are on by default: behavior.links in config (default true). Capturing
-  // a link opens each card's menu, so it costs about one second per item.
-  // No CLI flag - the option was removed; config is the only knob.
+  /* Links are on by default: behavior.links in config (default true). Capturing
+  a link opens each card's menu, so it costs about one second per item.
+  No CLI flag - the option was removed; config is the only knob. */
   const links = asBool(loadConfig().behavior.links, true);
-  // The loader's stopping rules reuse the existing timing knobs: growthWait is
-  // now the per-step growth deadline, maxEmptyScrolls the idle limit and
-  // timeout the overall walk limit (0 = none).
+/*
+  The loader's stopping rules reuse the existing timing knobs: growthWait is
+  now the per-step growth deadline, maxEmptyScrolls the idle limit and
+  timeout the overall walk limit (0 = none).
+*/
   const timing = loadConfig().timing || {};
 
   // One scan per concrete type, resolved before the browser launches so an
@@ -116,9 +120,11 @@ export async function runScan(args) {
       pagePath: path.relative(process.cwd(), selectionPagePath),
     }));
 
-    // Open the page in the OS default browser; best effort only.
-    // Pass the plain path: the platform openers (open / xdg-open / start) take
-    // a file path, not a URL, and path.resolve mangles a file:// URL on Windows.
+/*
+  Open the page in the OS default browser; best effort only.
+  Pass the plain path: the platform openers (open / xdg-open / start) take
+  a file path, not a URL, and path.resolve mangles a file:// URL on Windows.
+*/
     await openPage(selectionPagePath);
   }
   await context.close();
