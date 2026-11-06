@@ -8,6 +8,10 @@
 
 ## Released
 
+* [x] v0.5.4 - Pin puppeteer-extra-plugin-stealth to a version with the deepmerge fix; npm audit clean
+    * Upgraded `puppeteer-extra-plugin-stealth` to `^2.7.0` to resolve the deepmerge prototype-pollution advisory (GHSA-gcqx-w48m-w2h4) through the transitive `puppeteer-extra-plugin-user-preferences` chain; `npm audit fix --force` applied.
+    * Tests pass with updated dependency; no behavior changes to scan/purge commands.
+
 * [x] v0.5.3 - Fix selection page opening on Windows; honest login wording
     * Fixed the selection page failing to open on Windows: scan and purge passed a `file://` URL to the OS opener, whose `path.resolve` joined it onto the working directory as if `file:` were a drive letter, producing a mangled path like `E:\Gitea\Linkedin-purge\file:E:\Gitea\Linkedin-purge\data\selection-comments.html`.
     * `login` no longer claims to "save the profile": the help line now says it uses the profile directory in place, and the closing message warns to make sure the browser does not purge cookies on close.

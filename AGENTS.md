@@ -51,7 +51,10 @@
   4. Run `npm run health` and confirm it passes before committing.
   5. Commit, then push to `main`.
   6. **Create an annotated git tag `v<version>`** with the release notes, then `git push origin v<version>`.
+  7. If this release implements a spec issue, close it on Gitea: comment `Reason: completed`, then close via `gitea issue_write({ method: "update", issue_number, state: "closed" })`; see `docs/agents/issue-tracker.md`.
+  8. Prune merged branches: `git fetch --prune`, delete local merged branches except `main`, verify `git branch -r` shows no stale feature branches.
 - **Tags are the release mechanism.** Do NOT create a Gitea/GitHub "release object" (no API token available here); the pushed tag is what counts.
+- Branches are temporary: merged branches stay around only until the release push, then they are deleted local + remote.
 - Tag format is `v` + version, e.g. `v0.3.1`. One tag per released version; never retag an existing version.
 
 ## Navigation

@@ -1,6 +1,6 @@
 {
   "name": "linkedin-purge",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "Purge your own LinkedIn comments and likes via Playwright with randomized pacing.",
   "license": "MIT",
   "type": "module",
@@ -26,11 +26,13 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "playwright": "^1.52.0",
+    "audit": "^0.0.6",
+    "fix": "^0.0.3",
+    "playwright": "^1.65.0",
     "playwright-extra": "^4.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "puppeteer-extra-plugin-stealth": "^2.7.0"
   },
   "devDependencies": {
-    "husky": "^9.0.0"
+    "husky": "^9.1.7"
   }
 }

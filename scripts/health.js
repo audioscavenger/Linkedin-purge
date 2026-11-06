@@ -36,6 +36,10 @@ run("unit tests", () =>
     .join("\n")
 );
 
+run("lockfile in sync", () =>
+  execSync("npm ci --dry-run --ignore-scripts", { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })
+);
+
 const hooksActive = fs.existsSync(path.join(root, ".husky/pre-commit"));
 results.push({
   label: "pre-commit hook",
