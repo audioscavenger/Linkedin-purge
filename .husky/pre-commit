@@ -1,3 +1,1 @@
-npm run check
-npm run check-changelog
-npm run fix:comments
+npx lint-staged

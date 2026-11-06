@@ -21,7 +21,7 @@
     "check-changelog": "node scripts/check-changelog.js",
     "fix:comments": "node scripts/fix-comments.js",
     "health": "node scripts/health.js",
-    "lint": "echo 'No linter configured; running full check' && npm run check",
+    "lint": "eslint .",
     "test": "node scripts/test-runner.js",
     "postinstall": "echo 'No build step needed'",
     "prepare": "husky"
@@ -34,6 +34,12 @@
     "puppeteer-extra-plugin-stealth": "^2.7.0"
   },
   "devDependencies": {
-    "husky": "^9.1.7"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.14.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.10"
   }
 }
