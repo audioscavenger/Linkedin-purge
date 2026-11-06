@@ -87,8 +87,8 @@ See `GLOSSARY.md` for canonical terms: **Purge Run**, **Purge Item**, **Key** (s
 | Command | What it runs |
 |---------|--------------|
 | `npm run check` | `scripts/check-all.js` (syntax check all files) + `tests/purge.test.js` + `tests/input-keys.test.js` + `tests/browser-recovery.test.js` + `tests/activity-loader.test.js` + `tests/scan-envelope.test.js` + `tests/activity-targets.test.js` + `tests/login-guard.test.js` + `tests/page-check.test.js` |
-| `npm run lint` | Same as `npm run check` |
+| `npm run lint` | `eslint .` via the flat config in `eslint.config.js` |
 | `npm run test` | `tests/purge.test.js` + `tests/input-keys.test.js` + `tests/browser-recovery.test.js` + `tests/activity-loader.test.js` + `tests/scan-envelope.test.js` + `tests/activity-targets.test.js` + `tests/login-guard.test.js` + `tests/page-check.test.js` |
 | `npm run verify:page` | Live check of the injected `window.LP` helpers against both Activity tabs (a browser and a logged-in profile); not part of `check`, `lint` or `health` |
 | `npm run verify:selection-page` | Opens a generated selection page headless and asserts it renders, filters/sort/master-select behave, and Export downloads the expected envelope; not part of `check`, `lint` or `health` |
-| Pre-commit hook | `npm run check` (via `.husky/pre-commit`) |
+| Pre-commit hook | lint-staged: `eslint --fix` + `prettier --write` on staged JS files (via `.husky/pre-commit`) |

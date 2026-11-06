@@ -10,6 +10,10 @@
 
 ## Released
 
+* [x] v0.5.6 - Add ESLint + Prettier and wire lint-staged into the pre-commit flow
+    * Added `eslint.config.js` with `@eslint/js` recommended and `eslint-config-prettier`, plus `globals` for browser and node environments.
+    * Added `lint-staged` config; the husky pre-commit hook now runs `eslint --fix` and `prettier --write` on staged JS files, and the placeholder `lint` script was replaced with `eslint .`.
+
 * [x] v0.5.5 - Fix selection purge, author shown as visible on the page, links on by default, status vocabulary
     * Selection purge now works: the Export button stamps `status: todo` (was `pending`), and the purge command passes the selection's own statuses to the runner, whose `remaining` set is computed from the selection instead of the scan envelope's `no-op` (previously every item was skipped as already-final, reporting "purge cancelled or nothing to delete"). Stale `purged`/`pending` names were swept from `loadSelection` filtering, `reportSummary`, and the status command so reported tallies are real.
     * Status vocabulary is now `no-op`, `todo`, `deleted`: `pending` and `purged` no longer appear in code, tests, or user docs.

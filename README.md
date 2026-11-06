@@ -275,5 +275,6 @@ name when LinkedIn changes its markup. It is not part of `npm run check`,
 and needs a logged-in session: run `npm run login` first. It only reads and
 scrolls each tab once; it never clicks a card or deletes anything.
 
-The repo includes a Husky pre-commit hook that automatically runs `npm run check`
-before every commit. If it's not active after cloning, run `npx husky install`.
+The repo includes a Husky pre-commit hook that automatically runs lint-staged
+(ESLint + Prettier) before every commit. If it's not active after cloning, run
+`npx husky install`.
