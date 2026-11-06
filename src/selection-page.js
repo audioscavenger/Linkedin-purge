@@ -12,12 +12,32 @@ export function generateSelectionPage(input) {
   const type = envelope && envelope.type ? String(envelope.type) : "likes";
   const items = Array.isArray(envelope && envelope.items) ? envelope.items : [];
   const hasLinks = items.some(hasLink);
-  const rows = items.map((item, itemIdx) => renderRow(item, hasLinks, itemIdx)).join("\n");
-  const embedded = JSON.stringify(envelope == null ? {} : envelope).replace(/</g, "\\u003c");
-  const distinctStates = [...new Set(items.map((it) => (it && it.state != null ? String(it.state) : "")))].sort();
-  const stateBoxes = distinctStates.map(
-    (s) => `      <label class="filter-state-option"><input type="checkbox" class="state-filter" value="${escapeAttr(s)}" checked> ${escapeHtml(s || "(none)")}</label>`
-  ).join("\n");
+  // Comments carry no reaction state; drop the State column when nothing has one.
+  const hasState = items.some(
+    (it) => it && it.state && String(it.state).trim() !== ""
+  );
+  const rows = items
+    .map((item, itemIdx) => renderRow(item, hasLinks, hasState, itemIdx))
+    .join("\n");
+  const embedded = JSON.stringify(envelope == null ? {} : envelope).replace(
+    /</g,
+    "\\u003c"
+  );
+  const distinctStates = hasState
+    ? [
+        ...new Set(
+          items.map((it) => (it && it.state != null ? String(it.state) : ""))
+        ),
+      ].sort()
+    : [];
+  const stateBoxes = hasState
+    ? distinctStates
+        .map(
+          (s) =>
+            `      <label class="filter-state-option"><input type="checkbox" class="state-filter" value="${escapeAttr(s)}" checked> ${escapeHtml(s || "(none)")}</label>`
+        )
+        .join("\n")
+    : "";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -73,7 +93,7 @@ button{padding:.4rem .8rem;cursor:pointer}
   <thead>
     <tr>
       <th class="checkbox-col"><input type="checkbox" id="master-select" title="Select every visible row"></th>
-      <th>State</th>
+      ${hasState ? "<th>State</th>" : ""}
       <th>Author</th>
       <th>Headline</th>
       <th>Date</th>
@@ -307,31 +327,44 @@ function normalizeEnvelope(input) {
   if (Array.isArray(input)) return { type: "likes", items: input };
   if (typeof input === "object") {
     if (Array.isArray(input.items)) return input;
-    if (input.envelope && Array.isArray(input.envelope.items)) return input.envelope;
+    if (input.envelope && Array.isArray(input.envelope.items))
+      return input.envelope;
     if (input.data && Array.isArray(input.data.items)) return input.data;
-    if (input.envelope && typeof input.envelope === "object") return input.envelope;
+    if (input.envelope && typeof input.envelope === "object")
+      return input.envelope;
     if (input.data && typeof input.data === "object") return input.data;
   }
   return { type: "likes", items: [] };
 }
 function hasLink(item) {
   if (!item || typeof item !== "object") return false;
-  return [item.itemHref, item.link, item.href, item.url, item.postHref].some((v) => typeof v === "string" && v.trim() !== "");
+  return [item.itemHref, item.link, item.href, item.url, item.postHref].some(
+    (v) => typeof v === "string" && v.trim() !== ""
+  );
 }
 function linkValue(item) {
-  for (const v of [item.itemHref, item.link, item.href, item.url, item.postHref]) {
+  for (const v of [
+    item.itemHref,
+    item.link,
+    item.href,
+    item.url,
+    item.postHref,
+  ]) {
     if (typeof v === "string" && v.trim() !== "") return v.trim();
   }
   return "";
 }
 function textOrExcerpt(item) {
   if (!item || typeof item !== "object") return "";
-  if (item.text != null && String(item.text).trim() !== "") return String(item.text);
-  if (item.postExcerpt != null && String(item.postExcerpt).trim() !== "") return String(item.postExcerpt);
-  if (item.excerpt != null && String(item.excerpt).trim() !== "") return String(item.excerpt);
+  if (item.text != null && String(item.text).trim() !== "")
+    return String(item.text);
+  if (item.postExcerpt != null && String(item.postExcerpt).trim() !== "")
+    return String(item.postExcerpt);
+  if (item.excerpt != null && String(item.excerpt).trim() !== "")
+    return String(item.excerpt);
   return "";
 }
-function renderRow(item, hasLinks, itemIdx) {
+function renderRow(item, hasLinks, hasState, itemIdx) {
   const it = item && typeof item === "object" ? item : {};
   const state = escapeHtml(it.state != null ? it.state : "");
   const stateRaw = escapeAttr(it.state != null ? String(it.state) : "");
@@ -340,16 +373,21 @@ function renderRow(item, hasLinks, itemIdx) {
   // Headline: the author's job-title line. Blank when none was found
   // (company posts have no personal headline).
   const headline = escapeHtml(it.headline != null ? it.headline : "");
-  const rawDate = it.dateTime != null ? it.dateTime : it.date != null ? it.date : "";
+  const rawDate =
+    it.dateTime != null ? it.dateTime : it.date != null ? it.date : "";
   const date = escapeHtml(rawDate);
   const dateRaw = escapeAttr(String(rawDate));
   const text = escapeHtml(textOrExcerpt(it));
   const status = escapeHtml(it.status != null ? it.status : "");
   const link = linkValue(it);
-  const linkCell = hasLinks ? (link ? `<td><a href="${escapeAttr(link)}" target="_blank" rel="noopener noreferrer">link</a></td>` : "<td></td>") : "";
-  return `    <tr data-index="${itemIdx}" data-state="${stateRaw}" data-author="${authorRaw}" data-date="${dateRaw}">
+  const linkCell = hasLinks
+    ? link
+      ? `<td><a href="${escapeAttr(link)}" target="_blank" rel="noopener noreferrer">link</a></td>`
+      : "<td></td>"
+    : "";
+  return `    <tr data-index="${itemIdx}" ${hasState ? `data-state="${stateRaw}"` : ""} data-author="${authorRaw}" data-date="${dateRaw}">
       <td class="checkbox-col"><input type="checkbox" class="row-select"></td>
-      <td>${state}</td>
+      ${hasState ? `<td>${state}</td>` : ""}
       <td>${author}</td>
       <td>${headline}</td>
       <td>${date}</td>
@@ -359,8 +397,17 @@ function renderRow(item, hasLinks, itemIdx) {
     </tr>`;
 }
 function escapeHtml(value) {
-  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 function escapeAttr(value) {
-  return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }

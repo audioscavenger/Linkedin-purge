@@ -76,6 +76,8 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 | `tests/one-card-delete.test.js` | One-card delete by Card Identity tests through a fake DOM: success, named refusal, unknown card is not-found, list-shaped `deleteFirstEligible` is gone |
 | `scripts/check-all.js` | Recursive `node --check` across `src/` and `tests/` |
 | `scripts/selection-page-browser-check.js` | Opens a generated selection page headless and asserts the table renders from embedded data, filters/sort/master-select behave, and Export downloads the expected envelope; not part of `check` or `health` |
+| `scripts/probe-dom.js` | DOM probe: launches headed with your logged-in profile, opens the comments or reactions tab (first page only, no scroll), dumps per-card links/times/text candidates/headline candidates/text blocks so exact author/headline/date/text selectors can be written for `src/linkedin-dom.js`. One script for both tabs via a type argument. Carries a `LAST VERIFIED WORKING` date — LinkedIn markup obfuscates per deploy. |
+| `scripts/dump-card.js` | Dumps full outerHTML of one comment card to `/tmp/card-outer.html` plus every text node with tag and classes, for discovering comment text/date/headline selectors. Read-only, no scroll. |
 | `data/scan-<type>.json` | Scan envelope, written by shallow and deep scans alike; now the only state, carrying per-item Purge Status |
 | `data/selection-<type>.html` | Selection page written and opened after each scan, with the envelope embedded inline |
 | `data/selection-<type>.json` | Selection envelope downloaded by Export: only ticked items at `status: pending`, narrowed `count`/`keys`, `scannedAt` preserved, `selectedAt` added |

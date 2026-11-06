@@ -276,6 +276,28 @@ name when LinkedIn changes its markup. It is not part of `npm run check`,
 and needs a logged-in session: run `npm run login` first. It only reads and
 scrolls each tab once; it never clicks a card or deletes anything.
 
+### DOM probe: discover selectors when LinkedIn changes its markup
+
+LinkedIn obfuscates its class names and markup to combat scrapers, so the
+selectors in `src/linkedin-dom.js` will rot over time. When scan metadata
+(author, headline, date, text) breaks again, use the DOM probe to discover the
+current selectors against the live page, then update the extractor:
+
+```sh
+# Dump per-card DOM structure for comments (default) or reactions (likes)
+node scripts/probe-dom.js                    # comments tab
+node scripts/probe-dom.js likes              # reactions tab
+node scripts/probe-dom.js --headless         # no visible window
+
+# Dump full outerHTML + every text node of one comment card to /tmp/card-outer.html
+node scripts/dump-card.js                    # card index 0
+node scripts/dump-card.js 3                  # card index 3
+```
+
+Both scripts are read-only: no clicks, no deletions, no scroll. Each carries a
+`LAST VERIFIED WORKING` date in its header — when scan metadata breaks, re-run
+the probe against the live DOM and re-verify that date.
+
 The repo includes a Husky pre-commit hook that automatically runs lint-staged
 (ESLint + Prettier) before every commit. If it's not active after cloning, run
 `npx husky install`.
