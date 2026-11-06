@@ -8,6 +8,13 @@
 
 * [ ] Added comment-run enforcement for the house two-line `//` comment rule: `npm run check` now fails when three or more consecutive comment lines are found, `npm run fix:comments` merges such runs into block comments, and unit tests cover both.
 
+* [ ] Activity Session owns the browser bootstrap for scan and purge: one module launches (or attaches over `--cdp`), opens the page, injects the helpers, guards the session, derives the profile base URL and parks on each Activity target tab, so the two commands no longer carry their own copy.
+    * Removed about 70 duplicated lines from `scan` and `purge`: the launch, page, helper injection, login guards, `/in/me` round trip and tab navigation now live in `src/activity-session.js`.
+    * One pair of settle waits (3s after the profile page, 8s after a tab) replaces scan's 8s and purge's 5s.
+    * `--cdp` now works for purge as the help screen already documented; scan read it and dropped it, purge never read it.
+    * Deliberate behavior change: a lapsed session throws a friendly error, so a not-logged-in scan or purge exits 1 instead of 0. The message is unchanged: `Not logged in. Run \`npm run login\` first.`
+    * Unit tests drive the session through injected launch, attach, inject and wait fakes; no browser is launched and nothing sleeps.
+
 ## Released
 
 * [x] v0.5.6 - Add ESLint + Prettier and wire lint-staged into the pre-commit flow

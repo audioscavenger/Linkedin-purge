@@ -1,47 +1,62 @@
 // CLI purge command
 import path from "node:path";
 import fs from "node:fs";
-import { launchBrowser, injectDomHelpers } from "../browser.js";
 import { log, warn } from "../logger.js";
 import { PurgeRunner, PageAdapter, ConfirmAdapter } from "../purge.js";
 import { EnvelopeStore } from "../envelope-store.js";
 import { loadSelection } from "./selection.js";
 import { activityTargets } from "../activity-targets.js";
-import { isLoggedOut } from "../login-guard.js";
-import { resolveFlag, asBool, asInt, loadConfig, resolveHeadless } from "./config.js";
+import { resolveFlag, asInt, loadConfig, resolveHeadless } from "./config.js";
 import { buildScanEnvelope } from "../scan-envelope.js";
 import { openPage } from "../browser-opener.js";
 import { generateSelectionPage } from "../selection-page.js";
+import { ActivitySession } from "../activity-session.js";
 
 export async function runPurge(args) {
-/*
+  /*
   Loudly refuse the retired flag instead of silently ignoring it: statuses
   live in the scan envelope now (ticket 23). Nothing is purged, no browser
   is launched.
 */
   if (args.includes("--reset-checkpoint")) {
-    console.error("--reset-checkpoint was removed in 0.5.0: purge statuses now live in the scan envelope (data/scan-<type>.json). Pass nothing instead - the envelope is updated item by item as purge runs.");
+    console.error(
+      "--reset-checkpoint was removed in 0.5.0: purge statuses now live in the scan envelope (data/scan-<type>.json). Pass nothing instead - the envelope is updated item by item as purge runs."
+    );
     process.exit(1);
   }
 
-/*
+  /*
   Loudly refuse the retired flag instead of silently ignoring it: purge is
   headless by default now, and --headed is the override. Nothing is
   purged, no browser is launched.
 */
   if (args.includes("--headless")) {
-    console.error("--headless was removed: scan and purge are headless by default. Use --headed to open a visible window instead.");
+    console.error(
+      "--headless was removed: scan and purge are headless by default. Use --headed to open a visible window instead."
+    );
     process.exit(1);
   }
 
   // CLI flag > config.json > built-in default.
-  const profileDir = resolveFlag(args, "profile-dir", "paths.profileDir", ".profile-chromium");
-  const dataDir = path.resolve(resolveFlag(args, "data-dir", "paths.dataDir", "data"));
+  const profileDir = resolveFlag(
+    args,
+    "profile-dir",
+    "paths.profileDir",
+    ".profile-chromium"
+  );
+  const dataDir = path.resolve(
+    resolveFlag(args, "data-dir", "paths.dataDir", "data")
+  );
   const typeArg = getFlag(args, "type", "all");
-  const chromiumPath = resolveFlag(args, "chromium-path", "paths.chromiumPath", null);
+  const chromiumPath = resolveFlag(
+    args,
+    "chromium-path",
+    "paths.chromiumPath",
+    null
+  );
   const limitArg = asInt(resolveFlag(args, "limit", "behavior.limit", 0), 0);
   const headless = resolveHeadless(args);
-/*
+  /*
   Optional: restrict deletion to a selection from --input. This is the
   v0.5.0 review-first flow: scan writes data/selection-<type>.html from the
   scan envelope, the person ticks the items worth deleting, Export writes
@@ -57,7 +72,9 @@ export async function runPurge(args) {
   let selection = null;
   if (inputFile) {
     selection = loadSelection(inputFile);
-    log(`Selection: ${selection.total} items in ${inputFile} (${selection.actionable} actionable).`);
+    log(
+      `Selection: ${selection.total} items in ${inputFile} (${selection.actionable} actionable).`
+    );
     if (selection.actionable === 0) {
       log("Nothing actionable in the selection; exiting without prompting.");
       return;
@@ -66,12 +83,24 @@ export async function runPurge(args) {
 
   // Timing options, all overridable via CLI.
   const timing = loadConfig().timing || {};
-  const actionMin = asInt(resolveFlag(args, "action-min", "timing.actionMin", 2000), 2000);
-  const actionMax = asInt(resolveFlag(args, "action-max", "timing.actionMax", 5000), 5000);
-  const batchMin = asInt(resolveFlag(args, "batch-min", "timing.batchMin", 30000), 30000);
-  const batchMax = asInt(resolveFlag(args, "batch-max", "timing.batchMax", 60000), 60000);
+  const actionMin = asInt(
+    resolveFlag(args, "action-min", "timing.actionMin", 2000),
+    2000
+  );
+  const actionMax = asInt(
+    resolveFlag(args, "action-max", "timing.actionMax", 5000),
+    5000
+  );
+  const batchMin = asInt(
+    resolveFlag(args, "batch-min", "timing.batchMin", 30000),
+    30000
+  );
+  const batchMax = asInt(
+    resolveFlag(args, "batch-max", "timing.batchMax", 60000),
+    60000
+  );
 
-/*
+  /*
   One Purge Run per concrete type, each on the Activity List tab where its
   page detector matches. Resolved before the browser launches, so an unknown
   type fails without a visit. A selection file carries its own type.
@@ -79,61 +108,44 @@ export async function runPurge(args) {
   const targetType = selection && selection.type ? selection.type : typeArg;
   const targets = activityTargets(targetType);
 
-  const context = await launchBrowser({ profileDir, headless, chromiumPath });
-  const page = await context.newPage();
-  const linkedinDomPath = path.resolve("./src/linkedin-dom.js");
-  await injectDomHelpers(page, linkedinDomPath);
-
-  // Login check logic
-  if (isLoggedOut(page)) {
-    warn("Not logged in. Run `npm run login` first.");
-    await context.close();
-    return;
-  }
-
-  // Get base URL for the user's profile
-  await page.goto("https://www.linkedin.com/in/me/", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(3000);
-  const meUrl = page.url();
-  const usernameMatch = meUrl.match(/linkedin\.com\/in\/([^/]+)/);
-  const username = usernameMatch ? usernameMatch[1] : "me";
-  const baseUrl = `https://www.linkedin.com/in/${username}/recent-activity/`;
-
-  // Load input keys if --input was specified
-  const inputKeys = selection ? selection.identities : null;
-
-  // Everything a run needs except its type, which is per target.
-  const runOptions = {
-    timeoutMs: asInt(timing.timeout, 3600000),
-    batchSize: asInt(timing.batchSize, 10),
-    maxRetries: asInt(timing.maxRetries, 4),
-    maxEmptyScrolls: asInt(timing.maxEmptyScrolls, 8),
-    backoffBase: asInt(timing.backoffBase, 10000),
-    actionMin,
-    actionMax,
-    batchMin,
-    batchMax,
-    limit: limitArg,
-    inputKeys,
-    selectionStatusMap: selection && selection.statusMap ? selection.statusMap : null,
-  };
-
+  /*
+    One Activity Session for the invocation: it owns the launch (or --cdp
+    attach), the injected helpers, the login guards, the base URL and the tab
+    navigation. This command owns the purge runs and the selection page.
+  */
+  const session = await ActivitySession.open({
+    profileDir,
+    headless,
+    chromiumPath,
+    cdp: getFlag(args, "cdp", null),
+  });
   try {
+    // Load input keys if --input was specified
+    const inputKeys = selection ? selection.identities : null;
+
+    // Everything a run needs except its type, which is per target.
+    const runOptions = {
+      timeoutMs: asInt(timing.timeout, 3600000),
+      batchSize: asInt(timing.batchSize, 10),
+      maxRetries: asInt(timing.maxRetries, 4),
+      maxEmptyScrolls: asInt(timing.maxEmptyScrolls, 8),
+      backoffBase: asInt(timing.backoffBase, 10000),
+      actionMin,
+      actionMax,
+      batchMin,
+      batchMax,
+      limit: limitArg,
+      inputKeys,
+      selectionStatusMap:
+        selection && selection.statusMap ? selection.statusMap : null,
+    };
+
     const results = [];
     for (const target of targets) {
       log(`=== Purging ${target.type} ===`);
-      await page.goto(baseUrl + target.tab, { waitUntil: "domcontentloaded" });
-      await page.waitForTimeout(5000);
+      const page = await session.openTarget(target);
 
-      // Login check again, as scan does: a session that expires between tabs
-      // must stop the run instead of purging whatever the login page renders.
-      if (isLoggedOut(page)) {
-        warn("Not logged in. Run `npm run login` first.");
-        await context.close();
-        return;
-      }
-
-/*
+      /*
   The adapters are per type: neither flow wires checkpoint or report
   anymore (both retired in tickets 23/24). A selection run persists
   statuses straight into the selection envelope through the store; a
@@ -144,31 +156,47 @@ export async function runPurge(args) {
         confirmAdapter: new ConfirmAdapter(),
         // Statuses live in the scan envelope for both selection mode and
         // full-purge mode; the scan envelope is the only state (ticket 23/24).
-        envelopeStore: new EnvelopeStore(path.resolve(dataDir, `scan-${target.type}.json`)),
+        envelopeStore: new EnvelopeStore(
+          path.resolve(dataDir, `scan-${target.type}.json`)
+        ),
       });
 
       // The runner asks its own confirmation prompt once per type.
       results.push(await runner.run({ type: target.type, ...runOptions }));
-/*
+      /*
   Regenerate the selection page from the UPDATED envelope (the runner
   wrote statuses through envelopeStore.mark, which does atomic writes).
   Best effort: never fail the scan.
 */
       try {
-        const envelopeFile = inputFile ? path.resolve(inputFile) : path.resolve(dataDir, `scan-${target.type}.json`);
+        const envelopeFile = inputFile
+          ? path.resolve(inputFile)
+          : path.resolve(dataDir, `scan-${target.type}.json`);
         let envelope = null;
         try {
           envelope = JSON.parse(fs.readFileSync(envelopeFile, "utf8"));
         } catch (readErr) {
-          warn(`Could not read updated envelope from ${envelopeFile}: ${readErr.message}`);
+          warn(
+            `Could not read updated envelope from ${envelopeFile}: ${readErr.message}`
+          );
         }
         if (!envelope) {
-          envelope = buildScanEnvelope({ type: target.type, items: [], steps: 1, complete: true });
+          envelope = buildScanEnvelope({
+            type: target.type,
+            items: [],
+            steps: 1,
+            complete: true,
+          });
         }
         const selectionHtml = generateSelectionPage(envelope);
-        const selectionPagePath = path.join(dataDir, `selection-${target.type}.html`);
+        const selectionPagePath = path.join(
+          dataDir,
+          `selection-${target.type}.html`
+        );
         fs.writeFileSync(selectionPagePath, selectionHtml);
-        log(`Selection page written to: ${path.relative(process.cwd(), selectionPagePath)}`);
+        log(
+          `Selection page written to: ${path.relative(process.cwd(), selectionPagePath)}`
+        );
         await openPage(selectionPagePath);
       } catch (err) {
         warn(`Failed to generate selection page: ${err.message}`);
@@ -176,12 +204,9 @@ export async function runPurge(args) {
     }
 
     reportSummary(results);
-    await context.close();
     log("Done.");
-  } catch (error) {
-    console.error('Error running purge:', error);
-    await context.close();
-    throw error;
+  } finally {
+    await session.close();
   }
 }
 
@@ -197,7 +222,9 @@ function reportSummary(results) {
     if (result.counts) {
       // Selection runs: per-status tally appended regardless of deletions.
       const c = result.counts;
-      log(`${result.type}: ${c.deleted} deleted, ${c.failed} failed, ${c.notFound} not-found, ${c.noOp} no-op`);
+      log(
+        `${result.type}: ${c.deleted} deleted, ${c.failed} failed, ${c.notFound} not-found, ${c.noOp} no-op`
+      );
     }
   }
   if (results.length > 1) {

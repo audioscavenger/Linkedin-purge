@@ -24,6 +24,9 @@ The author of the post. Never the account whose activity is being purged.
 ## ConfirmAdapter
 The seam that handles user confirmation prompts (e.g., "Delete N items? Type YES to proceed"). Abstracted so tests can auto-confirm without a TTY.
 
+## Activity Session
+The browser session a command runs in: a Chromium context (launched, or attached over CDP) with a page carrying the injected `window.LP` helpers, proven logged in, and parked on one Activity List tab. scan and purge each open one session per invocation and ask it for a page per Activity target, so the login guard, the settle waits and the profile base URL live in one place. A session that lapses throws `SessionExpiredError` instead of returning quietly, and the command closes the session in a `finally`.
+
 ## Activity List
 The scrollable area of the user's recent-activity page that holds the items of one type: comments on one tab, reactions on the other. Only the first screenful of cards is rendered on arrival; further cards are appended as the area is scrolled toward its bottom. Walking it is what separates a Shallow Scan from a Deep Scan.
 
