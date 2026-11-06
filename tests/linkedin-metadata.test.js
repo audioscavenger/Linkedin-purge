@@ -261,6 +261,10 @@ function testCommentTextFallbackLongestSpan() {
         fakeEl("Eric Derewonko"),
         fakeEl("This is my longer comment text here"),
       ],
+      "span, div, a, time, li": [
+        fakeEl("Eric Derewonko"),
+        fakeEl("This is my longer comment text here"),
+      ],
     }
   );
   assert.strictEqual(
@@ -391,6 +395,9 @@ function testCommentTextFromDivNoDir() {
     {},
     {
       "span, p, div, a, time, li": [
+        fakeEl("what does it have to do with a social media job board ?"),
+      ],
+      "span, div, a, time, li": [
         fakeEl("what does it have to do with a social media job board ?"),
       ],
     }

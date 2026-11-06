@@ -381,7 +381,7 @@ function renderRow(item, hasLinks, hasState, itemIdx, isComment) {
   let commentCell = "";
   if (isComment) {
     commentCell = `<td class="text-truncate">${escapeHtml(
-      it.text != null ? String(it.text) : ""
+      it.comment != null ? String(it.comment) : ""
     )}</td>`;
   }
   const status = escapeHtml(it.status != null ? it.status : "");

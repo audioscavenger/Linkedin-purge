@@ -391,8 +391,7 @@ function cleanText(str, maxLen) {
   return cleaned.slice(0, maxLen - 3).trim() + "...";
 }
 
-function extractCommentText(card, authorLinks) {
-  if (!authorLinks) authorLinks = [];
+function extractCommentText(card, author) {
   /*
   Comment body text inside the comment card. Try multiple selectors
   (LinkedIn's class names change between versions); fall back to the longest
@@ -413,7 +412,7 @@ function extractCommentText(card, authorLinks) {
     const el = card.querySelector(sel);
     if (el) {
       const text = cleanText(el.textContent, 280);
-      if (text) return stripAuthorPrefixesFromText(text, authorLinks);
+      if (text) return stripAuthorPrefixesFromText(text, author);
     }
   }
   /*
@@ -425,31 +424,51 @@ function extractCommentText(card, authorLinks) {
   concatenate everything into one long string.
 */
   const viewer = viewerNameFromPageUrl() || "";
-  const garbagePrefixes = ["Feed post", viewer + " commented", viewer + " •"];
-  const els = [...card.querySelectorAll("span, p, div, a, time, li")];
-  let best = null;
-  for (const el of els) {
-    const text = cleanText(el.textContent, 280);
-    if (!text || text.length <= 2) continue;
-    if (/^(liked|commented|reposted|reacted)$/i.test(text)) continue;
+  const viewerDisplayName = viewer
+    ? viewer
+        .split("-")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ")
+    : "";
+  const isGarbageText = (text) => {
+    if (!text || text.length <= 2) return true;
+    if (/^(liked|commented|reposted|reacted)$/i.test(text)) return true;
     if (
       /^(feed post|new comment in your group|load more comments)$/i.test(text)
     )
-      continue;
-    if (/^\d+(,\d+)*\s*impressions?\b/i.test(text)) continue; // "111,124 impressions"
-    if (/@/.test(text) || /\|\s*\w/.test(text)) continue; // viewer badge garbage
-    let isGarbage = false;
-    for (const prefix of garbagePrefixes) {
-      if (text.startsWith(prefix)) {
-        isGarbage = true;
-        break;
-      }
+      return true;
+    if (/^\d+(,\d+)*\s*impressions?\b/i.test(text)) return true; // "111,124 impressions"
+    if (/@/.test(text) || /\|\s*\w/.test(text)) return true; // viewer badge garbage
+    if (text.includes("Verified Profile")) return true; // viewer profile badge
+    if (text.startsWith("Feed post") || text.startsWith(viewer)) return true; // viewer badge/profile text
+    if (viewerDisplayName && text.startsWith(viewerDisplayName)) return true; // viewer badge (display name form)
+    if (author && text.startsWith(author)) return true; // post attribution line
+    return false;
+  };
+  // First pass: look in <p> elements (comment bodies are usually in <p>),
+  // picking the longest non-garbage text
+  const pEls = card.querySelectorAll("p");
+  let bestP = null;
+  for (const el of pEls) {
+    const text = cleanText(el.textContent, 280);
+    if (text && text.length > 5 && !isGarbageText(text)) {
+      if (!bestP || text.length > bestP.length) bestP = text;
     }
-    if (isGarbage) continue;
+  }
+  if (bestP) {
+    return stripAuthorPrefixesFromText(bestP, author);
+  }
+  // Second pass: any element with substantial text that isn't garbage
+  const els = [...card.querySelectorAll("span, div, a, time, li")];
+  let best = null;
+  for (const el of els) {
+    const text = cleanText(el.textContent, 280);
+    if (!text || text.length <= 10) continue; // comment bodies are longer than metadata
+    if (isGarbageText(text)) continue;
     if (!best || text.length > best.length) best = text;
   }
   if (best) {
-    best = stripAuthorPrefixesFromText(best, authorLinks);
+    best = stripAuthorPrefixesFromText(best, author);
   }
   return best;
 }
@@ -509,36 +528,29 @@ function isPlausiblePostText(text, viewerName) {
 }
 
 /*
-  Strip author link texts and relative dates from the start and end of a
-  comment text. Parent elements concatenate [company][author][degree][date][body],
+  Strip author name (and degree suffix / relative date) from the start and end
+  of a comment text. Parent elements concatenate [author][degree][date][body],
   so removing author/date bookends reveals the comment body.
 */
-function stripAuthorPrefixesFromText(text, authorLinks) {
-  if (!authorLinks) return text;
+function stripAuthorPrefixesFromText(text, author) {
+  if (!author) return text;
   let changed = true;
   while (changed) {
     changed = false;
-    for (const link of authorLinks) {
-      const linkText = stripDegreeSuffix((link.textContent || "").trim());
-      if (!linkText) continue;
-      // Strip from start
-      if (text.startsWith(linkText)) {
-        text = text
-          .slice(linkText.length)
-          .replace(/^\s*•\s*/, "")
-          .trim();
-        changed = true;
-        break;
-      }
-      // Strip from end
-      if (text.endsWith(linkText)) {
-        text = text
-          .slice(0, -linkText.length)
-          .replace(/\s*•\s*$/, "")
-          .trim();
-        changed = true;
-        break;
-      }
+    // Strip author name from start and end
+    if (text.startsWith(author)) {
+      text = text
+        .slice(author.length)
+        .replace(/^\s*•\s*/, "")
+        .trim();
+      changed = true;
+    }
+    if (text.endsWith(author)) {
+      text = text
+        .slice(0, -author.length)
+        .replace(/\s*•\s*$/, "")
+        .trim();
+      changed = true;
     }
     // Strip degree suffix from start (" • 1st", "1st", "3rd+")
     const mDeg = text.match(/^\s*(•\s*)?\d+(st|nd|rd|th)?\+?\s*/);
@@ -583,7 +595,7 @@ function findCard(btn) {
 function readCardMeta(btn, isComment = false) {
   const meta = {
     cardId: null,
-    text: null,
+    comment: null,
     postExcerpt: null,
     postHref: null,
     author: null,
@@ -592,14 +604,12 @@ function readCardMeta(btn, isComment = false) {
   const card = findCard(btn);
   if (card) {
     if (card.id) meta.cardId = card.id;
-    const authorLinks = card.querySelectorAll(
-      "a[href*='/in/'], a[href*='/company/']"
-    );
-    if (isComment) meta.text = extractCommentText(card, authorLinks);
+    // Extract author first so we can strip it from comment text below.
+    Object.assign(meta, extractAuthorAndDate(card));
+    if (isComment) meta.comment = extractCommentText(card, meta.author);
     meta.postExcerpt = extractPostExcerpt(card, isComment);
     const feedLink = card.querySelector("a[href*='/feed/update/']");
     if (feedLink) meta.postHref = feedLink.getAttribute("href");
-    Object.assign(meta, extractAuthorAndDate(card));
   }
   return meta;
 }
@@ -756,7 +766,7 @@ async function collectCommentItems(seenKeys, links) {
     items.push({
       key,
       cardId: meta.cardId,
-      text: meta.text,
+      comment: meta.comment,
       postExcerpt: meta.postExcerpt,
       author: meta.author,
       headline: meta.headline,
