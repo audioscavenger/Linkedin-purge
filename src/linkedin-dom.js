@@ -392,12 +392,14 @@ function cleanText(str, maxLen) {
 }
 
 function extractCommentText(card, author) {
-  /*
-  Comment body text inside the comment card. Try multiple selectors
-  (LinkedIn's class names change between versions); fall back to the longest
-  meaningful ltr text span, which is the comment body rather than the short
-  author/date metadata or UI chrome.
-*/
+  const commentTextEl = card.querySelector(
+    '[data-testid="expandable-text-box"]'
+  );
+  if (commentTextEl) {
+    const text = cleanText(commentTextEl.textContent, 280);
+    if (text) return stripAuthorPrefixesFromText(text, author);
+  }
+
   const selectors = [
     ".update-components-text",
     ".comment-item__text",
