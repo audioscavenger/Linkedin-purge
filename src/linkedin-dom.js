@@ -28,7 +28,9 @@ function commentMenuButtons() {
 */
 function commentKeyIn(node) {
   if (!node) return null;
-  const rc = node.querySelector ? node.querySelector("[id^='replaceableComment_']") : null;
+  const rc = node.querySelector
+    ? node.querySelector("[id^='replaceableComment_']")
+    : null;
   if (rc) return rc.id;
   if (node.id && node.id.startsWith("replaceableComment_")) return node.id;
   return null;
@@ -66,7 +68,9 @@ function reactionButtons() {
 }
 
 function reactionState(btn) {
-  return (btn.getAttribute("aria-label") || "").replace(/^Reaction button state:\s*/i, "").trim();
+  return (btn.getAttribute("aria-label") || "")
+    .replace(/^Reaction button state:\s*/i, "")
+    .trim();
 }
 
 function reactionKeyForIndex(idx) {
@@ -74,7 +78,7 @@ function reactionKeyForIndex(idx) {
 }
 
 function reactionKeyForButton(btn) {
-/*
+  /*
   The card keeps its place among the reaction buttons for the life of the
   page session: an unliked card stays put with state "no reaction" until the
   page is reloaded, and then it disappears. The index is therefore a
@@ -131,7 +135,7 @@ function collectReactionKeys() {
 */
 
 function extractAuthorAndDate(container) {
-/*
+  /*
   1. The visible header actor: first /in/ or /company/ link in DOM order
   with a plausible name. The header actor block precedes body and footer
   links, so the earliest match is the name the page shows. Skips UI text
@@ -139,38 +143,66 @@ function extractAuthorAndDate(container) {
   ellipsis placeholder.
 */
   let author = null;
-  const authorLinks = container.querySelectorAll("a[href*='/in/'], a[href*='/company/']");
+  const authorLinks = container.querySelectorAll(
+    "a[href*='/in/'], a[href*='/company/']"
+  );
   for (const link of authorLinks) {
     const text = (link.textContent || "").trim();
-    if (text && text.length > 1 && !/^\.\.\.$/.test(text) && !/(?:likes?|reposted|commented on)\s+this$/i.test(text) && !/finds? this (?:funny|love|inspire|celebrate)s?$/i.test(text)) {
+    if (
+      text &&
+      text.length > 1 &&
+      !/^\.\.\.$/.test(text) &&
+      !/(?:likes?|reposted|commented on)\s+this$/i.test(text) &&
+      !/finds? this (?:funny|love|inspire|celebrate)s?$/i.test(text)
+    ) {
       author = text;
       break;
     }
   }
-/*
+  /*
   2. Fallback: the "Open control menu for post by X" button has the poster
   name in its aria-label. For company posts this can be the person who
   posted on behalf, not the visible header actor - which is why this is
   only a fallback (see the module note above).
 */
   if (!author) {
-    const menuBtn = container.querySelector("button[aria-label*='Open control menu for post by']");
+    const menuBtn = container.querySelector(
+      "button[aria-label*='Open control menu for post by']"
+    );
     if (menuBtn) {
       const al = menuBtn.getAttribute("aria-label") || "";
       const m = al.match(/post by (.+)$/i);
-      if (m) author = m[1].trim().replace(/["'’]+$/g, "").trim();
+      if (m)
+        author = m[1]
+          .trim()
+          .replace(/["'’]+$/g, "")
+          .trim();
     }
   }
 
-/*
+  /*
   Look for a date-like text in the card (Month + day pattern like "Sep 16").
   Allow trailing text like " • Edited" or other suffixes - just extract the date part.
   Normalized to "Oct 5, 2026" when a year is present, else "Oct 5".
 */
   let dateTime = null;
   // Match month name + valid day (01-31), optional year. Reject garbage like "Oct 81".
-  const dateRe = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+((?:0?[1-9]|[12]\d|3[01]))(?:\s*,\s*(\d{4}))?/;
-  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const dateRe =
+    /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+((?:0?[1-9]|[12]\d|3[01]))(?:\s*,\s*(\d{4}))?/;
+  const MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
   const toDisplayDate = (monthIdx, dayNum, year) =>
     MONTHS[monthIdx] + " " + dayNum + (year ? ", " + year : "");
   const monthIndex = (token) => MONTHS.indexOf(token.slice(0, 3));
@@ -179,7 +211,8 @@ function extractAuthorAndDate(container) {
   const timeEl = container.querySelector("time[datetime]");
   if (timeEl && timeEl.dateTime) {
     const iso = String(timeEl.dateTime).match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (iso) dateTime = toDisplayDate(Number(iso[2]) - 1, Number(iso[3]), iso[1]);
+    if (iso)
+      dateTime = toDisplayDate(Number(iso[2]) - 1, Number(iso[3]), iso[1]);
   }
   if (!dateTime) {
     const candidates = [...container.querySelectorAll("span, p, div")];
@@ -198,10 +231,11 @@ function extractAuthorAndDate(container) {
     if (timeText && timeText.textContent) {
       const t = timeText.textContent.trim();
       const m = t.match(dateRe);
-      if (m) dateTime = toDisplayDate(monthIndex(m[1]), Number(m[2]), m[3] || null);
+      if (m)
+        dateTime = toDisplayDate(monthIndex(m[1]), Number(m[2]), m[3] || null);
     }
   }
-/*
+  /*
   Headline: the small job-title line under the header actor's name.
   Company posts have no personal headline, so this stays null (blank
   column) for them - exactly what the user asked for.
@@ -234,7 +268,7 @@ function cleanText(str, maxLen) {
 }
 
 function extractCommentText(card) {
-/*
+  /*
   Comment body text inside the comment card. Try multiple selectors
   (LinkedIn's class names change between versions); fall back to the first
   ltr text span that isn't the author/date metadata.
@@ -294,7 +328,14 @@ function findCard(btn) {
   from one place.
 */
 function readCardMeta(btn, isComment = false) {
-  const meta = { cardId: null, text: null, postExcerpt: null, postHref: null, author: null, dateTime: null };
+  const meta = {
+    cardId: null,
+    text: null,
+    postExcerpt: null,
+    postHref: null,
+    author: null,
+    dateTime: null,
+  };
   const card = findCard(btn);
   if (card) {
     if (card.id) meta.cardId = card.id;
@@ -320,14 +361,21 @@ const LINK_POLL_INTERVAL_MS = 100;
 const LINK_RETRY_COUNT = 1;
 
 /*
-  Capture one link from a card by opening its control menu, choosing the right
+  Capture one link from a card by opening a menu button, choosing the right
   "Copy link to ..." item, and hooking the page's own clipboard write. Returns
   the captured URL or null when the menu or the capture never arrives; a
   missing link never throws, so an unsupported card just yields null.
+  `menuBtn` is the element whose click opens the menu offering the wanted link.
+  When omitted the caller falls back to the card's post control menu
+  ("Open control menu"), which is correct for reactions but not for comments:
+  comments must open their own comment menu button ("View more options for ... comment"),
+  which offers "copy link to comment".
 */
-async function captureCardLink(card, isComment) {
+async function captureCardLink(card, menuBtn, isComment) {
   if (!card) return null;
-  const menuBtn = card.querySelector("button[aria-label*='Open control menu']");
+  if (!menuBtn) {
+    menuBtn = card.querySelector("button[aria-label*='Open control menu']");
+  }
   if (!menuBtn) return null;
   const wanted = isComment ? "copy link to comment" : "copy link to post";
 
@@ -343,9 +391,11 @@ async function captureCardLink(card, isComment) {
     }
     const copyListener = (e) => {
       try {
-        const text = e.clipboardData ? e.clipboardData.getData("text/plain") : null;
+        const text = e.clipboardData
+          ? e.clipboardData.getData("text/plain")
+          : null;
         if (text) captured = text;
-      } catch (err) {
+      } catch {
         // ignore
       }
     };
@@ -356,10 +406,16 @@ async function captureCardLink(card, isComment) {
       let option = null;
       const menuDeadline = Date.now() + LINK_MENU_TIMEOUT_MS;
       while (Date.now() < menuDeadline && !option) {
-        const candidates = [...document.querySelectorAll("button, [role='menuitem'], [role='option'], a")];
+        const candidates = [
+          ...document.querySelectorAll(
+            "button, [role='menuitem'], [role='option'], a"
+          ),
+        ];
         option = candidates.find((el) => {
           if (el.offsetParent === null && el !== document.body) return false;
-          const label = (el.innerText || el.textContent || "").trim().toLowerCase();
+          const label = (el.innerText || el.textContent || "")
+            .trim()
+            .toLowerCase();
           return label === wanted;
         });
         if (!option) await sleep(LINK_POLL_INTERVAL_MS);
@@ -371,14 +427,19 @@ async function captureCardLink(card, isComment) {
           await sleep(LINK_POLL_INTERVAL_MS);
         }
       }
-    } catch (err) {
+    } catch {
       // ignore; retry below
     } finally {
       document.removeEventListener("copy", copyListener);
-      if (clipboard && originalWriteText) clipboard.writeText = originalWriteText;
+      if (clipboard && originalWriteText)
+        clipboard.writeText = originalWriteText;
     }
 
-    try { document.body.click(); } catch (err) { /* ignore */ }
+    try {
+      document.body.click();
+    } catch {
+      /* ignore */
+    }
     await sleep(100);
 
     if (captured) return captured;
@@ -400,9 +461,20 @@ async function collectReactionItems(seenKeys, links) {
     let itemHref = null;
     if (links) {
       const card = findCard(btn);
-      itemHref = await captureCardLink(card, false);
+      itemHref = await captureCardLink(card, null, false);
     }
-    items.push({ key, cardId: meta.cardId, text: null, postExcerpt: meta.postExcerpt, state, author: meta.author, headline: meta.headline, postHref: meta.postHref, itemHref, dateTime: meta.dateTime });
+    items.push({
+      key,
+      cardId: meta.cardId,
+      text: null,
+      postExcerpt: meta.postExcerpt,
+      state,
+      author: meta.author,
+      headline: meta.headline,
+      postHref: meta.postHref,
+      itemHref,
+      dateTime: meta.dateTime,
+    });
   }
   return items;
 }
@@ -423,9 +495,19 @@ async function collectCommentItems(seenKeys, links) {
     let itemHref = null;
     if (links) {
       const card = findCard(btn);
-      itemHref = await captureCardLink(card, true);
+      itemHref = await captureCardLink(card, btn, true);
     }
-    items.push({ key, cardId: meta.cardId, text: meta.text, postExcerpt: meta.postExcerpt, author: meta.author, headline: meta.headline, postHref: meta.postHref, itemHref, dateTime: meta.dateTime });
+    items.push({
+      key,
+      cardId: meta.cardId,
+      text: meta.text,
+      postExcerpt: meta.postExcerpt,
+      author: meta.author,
+      headline: meta.headline,
+      postHref: meta.postHref,
+      itemHref,
+      dateTime: meta.dateTime,
+    });
   }
   return items;
 }
@@ -433,7 +515,9 @@ async function collectCommentItems(seenKeys, links) {
 // --- Shared ---
 
 function collectCardIds() {
-  return activityCards().map((card) => card.id).filter(Boolean);
+  return activityCards()
+    .map((card) => card.id)
+    .filter(Boolean);
 }
 
 function collectKeys() {
@@ -466,7 +550,10 @@ function activityScrollTarget() {
   let node = activityCards()[0] || null;
   for (let i = 0; i < 20 && node; i++) {
     const cs = getComputedStyle(node);
-    if ((cs.overflowY === "auto" || cs.overflowY === "scroll") && node.scrollHeight > node.clientHeight + 40) {
+    if (
+      (cs.overflowY === "auto" || cs.overflowY === "scroll") &&
+      node.scrollHeight > node.clientHeight + 40
+    ) {
       return node;
     }
     node = node.parentElement;
@@ -514,14 +601,15 @@ function cardKey(card) {
 function readGrowthSignal() {
   const cards = activityCards();
   const target = activityScrollTarget();
-/*
+  /*
   The last keyed card, not merely the last element in the list: LinkedIn ends
   the list with tiles that carry no key (a "load more" sentinel, a
   placeholder), and taking that tile left lastKey permanently null, which
   blinded the cheapest growth clue the walk has.
 */
   let lastKey = null;
-  for (let i = cards.length - 1; i >= 0 && lastKey == null; i--) lastKey = cardKey(cards[i]);
+  for (let i = cards.length - 1; i >= 0 && lastKey == null; i--)
+    lastKey = cardKey(cards[i]);
   return {
     scrollHeight: target ? target.scrollHeight : 0,
     count: cards.length,
@@ -547,8 +635,14 @@ async function deleteCommentButton(btn) {
   let deleteOption = null;
   const deadline = Date.now() + 3000;
   while (Date.now() < deadline && !deleteOption) {
-    const candidates = [...document.querySelectorAll("button, [role='menuitem'], [role='option']")].filter(
-      (e) => e.offsetParent !== null && (e.innerText || "").trim().toLowerCase() === "delete"
+    const candidates = [
+      ...document.querySelectorAll(
+        "button, [role='menuitem'], [role='option']"
+      ),
+    ].filter(
+      (e) =>
+        e.offsetParent !== null &&
+        (e.innerText || "").trim().toLowerCase() === "delete"
     );
     deleteOption = candidates[0] || null;
     if (!deleteOption) await sleep(200);
@@ -566,10 +660,14 @@ async function deleteCommentButton(btn) {
   const mdeadline = Date.now() + 4000;
   while (Date.now() < mdeadline && !modalDelete) {
     const candidates = [...document.querySelectorAll("button")].filter(
-      (b) => b.offsetParent !== null && (b.innerText || "").trim().toLowerCase() === "delete"
+      (b) =>
+        b.offsetParent !== null &&
+        (b.innerText || "").trim().toLowerCase() === "delete"
     );
     // prefer the one inside a dialog
-    const inDialog = candidates.find((b) => b.closest("[role='dialog'], [role='alertdialog']"));
+    const inDialog = candidates.find((b) =>
+      b.closest("[role='dialog'], [role='alertdialog']")
+    );
     modalDelete = inDialog || candidates[candidates.length - 1] || null;
     if (!modalDelete) await sleep(200);
   }
@@ -586,7 +684,11 @@ async function deleteCommentButton(btn) {
   const stillThere = key ? !!document.getElementById(key) : false;
   if (stillThere) {
     // maybe not removed; could be rate limit
-    return { ok: false, skip: false, error: "deletion did not complete (possible rate limit)" };
+    return {
+      ok: false,
+      skip: false,
+      error: "deletion did not complete (possible rate limit)",
+    };
   }
   return { ok: true, key };
 }
@@ -602,7 +704,12 @@ async function deleteCommentButton(btn) {
 */
 async function deleteOneCard(cardId) {
   if (!cardId) {
-    return { ok: false, skip: false, cardId: null, error: "cardId is required" };
+    return {
+      ok: false,
+      skip: false,
+      cardId: null,
+      error: "cardId is required",
+    };
   }
   const card = document.getElementById(cardId);
   if (!card) {
@@ -611,10 +718,17 @@ async function deleteOneCard(cardId) {
 
   if (isCommentsPage()) {
     const btn = [...card.querySelectorAll("button")].find((b) =>
-      /View more options for .* comment/i.test(b.getAttribute("aria-label") || "")
+      /View more options for .* comment/i.test(
+        b.getAttribute("aria-label") || ""
+      )
     );
     if (!btn) {
-      return { ok: false, skip: false, cardId, error: "refused: comment menu button not found in card" };
+      return {
+        ok: false,
+        skip: false,
+        cardId,
+        error: "refused: comment menu button not found in card",
+      };
     }
     const meta = readCardMeta(btn, true);
     const res = await deleteCommentButton(btn);
@@ -632,13 +746,26 @@ async function deleteOneCard(cardId) {
         dateTime: meta.dateTime,
       };
     }
-    return { ok: true, cardId, key: res.key || null, state: COMMENTS_STATE, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime };
+    return {
+      ok: true,
+      cardId,
+      key: res.key || null,
+      state: COMMENTS_STATE,
+      author: meta.author,
+      postHref: meta.postHref,
+      dateTime: meta.dateTime,
+    };
   }
 
   if (isReactionsPage()) {
     const btn = [...card.querySelectorAll("button")].find(isReactionButton);
     if (!btn) {
-      return { ok: false, skip: false, cardId, error: "refused: no reaction button found in card" };
+      return {
+        ok: false,
+        skip: false,
+        cardId,
+        error: "refused: no reaction button found in card",
+      };
     }
     const meta = readCardMeta(btn, false);
     const key = reactionKeyForButton(btn);
@@ -658,7 +785,15 @@ async function deleteOneCard(cardId) {
         dateTime: meta.dateTime,
       };
     }
-    return { ok: true, cardId, key, state: newState, author: meta.author, postHref: meta.postHref, dateTime: meta.dateTime };
+    return {
+      ok: true,
+      cardId,
+      key,
+      state: newState,
+      author: meta.author,
+      postHref: meta.postHref,
+      dateTime: meta.dateTime,
+    };
   }
 
   return { ok: false, skip: false, cardId, error: "not on a supported page" };

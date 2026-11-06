@@ -92,7 +92,8 @@ npm run purge -- --type likes
 ## Progress
 
 npm run status
-```
+
+````
 
 reports per-type status counts (deleted, failed, not-found, todo, no-op)
 from the scan envelope, and says "no scan yet" when a type has no envelope.
@@ -136,16 +137,16 @@ puts every item in step 0.
 The following command-line parameters are accepted:
 
 - `--type` - Type of items to process: `comments`, `likes`, or `all` (default)
-- `--deep` - Walk the whole Activity List instead of collecting the first render (default: false; scan only; also `behavior.deepScan` in `config.json`)
-- Links are captured by default for every item (opens each card's menu; about one second per item; config: `behavior.links`, default true). The link column on the Selection Page appears only when at least one item has a link, with empty cells for items without one.
-- `--profile-dir` - Chromium profile directory path  
+- `--deep` - Walk the whole Activity List instead of collecting the first render (default: false; `behavior.deepScan` in `config.json`). Applies to a scan, or to an automated purge without `--input` (crawl-to-purge). Dropped silently when `--input` is present.
+- `itemHref` is captured for every item in the scan (it is no longer an opt-in link step): each Purge Item carries a direct link to the item itself, so purge can target individual items without crawling the page first.
+- `--limit` - Automation-only: stop after deleting n items per type (0 = unlimited). Only used when purging without `--input`; purge crawls the page and purges up to `limit` items, no scan needed. With `--input`, `--input` always wins and `--limit` only caps how many marked-todo items are purged. `--limit` applies per Activity type, not as a sum across both (`--limit 25 --type all` purges up to 25 comments and up to 25 reactions).
+- `--profile-dir` - Chromium profile directory path
 - `--data-dir` - Data directory for scan envelopes and selection pages (default: data)
 - `--chromium-path` - Path to Chromium binary
 - `--cdp` - Attach to running Chromium via CDP endpoint (e.g. http://localhost:9222)
-- `--limit` - Stop after deleting n items (0 = unlimited)
 - `--headed` - Run browser headed (override of headless default)
 - `--action-min` - Minimum per-action delay in ms (default 2000)
-- `--action-max` - Maximum per-action delay in ms (default 5000) 
+- `--action-max` - Maximum per-action delay in ms (default 5000)
 - `--batch-min` - Minimum per-10 batch pause in ms (default 30000)
 - `--batch-max` - Maximum per-10 batch pause in ms (default 60000)
 - `--help` / `-h` - Show the full usage screen with parameters and examples (works with any command)
@@ -183,7 +184,7 @@ CLI flags always take precedence.
     "deepScan": false
   }
 }
-```
+````
 
 `behavior.deepScan` is the persisted default for `--deep`, so a config file can
 turn every scan deep and a command line flag still wins. `behavior.headed` is
