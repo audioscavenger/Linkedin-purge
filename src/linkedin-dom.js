@@ -134,7 +134,7 @@ function collectReactionKeys() {
   surprise that cannot be verified from the page.
 */
 
-function extractAuthorAndDate(container) {
+function extractAuthorAndDate(container, isComment = false) {
   /*
   1. The visible header actor: the /in/ or /company/ link in DOM order whose
   text is a plausible person/company name. The header actor block precedes
@@ -145,6 +145,13 @@ function extractAuthorAndDate(container) {
   The account whose activity is being purged ("me") is derived from the page
   URL (/in/<username>/...) and is never mistaken for the poster: author is
   always the post author, never "me".
+
+  For comments the page often wraps the viewer's own profile badge inside
+  the first /in/ link ("Verified Profile You ... Implementation Consultant @
+  nQ Zebraworks"). Pulling link.textContent there would leak all of that into
+  the Author column. For comments we therefore extract just the display name
+  from the name span inside the link; likes keep link.textContent unchanged
+  (their authors already come out clean, e.g. "Brad Bassham • 1st").
 */
   const viewerName = viewerNameFromPageUrl();
   let author = null;
@@ -152,7 +159,9 @@ function extractAuthorAndDate(container) {
     "a[href*='/in/'], a[href*='/company/']"
   );
   for (const link of authorLinks) {
-    const text = (link.textContent || "").trim();
+    const text = isComment
+      ? authorNameFromLink(link)
+      : (link.textContent || "").trim();
     if (!isPlausibleAuthorName(text, viewerName)) continue;
     author = text;
     break;
@@ -237,6 +246,23 @@ function extractAuthorAndDate(container) {
         dateTime = toDisplayDate(monthIndex(m[1]), Number(m[2]), m[3] || null);
     }
   }
+  // If still no date, look for a LinkedIn relative date ("2d", "1w", "3h",
+  // "2mo", "5h ago"). Relative dates can't be converted to a calendar date
+  // without knowing when the scan ran, so report them verbatim.
+  if (!dateTime) {
+    const relRe = /(\d+)\s*(h|d|w|mo|yr)s?\b/i;
+    const candidates = [
+      ...container.querySelectorAll("span, time, div, div > span"),
+    ];
+    for (const el of candidates) {
+      const t = (el.textContent || "").trim();
+      const m = t.match(relRe);
+      if (m && /^(2d|1w|3h|2mo|5h ago|\d+[hdwmo]\s*ago?)$/i.test(t)) {
+        dateTime = t;
+        break;
+      }
+    }
+  }
   /*
   Headline: the small job-title line under the header actor's name.
   Company posts have no personal headline, so this stays null (blank
@@ -249,12 +275,19 @@ function extractAuthorAndDate(container) {
     ".update-components-text--headline",
     "[class*='actor__headline']",
     "[class*='headline']",
+    ".artdeco-entity-lockup__subtitle",
+    "[class*='sub-description']",
   ];
   for (const sel of headlineSelectors) {
     const el = container.querySelector(sel);
     if (!el) continue;
     const t = (el.textContent || "").trim();
-    if (t && t.length > 1 && t !== author) {
+    if (
+      t &&
+      t.length > 1 &&
+      t !== author &&
+      !isPlausibleAuthorName(t, viewerName)
+    ) {
       headline = t.replace(/\s+/g, " ").slice(0, 120);
       break;
     }
@@ -276,6 +309,23 @@ function viewerNameFromPageUrl() {
   } catch {
     return null;
   }
+}
+
+/*
+  Extract just the display name from a profile link element.
+  LinkedIn often wraps the name in a span[dir='ltr'] inside the anchor; using
+  that span keeps "Verified Profile", "You" badges, the headline and the
+  company name out of the Author column. Falls back to the link's own text
+  content when no such span exists.
+*/
+function authorNameFromLink(link) {
+  if (!link) return null;
+  const nameSpan = link.querySelector("span[dir='ltr']");
+  if (nameSpan) {
+    const t = (nameSpan.textContent || "").trim();
+    if (t) return t;
+  }
+  return (link.textContent || "").trim();
 }
 
 /*
@@ -302,6 +352,14 @@ function isPlausibleAuthorName(text, viewerName) {
   if (/^(likes?|reposted|commented on)\s+this$/i.test(text)) return false;
   if (/finds? this (?:funny|love|inspire|celebrate)s?$/i.test(text))
     return false;
+  if (/@/.test(text)) return false; // email-ish or "name @ company" headline
+  if (/\|\s*\w/.test(text)) return false; // "name | company" headline
+  if (
+    /\b(consultant|engineer|manager|director|founder|ceo|cto|lead|specialist|analyst|recruiter|owner)\b/i.test(
+      text
+    )
+  )
+    return false; // job-title words, not a name
   return true;
 }
 
@@ -403,7 +461,7 @@ function readCardMeta(btn, isComment = false) {
     meta.postExcerpt = extractPostExcerpt(card);
     const feedLink = card.querySelector("a[href*='/feed/update/']");
     if (feedLink) meta.postHref = feedLink.getAttribute("href");
-    Object.assign(meta, extractAuthorAndDate(card));
+    Object.assign(meta, extractAuthorAndDate(card, isComment));
   }
   return meta;
 }
