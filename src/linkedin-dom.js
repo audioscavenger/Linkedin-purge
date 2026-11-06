@@ -159,7 +159,7 @@ function extractAuthorAndDate(container) {
     "a[href*='/in/'], a[href*='/company/']"
   );
   for (const link of authorLinks) {
-    const text = stripDegreeSuffix((link.textContent || "").trim());
+    const text = (link.textContent || "").trim();
     if (!isPlausibleAuthorName(text, viewerName)) continue;
     author = text;
     break;
@@ -391,7 +391,8 @@ function cleanText(str, maxLen) {
   return cleaned.slice(0, maxLen - 3).trim() + "...";
 }
 
-function extractCommentText(card) {
+function extractCommentText(card, authorLinks) {
+  if (!authorLinks) authorLinks = [];
   /*
   Comment body text inside the comment card. Try multiple selectors
   (LinkedIn's class names change between versions); fall back to the longest
@@ -412,14 +413,19 @@ function extractCommentText(card) {
     const el = card.querySelector(sel);
     if (el) {
       const text = cleanText(el.textContent, 280);
-      if (text) return text;
+      if (text) return stripAuthorPrefixesFromText(text, authorLinks);
     }
   }
   /*
   Fallback: scan all text-bearing elements for the comment body.
   Comment bodies are longer than author/date metadata or UI chrome, and
   they never carry the viewer's profile badge (which contains "@" or "|").
+  Skip elements whose text starts with UI garbage ("Feed post",
+  "<viewer> commented", "<viewer> <relative date>") because parent elements
+  concatenate everything into one long string.
 */
+  const viewer = viewerNameFromPageUrl() || "";
+  const garbagePrefixes = ["Feed post", viewer + " commented", viewer + " •"];
   const els = [...card.querySelectorAll("span, p, div, a, time, li")];
   let best = null;
   for (const el of els) {
@@ -432,13 +438,28 @@ function extractCommentText(card) {
       continue;
     if (/^\d+(,\d+)*\s*impressions?\b/i.test(text)) continue; // "111,124 impressions"
     if (/@/.test(text) || /\|\s*\w/.test(text)) continue; // viewer badge garbage
+    let isGarbage = false;
+    for (const prefix of garbagePrefixes) {
+      if (text.startsWith(prefix)) {
+        isGarbage = true;
+        break;
+      }
+    }
+    if (isGarbage) continue;
     if (!best || text.length > best.length) best = text;
+  }
+  if (best) {
+    best = stripAuthorPrefixesFromText(best, authorLinks);
   }
   return best;
 }
 
-function extractPostExcerpt(card) {
-  // Post body excerpt from the card. Same multi-selector approach.
+function extractPostExcerpt(card, isComment = false) {
+  /*
+  Post body excerpt from the card. For likes, this is the post text the user
+  reacted to; for comments there is no reliably accessible post body, so it
+  stays null.
+*/
   const selectors = [
     ".feed-shared-update-v2__description",
     ".feed-shared-update-v2__sub-description",
@@ -446,14 +467,99 @@ function extractPostExcerpt(card) {
     ".break-words",
     "span[dir='ltr']",
   ];
+  if (!isComment) {
+    /*
+    LinkedIn obfuscates class names per deploy. In the current DOM the like
+    post body lives in a <p> carrying a class that contains 'gvyles'; keep
+    this selector as a stopgap and fall back to content-based extraction
+    below when LinkedIn changes its markup.
+*/
+    selectors.push("p.gvyles", "[class*='gvyles']");
+  }
   for (const sel of selectors) {
-    const el = card.querySelector(sel);
-    if (el) {
-      const text = cleanText(el.textContent, 140);
-      if (text) return text;
+    const els = card.querySelectorAll(sel);
+    for (const el of els) {
+      const text = cleanText(el.textContent, 280);
+      if (text && isPlausiblePostText(text, viewerNameFromPageUrl()))
+        return text;
     }
   }
   return null;
+}
+
+/*
+  Decide whether a piece of text is a plausible post body (not UI chrome).
+  Rejects short UI strings, reaction counts, impression counts, and the
+  viewer's own badge text.
+*/
+function isPlausiblePostText(text, viewerName) {
+  if (!text || text.length < 5) return false;
+  if (/^(liked|commented|reposted|reacted)$/i.test(text)) return false;
+  if (/^(feed post|new comment in your group|load more comments)$/i.test(text))
+    return false;
+  if (
+    /^\d+(,\d+)*\s*(reactions?|likes?|comments?|mentions?|reposts?|impressions?)\b/i.test(
+      text
+    )
+  )
+    return false;
+  if (viewerName && text.startsWith(viewerName)) return false;
+  if (/@/.test(text) || /\|\s*\w/.test(text)) return false;
+  return true;
+}
+
+/*
+  Strip author link texts and relative dates from the start and end of a
+  comment text. Parent elements concatenate [company][author][degree][date][body],
+  so removing author/date bookends reveals the comment body.
+*/
+function stripAuthorPrefixesFromText(text, authorLinks) {
+  if (!authorLinks) return text;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const link of authorLinks) {
+      const linkText = stripDegreeSuffix((link.textContent || "").trim());
+      if (!linkText) continue;
+      // Strip from start
+      if (text.startsWith(linkText)) {
+        text = text
+          .slice(linkText.length)
+          .replace(/^\s*•\s*/, "")
+          .trim();
+        changed = true;
+        break;
+      }
+      // Strip from end
+      if (text.endsWith(linkText)) {
+        text = text
+          .slice(0, -linkText.length)
+          .replace(/\s*•\s*$/, "")
+          .trim();
+        changed = true;
+        break;
+      }
+    }
+    // Strip degree suffix from start (" • 1st", "1st", "3rd+")
+    const mDeg = text.match(/^\s*(•\s*)?\d+(st|nd|rd|th)?\+?\s*/);
+    if (mDeg) {
+      text = text.slice(mDeg[0].length).trim();
+      changed = true;
+    }
+    // Strip relative date from start ("1mo", "1w", "3d")
+    const mRelStart = text.match(/^\s*(\d+)\s*(mo|w|d|h)\s*/i);
+    if (mRelStart) {
+      text = text.slice(mRelStart[0].length).trim();
+      changed = true;
+    }
+    // Strip relative date from end ("1mo", "1w", "3d")
+    const mRelEnd = text.match(/\s*(\d+)\s*(mo|w|d|h)\s*$/i);
+    if (mRelEnd) {
+      text = text.slice(0, -mRelEnd[0].length).trim();
+      changed = true;
+    }
+  }
+  return text;
 }
 
 // Find the nearest role="listitem" ancestor (the card) from a button.
@@ -486,8 +592,11 @@ function readCardMeta(btn, isComment = false) {
   const card = findCard(btn);
   if (card) {
     if (card.id) meta.cardId = card.id;
-    if (isComment) meta.text = extractCommentText(card);
-    meta.postExcerpt = extractPostExcerpt(card);
+    const authorLinks = card.querySelectorAll(
+      "a[href*='/in/'], a[href*='/company/']"
+    );
+    if (isComment) meta.text = extractCommentText(card, authorLinks);
+    meta.postExcerpt = extractPostExcerpt(card, isComment);
     const feedLink = card.querySelector("a[href*='/feed/update/']");
     if (feedLink) meta.postHref = feedLink.getAttribute("href");
     Object.assign(meta, extractAuthorAndDate(card));

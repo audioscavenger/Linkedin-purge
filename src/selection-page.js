@@ -10,6 +10,7 @@
 export function generateSelectionPage(input) {
   const envelope = normalizeEnvelope(input);
   const type = envelope && envelope.type ? String(envelope.type) : "likes";
+  const isComment = type === "comments";
   const items = Array.isArray(envelope && envelope.items) ? envelope.items : [];
   const hasLinks = items.some(hasLink);
   // Comments carry no reaction state; drop the State column when nothing has one.
@@ -17,7 +18,9 @@ export function generateSelectionPage(input) {
     (it) => it && it.state && String(it.state).trim() !== ""
   );
   const rows = items
-    .map((item, itemIdx) => renderRow(item, hasLinks, hasState, itemIdx))
+    .map((item, itemIdx) =>
+      renderRow(item, hasLinks, hasState, itemIdx, isComment)
+    )
     .join("\n");
   const embedded = JSON.stringify(envelope == null ? {} : envelope).replace(
     /</g,
@@ -97,7 +100,7 @@ button{padding:.4rem .8rem;cursor:pointer}
       <th>Author</th>
       <th>Headline</th>
       <th>Date</th>
-      <th>Text</th>
+      ${isComment ? "<th>Comment</th><th>Post</th>" : "<th>Post</th>"}
       <th>Status</th>
       ${hasLinks ? "<th>Link</th>" : ""}
     </tr>
@@ -354,17 +357,7 @@ function linkValue(item) {
   }
   return "";
 }
-function textOrExcerpt(item) {
-  if (!item || typeof item !== "object") return "";
-  if (item.text != null && String(item.text).trim() !== "")
-    return String(item.text);
-  if (item.postExcerpt != null && String(item.postExcerpt).trim() !== "")
-    return String(item.postExcerpt);
-  if (item.excerpt != null && String(item.excerpt).trim() !== "")
-    return String(item.excerpt);
-  return "";
-}
-function renderRow(item, hasLinks, hasState, itemIdx) {
+function renderRow(item, hasLinks, hasState, itemIdx, isComment) {
   const it = item && typeof item === "object" ? item : {};
   const state = escapeHtml(it.state != null ? it.state : "");
   const stateRaw = escapeAttr(it.state != null ? String(it.state) : "");
@@ -377,7 +370,20 @@ function renderRow(item, hasLinks, hasState, itemIdx) {
     it.dateTime != null ? it.dateTime : it.date != null ? it.date : "";
   const date = escapeHtml(rawDate);
   const dateRaw = escapeAttr(String(rawDate));
-  const text = escapeHtml(textOrExcerpt(it));
+  /*
+  Likes: the "post" column shows the post text the user reacted to.
+  Comments: the "comment" column shows the comment text; the "post" column
+  shows the post excerpt (if any).
+*/
+  const postCell = `<td class="text-truncate">${escapeHtml(
+    it.postExcerpt != null ? String(it.postExcerpt) : ""
+  )}</td>`;
+  let commentCell = "";
+  if (isComment) {
+    commentCell = `<td class="text-truncate">${escapeHtml(
+      it.text != null ? String(it.text) : ""
+    )}</td>`;
+  }
   const status = escapeHtml(it.status != null ? it.status : "");
   const link = linkValue(it);
   const linkCell = hasLinks
@@ -391,7 +397,7 @@ function renderRow(item, hasLinks, hasState, itemIdx) {
       <td>${author}</td>
       <td>${headline}</td>
       <td>${date}</td>
-      <td class="text-truncate">${text}</td>
+      ${isComment ? commentCell + postCell : postCell}
       <td>${status}</td>
       ${linkCell}
     </tr>`;

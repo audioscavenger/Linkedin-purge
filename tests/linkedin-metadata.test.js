@@ -349,7 +349,11 @@ function testRelativeDateParsing() {
     }
   );
   const meta = extractAuthorAndDate(card);
-  assert.strictEqual(meta.author, "Brad Bassham", "author stripped of degree");
+  assert.strictEqual(
+    meta.author,
+    "Brad Bassham  • 1st",
+    "author keeps degree suffix"
+  );
   assert.strictEqual(meta.dateTime, "1mo", "relative date parsed");
 }
 
