@@ -25,6 +25,7 @@ const {
   isPlausibleAuthorName,
   cleanText,
   extractCommentText,
+  stripDegreeSuffix,
 } = globalThis;
 
 function setViewer(pathname) {
@@ -256,7 +257,7 @@ function testCommentTextFallbackLongestSpan() {
     null,
     {},
     {
-      "span[dir='ltr']": [
+      "span, p, div, a, time, li": [
         fakeEl("Eric Derewonko"),
         fakeEl("This is my longer comment text here"),
       ],
@@ -305,6 +306,98 @@ function testCleanText() {
   );
 }
 
+function testStripDegreeSuffix() {
+  assert.strictEqual(
+    stripDegreeSuffix("Brad Bassham  • 1st"),
+    "Brad Bassham",
+    "strip degree suffix"
+  );
+  assert.strictEqual(
+    stripDegreeSuffix("Yusuf. M • 3rd+"),
+    "Yusuf. M",
+    "strip degree suffix with plus"
+  );
+  assert.strictEqual(
+    stripDegreeSuffix("Denis Bouchard • 2nd"),
+    "Denis Bouchard",
+    "strip 2nd degree"
+  );
+  assert.strictEqual(
+    stripDegreeSuffix("The Recruiter.com Network"),
+    "The Recruiter.com Network",
+    "plain company name unchanged"
+  );
+  assert.strictEqual(
+    stripDegreeSuffix("Red Hat"),
+    "Red Hat",
+    "plain name unchanged"
+  );
+}
+
+function testRelativeDateParsing() {
+  setViewer("/in/eric-derewonko/recent-activity/likes/");
+  // A card whose only date-like text is a relative date "1mo"
+  const card = fakeEl(
+    null,
+    {},
+    {
+      "a[href*='/in/'], a[href*='/company/']": [
+        fakeLink("Brad Bassham  • 1st"),
+        fakeLink("Intapp"),
+      ],
+      "span, p, div, a, time, li": [fakeEl("1mo")],
+    }
+  );
+  const meta = extractAuthorAndDate(card);
+  assert.strictEqual(meta.author, "Brad Bassham", "author stripped of degree");
+  assert.strictEqual(meta.dateTime, "1mo", "relative date parsed");
+}
+
+function testCarveHeadlineFromAuthorLink() {
+  setViewer("/in/eric-derewonko/recent-activity/likes/");
+  // A text block pairs author + degree + headline + relative date
+  const card = fakeEl(
+    null,
+    {},
+    {
+      "a[href*='/in/'], a[href*='/company/']": [
+        fakeLink("Brad Bassham  • 1st"),
+        fakeLink("Intapp"),
+      ],
+      "span, p, div, a, time, li": [
+        fakeEl(
+          "Brad Bassham  • 1stSenior Client Portfolio Manager at Intapp1mo"
+        ),
+        fakeEl("1mo"),
+      ],
+    }
+  );
+  const meta = extractAuthorAndDate(card);
+  assert.strictEqual(
+    meta.headline,
+    "Senior Client Portfolio Manager at Intapp",
+    "headline carved from combined text block"
+  );
+}
+
+function testCommentTextFromDivNoDir() {
+  // Comment text lives in a div/span without dir='ltr' (real LinkedIn DOM)
+  const card = fakeEl(
+    null,
+    {},
+    {
+      "span, p, div, a, time, li": [
+        fakeEl("what does it have to do with a social media job board ?"),
+      ],
+    }
+  );
+  assert.strictEqual(
+    extractCommentText(card),
+    "what does it have to do with a social media job board ?",
+    "comment text from div without dir attr"
+  );
+}
+
 const tests = [
   testRejectsViewer,
   testRejectsGarbage,
@@ -320,6 +413,10 @@ const tests = [
   testCommentTextRejectsShortUI,
   testCommentTextNullWhenNone,
   testCleanText,
+  testStripDegreeSuffix,
+  testRelativeDateParsing,
+  testCarveHeadlineFromAuthorLink,
+  testCommentTextFromDivNoDir,
 ];
 
 async function main() {

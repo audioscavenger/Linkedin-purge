@@ -134,7 +134,7 @@ function collectReactionKeys() {
   surprise that cannot be verified from the page.
 */
 
-function extractAuthorAndDate(container, isComment = false) {
+function extractAuthorAndDate(container) {
   /*
   1. The visible header actor: the /in/ or /company/ link in DOM order whose
   text is a plausible person/company name. The header actor block precedes
@@ -159,9 +159,7 @@ function extractAuthorAndDate(container, isComment = false) {
     "a[href*='/in/'], a[href*='/company/']"
   );
   for (const link of authorLinks) {
-    const text = isComment
-      ? authorNameFromLink(link)
-      : (link.textContent || "").trim();
+    const text = stripDegreeSuffix((link.textContent || "").trim());
     if (!isPlausibleAuthorName(text, viewerName)) continue;
     author = text;
     break;
@@ -246,19 +244,18 @@ function extractAuthorAndDate(container, isComment = false) {
         dateTime = toDisplayDate(monthIndex(m[1]), Number(m[2]), m[3] || null);
     }
   }
-  // If still no date, look for a LinkedIn relative date ("2d", "1w", "3h",
-  // "2mo", "5h ago"). Relative dates can't be converted to a calendar date
-  // without knowing when the scan ran, so report them verbatim.
+  // Relative dates: "1mo", "1w", "3d", "5h". These can't be converted to a
+  // calendar date without knowing when the scan ran, so report them verbatim.
   if (!dateTime) {
-    const relRe = /(\d+)\s*(h|d|w|mo|yr)s?\b/i;
+    const relRe = /(\d+)\s*(mo|w|d|h)\b/i;
     const candidates = [
-      ...container.querySelectorAll("span, time, div, div > span"),
+      ...container.querySelectorAll("span, p, div, a, time, li"),
     ];
     for (const el of candidates) {
       const t = (el.textContent || "").trim();
       const m = t.match(relRe);
-      if (m && /^(2d|1w|3h|2mo|5h ago|\d+[hdwmo]\s*ago?)$/i.test(t)) {
-        dateTime = t;
+      if (m) {
+        dateTime = m[0];
         break;
       }
     }
@@ -292,7 +289,47 @@ function extractAuthorAndDate(container, isComment = false) {
       break;
     }
   }
+  /*
+  Carve the headline out of a text block that pairs the author name with
+  the degree suffix and relative date, e.g.
+  "Brad Bassham  • 1stSenior Client Portfolio Manager at Intapp1mo".
+*/
+  if (!headline && author) {
+    const strippedAuthor = stripDegreeSuffix(author);
+    const blocks = [
+      ...container.querySelectorAll("span, p, div, a, time, li"),
+    ].map((el) => (el.textContent || "").trim());
+    for (const block of blocks) {
+      if (!block.startsWith(strippedAuthor)) continue;
+      let rest = block.slice(strippedAuthor.length);
+      rest = rest.replace(/^\s*•\s*/, "");
+      rest = rest.replace(/^\s*\d+(st|nd|rd|th)?\+?\s*/, "");
+      const mDate = rest.match(/\d+\s*(mo|w|d|h)\b/i);
+      const candidate = mDate ? rest.slice(0, mDate.index) : rest;
+      const clean = candidate.replace(/\s+/g, " ").trim();
+      if (
+        clean &&
+        clean.length > 1 &&
+        clean !== author &&
+        clean !== strippedAuthor &&
+        !isPlausibleAuthorName(clean, viewerName)
+      ) {
+        headline = clean.slice(0, 120);
+        break;
+      }
+    }
+  }
   return { author, dateTime, headline };
+}
+
+/*
+  Strip a LinkedIn connection-degree suffix from a poster name:
+  "Brad Bassham  • 1st" -> "Brad Bassham"
+  "Yusuf. M • 3rd+" -> "Yusuf. M"
+  "The Recruiter.com Network" -> unchanged
+*/
+function stripDegreeSuffix(text) {
+  return text.replace(/\s*•\s*\d+(st|nd|rd|th)?\+?\s*$/, "").trim();
 }
 
 /*
@@ -309,23 +346,6 @@ function viewerNameFromPageUrl() {
   } catch {
     return null;
   }
-}
-
-/*
-  Extract just the display name from a profile link element.
-  LinkedIn often wraps the name in a span[dir='ltr'] inside the anchor; using
-  that span keeps "Verified Profile", "You" badges, the headline and the
-  company name out of the Author column. Falls back to the link's own text
-  content when no such span exists.
-*/
-function authorNameFromLink(link) {
-  if (!link) return null;
-  const nameSpan = link.querySelector("span[dir='ltr']");
-  if (nameSpan) {
-    const t = (nameSpan.textContent || "").trim();
-    if (t) return t;
-  }
-  return (link.textContent || "").trim();
 }
 
 /*
@@ -395,14 +415,23 @@ function extractCommentText(card) {
       if (text) return text;
     }
   }
-  // Fallback: every ltr text span. Comment bodies are longer than the author
-  // name or UI chrome, so return the longest meaningful one.
-  const spans = [...card.querySelectorAll("span[dir='ltr']")];
+  /*
+  Fallback: scan all text-bearing elements for the comment body.
+  Comment bodies are longer than author/date metadata or UI chrome, and
+  they never carry the viewer's profile badge (which contains "@" or "|").
+*/
+  const els = [...card.querySelectorAll("span, p, div, a, time, li")];
   let best = null;
-  for (const el of spans) {
+  for (const el of els) {
     const text = cleanText(el.textContent, 280);
     if (!text || text.length <= 2) continue;
     if (/^(liked|commented|reposted|reacted)$/i.test(text)) continue;
+    if (
+      /^(feed post|new comment in your group|load more comments)$/i.test(text)
+    )
+      continue;
+    if (/^\d+(,\d+)*\s*impressions?\b/i.test(text)) continue; // "111,124 impressions"
+    if (/@/.test(text) || /\|\s*\w/.test(text)) continue; // viewer badge garbage
     if (!best || text.length > best.length) best = text;
   }
   return best;
@@ -461,7 +490,7 @@ function readCardMeta(btn, isComment = false) {
     meta.postExcerpt = extractPostExcerpt(card);
     const feedLink = card.querySelector("a[href*='/feed/update/']");
     if (feedLink) meta.postHref = feedLink.getAttribute("href");
-    Object.assign(meta, extractAuthorAndDate(card, isComment));
+    Object.assign(meta, extractAuthorAndDate(card));
   }
   return meta;
 }
