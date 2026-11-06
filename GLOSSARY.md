@@ -1,5 +1,11 @@
 # GLOSSARY
 
+## Comment
+A comment added by the user to a post, or in reply to another user's comment.
+
+## Reaction
+A reaction aka a "like", can be applied to posts and user comments, and comes in 5 flavors: Like, Celebrate, Support, Love, Insightful, Funny.
+
 ## Purge Run
 One full sequential pass over items of a single type (comments or reactions), from collection through deletion. A purge run can be interrupted by timeout or Ctrl+C and is resumed by a new scan, which re-sets every item's status to `no-op`.
 
@@ -18,8 +24,11 @@ A session-scoped handle for a purge item, used to deduplicate within one page se
 ## Card Identity
 The stable identity of a Purge Item's card, taken from the card's own container element id. It survives page reloads and is not disturbed by other activity being added or removed above it. A Key can drift; a Card Identity cannot.
 
-## Author
-The author of the post. Never the account whose activity is being purged.
+## Post
+A post on LinkedIn: the item a comment is added to or a reaction is applied to. A post is written by an Author / Poster (a person, who may carry a Headline, or a company, which has no Headline). A post carries a permalink (postHref) and may carry a body excerpt (postExcerpt).
+
+## Author / Poster
+The author of a Post: can be a person (with a Headline) or a company (no Headline available). Never is the account whose activity is being purged.
 
 ## ConfirmAdapter
 The seam that handles user confirmation prompts (e.g., "Delete N items? Type YES to proceed"). Abstracted so tests can auto-confirm without a TTY.
