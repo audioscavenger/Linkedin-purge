@@ -6,6 +6,8 @@
 
 ## Unreleased
 
+* [ ] Added comment-run enforcement for the house two-line `//` comment rule: `npm run check` now fails when three or more consecutive comment lines are found, `npm run fix:comments` merges such runs into block comments, and unit tests cover both.
+
 ## Released
 
 * [x] v0.5.5 - Fix selection purge, author shown as visible on the page, links on by default, status vocabulary
