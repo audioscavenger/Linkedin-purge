@@ -320,14 +320,21 @@ const LINK_POLL_INTERVAL_MS = 100;
 const LINK_RETRY_COUNT = 1;
 
 /*
-  Capture one link from a card by opening its control menu, choosing the right
+  Capture one link from a card by opening a menu button, choosing the right
   "Copy link to ..." item, and hooking the page's own clipboard write. Returns
   the captured URL or null when the menu or the capture never arrives; a
   missing link never throws, so an unsupported card just yields null.
+  `menuBtn` is the element whose click opens the menu offering the wanted link.
+  When omitted the caller falls back to the card's post control menu
+  ("Open control menu"), which is correct for reactions but not for comments:
+  comments must open their own comment menu button ("View more options for ... comment"),
+  which offers "copy link to comment".
 */
-async function captureCardLink(card, isComment) {
+async function captureCardLink(card, menuBtn, isComment) {
   if (!card) return null;
-  const menuBtn = card.querySelector("button[aria-label*='Open control menu']");
+  if (!menuBtn) {
+    menuBtn = card.querySelector("button[aria-label*='Open control menu']");
+  }
   if (!menuBtn) return null;
   const wanted = isComment ? "copy link to comment" : "copy link to post";
 
@@ -345,7 +352,7 @@ async function captureCardLink(card, isComment) {
       try {
         const text = e.clipboardData ? e.clipboardData.getData("text/plain") : null;
         if (text) captured = text;
-      } catch (err) {
+      } catch {
         // ignore
       }
     };
@@ -371,14 +378,14 @@ async function captureCardLink(card, isComment) {
           await sleep(LINK_POLL_INTERVAL_MS);
         }
       }
-    } catch (err) {
+    } catch {
       // ignore; retry below
     } finally {
       document.removeEventListener("copy", copyListener);
       if (clipboard && originalWriteText) clipboard.writeText = originalWriteText;
     }
 
-    try { document.body.click(); } catch (err) { /* ignore */ }
+    try { document.body.click(); } catch { /* ignore */ }
     await sleep(100);
 
     if (captured) return captured;
@@ -400,7 +407,7 @@ async function collectReactionItems(seenKeys, links) {
     let itemHref = null;
     if (links) {
       const card = findCard(btn);
-      itemHref = await captureCardLink(card, false);
+      itemHref = await captureCardLink(card, null, false);
     }
     items.push({ key, cardId: meta.cardId, text: null, postExcerpt: meta.postExcerpt, state, author: meta.author, headline: meta.headline, postHref: meta.postHref, itemHref, dateTime: meta.dateTime });
   }
@@ -423,7 +430,7 @@ async function collectCommentItems(seenKeys, links) {
     let itemHref = null;
     if (links) {
       const card = findCard(btn);
-      itemHref = await captureCardLink(card, true);
+      itemHref = await captureCardLink(card, btn, true);
     }
     items.push({ key, cardId: meta.cardId, text: meta.text, postExcerpt: meta.postExcerpt, author: meta.author, headline: meta.headline, postHref: meta.postHref, itemHref, dateTime: meta.dateTime });
   }
