@@ -20,7 +20,7 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 | `src/cli/scan.js` | `runScan()` - shallow by default: collects the first render of rich items (key, cardId, state, author, postHref, dateTime, text, postExcerpt, cardId) per type, written as the scan envelope `data/scan-<type>.json`; `--deep` walks the whole Activity List through the Activity Loader instead, then writes and opens `data/selection-<type>.html` |
 | `src/cli/input-keys.js` | `loadInputKeys()` - loads the `--input` file, validates it is the scan JSON envelope (items[].key, falling back to keys[]), and returns its key list; anything else rejected with a named-shape error |
 | `src/cli/selection.js` | `loadSelection()` - loads a `selection-<type>.json` export envelope and answers which items are actionable (anything not final and not a no-op), keyed by Card Identity |
-| `src/cli/purge.js` | `runPurge()` - full purge lifecycle (browser + `PurgeRunner`), one Purge Run per Activity target; with `--input` it acts on a selection envelope and writes each item's status into it |
+| `src/cli/purge.js` | `runPurge()` - full purge lifecycle (Activity Session + `PurgeRunner`), one Purge Run per Activity target; with `--input` it acts on a selection envelope and writes each item's status into it |
 | `src/cli/status.js` | `runStatus()` - reports per-type counts by status from the scan envelope |
 | `src/cli/login-import-profile.js` | `runLoginImportProfile()` - imports a logged-in Chromium profile into `.profile-chromium/`. |
 
@@ -28,6 +28,7 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 
 | Module | Purpose | Key Exports |
 |--------|---------|-------------|
+| `src/activity-session.js` | The browser bootstrap both commands share: launch or CDP attach, page, helper injection, both login guards, the `/in/me` base URL and per-target tab navigation; one session per invocation, closed in a `finally`; a lapsed session throws `SessionExpiredError` (friendly, exit 1) | `ActivitySession`, `SessionExpiredError` |
 | `src/activity-loader.js` | The one implementation of scroll-and-wait: reads the items currently rendered, reads the first render as one complete step, performs one load step, or walks the Activity List to exhaustion (complete, or incomplete when the timeout cuts it short); reads the unseen cards once per step, so a batch that lands between steps is still collected | `ActivityLoader`, `createActivityPage()`, `POLL_INTERVAL_MS` |
 | `src/activity-targets.js` | `activityTargets()` resolves one Activity target per type: a concrete type plus the Activity List tab where its page detector matches (`comments/`, `reactions/`). Shared by scan and purge, so the two commands cannot disagree about a tab; `all` expands to an ordered list of targets, never a type of its own | `activityTargets()` |
 | `src/scan-envelope.js` | The `data/scan-<type>.json` file contract: a pure builder that keeps the pre-existing fields and adds per-item `step` plus top-level `steps` and `complete`, so `purge --input` reads old and new files (ADR 0001) | `buildScanEnvelope()` |
@@ -50,7 +51,7 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 |--------|---------|-------------|
 | `src/browser.js` | Chromium launch (with profile-lock recovery), CDP attach, DOM-helper injection, resource blocking | `launchBrowser()`, `connectCDP()`, `injectDomHelpers()`, `blockHeavyResources()`, `findChromiumBinary()` |
 | `src/browser-recovery.js` | Launch-recovery decisions when the profile is locked: classify the failure, match profile-holder processes, pick the kill / retry / ask-user action | `isProfileLockFailure()`, `matchesProfile()`, `classifyHolders()`, `pickRecovery()`, `finalFailureMessage()`, `ProfileInUseError` |
-| `src/login-guard.js` | The one login, checkpoint and authwall URL test: scan and purge call it at every point they come back from a navigation, so a session that expires between tabs stops the run | `isLoggedOut()` |
+| `src/login-guard.js` | The one login, checkpoint and authwall URL test: the Activity Session calls it at every point a run comes back from a navigation, so a session that expires between tabs stops the run | `isLoggedOut()` |
 | `src/linkedin-dom.js` | In-page helpers exposed as `window.LP` - scan collection, growth signal, Activity List scrolling, card-identity capture, link capture through the card menu, and one-card delete by Card Identity | `window.LP.isCommentsPage`, `window.LP.isReactionsPage`, `window.LP.collectKeys`, `window.LP.collectItems`, `window.LP.deleteOneCard`, `window.LP.readGrowthSignal`, `window.LP.scrollActivityListToBottom` |
 | `src/logger.js` | Timestamped console wrappers | `log()`, `warn()`, `err()` |
 
@@ -67,6 +68,7 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 | `tests/browser-opener.test.js` | Default-browser opener tests over scripted success/failure (no browser opened) |
 | `tests/reset-checkpoint.test.js` | `--reset-checkpoint` is refused loudly and no browser launches |
 | `tests/activity-loader.test.js` | Activity Loader tests through a scripted fake page: grow-then-idle, timeout cutoff, timeout 0 as no limit, absent timeout as the one-hour default, never grows, merge/dedupe/step numbering, already-seen key hand-off, a silently landing late batch, the first-render operation (no browser) |
+| `tests/activity-session.test.js` | Activity Session tests through injected fakes: base URL from the profile slug and its `me` fallback, the tab navigation on the derived base URL, both login guards (throw, friendly, close), the CDP attach path, the two settle waits and idempotent close (no browser, no sleeping) |
 | `tests/scan-envelope.test.js` | Scan envelope builder tests: the shallow shape (one step, complete, every item step 0) and the deep-partial shape (many steps, incomplete) |
 | `tests/activity-targets.test.js` | Activity target tests: which Activity List tab each type lives on, that `all` expands to both types, and that an unknown type is rejected |
 | `tests/page-check.test.js` | Live page-helper check tests through a scripted fake page seam (no browser): both tabs passing, and one named failure each for bad tab detection, a dead growth signal, no pagination, missing metadata, duplicate keys, leaked seen keys, a hung call and a throwing call, plus the failure-message shape |
