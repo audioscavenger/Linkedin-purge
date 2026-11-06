@@ -97,58 +97,118 @@ function collectReactionKeys() {
 // carries the same author and dateTime.
 // "author" is the post author (not the account that performed the like/comment).
 // container should be the role="listitem" ancestor of the button.
+// Interpretation of the LinkedIn card DOM:
+//
+// On a reaction card, the POSTER is not the REACTOR. The visible name the
+// user sees on the reactions page is the header actor of the card: the
+// poster's avatar + name link + headline text. For company posts the header
+// shows the company name ("Zebraworks") and no headline (companies have no
+// personal headline) - the headline cell stays blank.
+//
+// The aria-label "Open control menu for post by X" is NOT reliable for the
+// header actor: for company posts LinkedIn puts the PERSON who posted on
+// behalf of the company there ("Erin Barrio"), while the header still shows
+// "Zebraworks". That is exactly the mismatch the user reported:
+// scan-likes.json had "Erin Barrio" for reaction:13/14/15 while the page
+// shows "Zebraworks".
+//
+// So the extractor prefers the VISIBLE header actor:
+//   1. The first /in/ or /company/ link in DOM order whose text is a name
+//      (the header actor block comes before body and footer links).
+//   2. The aria-label on the control menu button (fallback only).
+//
+// COUNTER-ARGUMENT considered and rejected: "if the aria-label says post by
+// Erin Barrio, Erin IS the author - the header is just decoration." No: the
+// user reviews the reactions page and picks items by what they SEE there.
+// The Author column is a review aid, not a provenance record. Showing
+// "Zebraworks" (visible) is correct; showing "Erin Barrio" (hidden) is a
+// surprise that cannot be verified from the page.
+
 function extractAuthorAndDate(container) {
+  // 1. The visible header actor: first /in/ or /company/ link in DOM order
+  // with a plausible name. The header actor block precedes body and footer
+  // links, so the earliest match is the name the page shows. Skips UI text
+  // ("likes this", "X commented this", reaction-state phrases) and the
+  // ellipsis placeholder.
   let author = null;
-  // The "Open control menu for post by X" button has the post author name
-  // in its aria-label. This is the most reliable source.
-  const menuBtn = container.querySelector("button[aria-label*='Open control menu for post by']");
-  if (menuBtn) {
-    const al = menuBtn.getAttribute("aria-label") || "";
-    const m = al.match(/post by (.+)$/i);
-    if (m) author = m[1].trim().replace(/["'’]+$/g, "").trim();
-  }
-  // Fallback: look at /in/ links, skipping my own profile (first /in/ is usually the reactor).
-  if (!author) {
-    const inLinks = [...container.querySelectorAll("a[href*='/in/']")];
-    for (let i = 1; i < inLinks.length; i++) {
-      const text = (inLinks[i].textContent || "").trim();
-      if (text && text.length > 1 && !/^\.\.\.$/.test(text) && !/(?:likes?|reposted|commented on)\s+this$/i.test(text) && !/finds? this (?:funny|love|inspire|celebrate)s?$/i.test(text)) {
-        author = text;
-        break;
-      }
+  const authorLinks = container.querySelectorAll("a[href*='/in/'], a[href*='/company/']");
+  for (const link of authorLinks) {
+    const text = (link.textContent || "").trim();
+    if (text && text.length > 1 && !/^\.\.\.$/.test(text) && !/(?:likes?|reposted|commented on)\s+this$/i.test(text) && !/finds? this (?:funny|love|inspire|celebrate)s?$/i.test(text)) {
+      author = text;
+      break;
     }
   }
-  // Company fallback (for company posts)
+  // 2. Fallback: the "Open control menu for post by X" button has the poster
+  // name in its aria-label. For company posts this can be the person who
+  // posted on behalf, not the visible header actor - which is why this is
+  // only a fallback (see the module note above).
   if (!author) {
-    const companyLinks = [...container.querySelectorAll("a[href*='/company/']")];
-    for (const link of companyLinks) {
-      const text = (link.textContent || "").trim();
-      if (text && !/^\.\.\.$/.test(text)) {
-        author = text;
-        break;
-      }
+    const menuBtn = container.querySelector("button[aria-label*='Open control menu for post by']");
+    if (menuBtn) {
+      const al = menuBtn.getAttribute("aria-label") || "";
+      const m = al.match(/post by (.+)$/i);
+      if (m) author = m[1].trim().replace(/["'’]+$/g, "").trim();
     }
   }
 
   // Look for a date-like text in the card (Month + day pattern like "Sep 16").
   // Allow trailing text like " • Edited" or other suffixes - just extract the date part.
+  // Normalized to "Oct 5, 2026" when a year is present, else "Oct 5".
   let dateTime = null;
-  const dateRe = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2}(\s*,\s*\d{4})?/;
-  const candidates = [...container.querySelectorAll("span, p, div")];
-  for (const el of candidates) {
+  // Match month name + valid day (01-31), optional year. Reject garbage like "Oct 81".
+  const dateRe = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+((?:0?[1-9]|[12]\d|3[01]))(?:\s*,\s*(\d{4}))?/;
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const toDisplayDate = (monthIdx, dayNum, year) =>
+    MONTHS[monthIdx] + " " + dayNum + (year ? ", " + year : "");
+  const monthIndex = (token) => MONTHS.indexOf(token.slice(0, 3));
+  // Prefer the <time> element's ISO datetime (gives the year, so the display
+  // can carry it), then fall back to the visible month/day text.
+  const timeEl = container.querySelector("time[datetime]");
+  if (timeEl && timeEl.dateTime) {
+    const iso = String(timeEl.dateTime).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) dateTime = toDisplayDate(Number(iso[2]) - 1, Number(iso[3]), iso[1]);
+  }
+  if (!dateTime) {
+    const candidates = [...container.querySelectorAll("span, p, div")];
+    for (const el of candidates) {
+      const t = (el.textContent || "").trim();
+      const m = t.match(dateRe);
+      if (m) {
+        dateTime = toDisplayDate(monthIndex(m[1]), Number(m[2]), m[3] || null);
+        break;
+      }
+    }
+  }
+  // If still no date, try any <time> without datetime (text content).
+  if (!dateTime) {
+    const timeText = container.querySelector("time");
+    if (timeText && timeText.textContent) {
+      const t = timeText.textContent.trim();
+      const m = t.match(dateRe);
+      if (m) dateTime = toDisplayDate(monthIndex(m[1]), Number(m[2]), m[3] || null);
+    }
+  }
+  // Headline: the small job-title line under the header actor's name.
+  // Company posts have no personal headline, so this stays null (blank
+  // column) for them - exactly what the user asked for.
+  let headline = null;
+  const headlineSelectors = [
+    ".feed-shared-update-v2__actor--headline",
+    ".feed-shared-actor__sub-description",
+    ".update-components-text--headline",
+    "[class*='actor__headline']",
+  ];
+  for (const sel of headlineSelectors) {
+    const el = container.querySelector(sel);
+    if (!el) continue;
     const t = (el.textContent || "").trim();
-    const m = t.match(dateRe);
-    if (m) {
-      dateTime = m[0].trim();
+    if (t && t.length > 1 && t !== author) {
+      headline = t.replace(/\s+/g, " ").slice(0, 120);
       break;
     }
   }
-  // Fallback: <time> element
-  if (!dateTime) {
-    const timeEl = container.querySelector("time");
-    if (timeEl && timeEl.dateTime) dateTime = timeEl.dateTime;
-  }
-  return { author, dateTime };
+  return { author, dateTime, headline };
 }
 
 function cleanText(str, maxLen) {
@@ -160,17 +220,43 @@ function cleanText(str, maxLen) {
 }
 
 function extractCommentText(card) {
-  // Comment body text inside the comment card
-  const commentBodyEl = card.querySelector(".update-components-text, .comment-item__text, span[dir='ltr']");
-  if (!commentBodyEl) return null;
-  return cleanText(commentBodyEl.textContent, 280);
+  // Comment body text inside the comment card. Try multiple selectors
+  // (LinkedIn's class names change between versions); fall back to the first
+  // ltr text span that isn't the author/date metadata.
+  const selectors = [
+    ".update-components-text",
+    ".comment-item__text",
+    ".feed-shared-update-v2__description",
+    "span[dir='ltr']",
+    ".break-words",
+  ];
+  for (const sel of selectors) {
+    const el = card.querySelector(sel);
+    if (el) {
+      const text = cleanText(el.textContent, 280);
+      if (text) return text;
+    }
+  }
+  return null;
 }
 
 function extractPostExcerpt(card) {
-  // Post body excerpt from the card
-  const postTextEl = card.querySelector(".feed-shared-update-v2__description, .update-components-text, span[dir='ltr']");
-  if (!postTextEl) return null;
-  return cleanText(postTextEl.textContent, 140);
+  // Post body excerpt from the card. Same multi-selector approach.
+  const selectors = [
+    ".feed-shared-update-v2__description",
+    ".feed-shared-update-v2__sub-description",
+    ".update-components-text",
+    ".break-words",
+    "span[dir='ltr']",
+  ];
+  for (const sel of selectors) {
+    const el = card.querySelector(sel);
+    if (el) {
+      const text = cleanText(el.textContent, 140);
+      if (text) return text;
+    }
+  }
+  return null;
 }
 
 // Find the nearest role="listitem" ancestor (the card) from a button.
@@ -294,7 +380,7 @@ async function collectReactionItems(seenKeys, links) {
       const card = findCard(btn);
       itemHref = await captureCardLink(card, false);
     }
-    items.push({ key, cardId: meta.cardId, text: null, postExcerpt: meta.postExcerpt, state, author: meta.author, postHref: meta.postHref, itemHref, dateTime: meta.dateTime });
+    items.push({ key, cardId: meta.cardId, text: null, postExcerpt: meta.postExcerpt, state, author: meta.author, headline: meta.headline, postHref: meta.postHref, itemHref, dateTime: meta.dateTime });
   }
   return items;
 }
@@ -315,7 +401,7 @@ async function collectCommentItems(seenKeys, links) {
       const card = findCard(btn);
       itemHref = await captureCardLink(card, true);
     }
-    items.push({ key, cardId: meta.cardId, text: meta.text, postExcerpt: meta.postExcerpt, author: meta.author, postHref: meta.postHref, itemHref, dateTime: meta.dateTime });
+    items.push({ key, cardId: meta.cardId, text: meta.text, postExcerpt: meta.postExcerpt, author: meta.author, headline: meta.headline, postHref: meta.postHref, itemHref, dateTime: meta.dateTime });
   }
   return items;
 }

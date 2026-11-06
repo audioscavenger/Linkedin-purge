@@ -54,7 +54,7 @@ async function testInputKeysFilter() {
   const result = await runner.run({ type: "likes", timeoutMs: 3600000, batchSize: 5, inputKeys: ["k2", "k4"] });
 
   if (result.deleted !== 2) throw new Error(`Expected deleted=2, got ${result.deleted}`);
-  if (result.counts.purged !== 2) throw new Error(`Expected purged=2, got ${result.counts.purged}`);
+  if (result.counts.deleted !== 2) throw new Error(`Expected purged=2, got ${result.counts.deleted}`);
   console.log("PASS: inputKeys filter (only k2, k4 deleted)");
 }
 
@@ -68,7 +68,7 @@ async function testSelectionStopsEarly() {
   const result = await runner.run({ type: "likes", timeoutMs: 3600000, batchSize: 5, inputKeys: ["a2", "a5"] });
 
   if (result.deleted !== 2) throw new Error(`Expected deleted=2, got ${result.deleted}`);
-  if (result.counts.purged !== 2) throw new Error(`Expected purged=2, got ${result.counts.purged}`);
+  if (result.counts.deleted !== 2) throw new Error(`Expected purged=2, got ${result.counts.deleted}`);
   console.log("PASS: selection of two items on longer history acts on those two and stops early");
 }
 
@@ -82,7 +82,7 @@ async function testUnselectedKeepNoOp() {
   const result = await runner.run({ type: "likes", timeoutMs: 3600000, batchSize: 5, inputKeys: ["x2", "x4"] });
 
   if (result.deleted !== 2) throw new Error(`Expected deleted=2, got ${result.deleted}`);
-  if (result.counts.purged !== 2 || result.counts.noOp !== 0) {
+  if (result.counts.deleted !== 2 || result.counts.noOp !== 0) {
     throw new Error(`bad counts: ${JSON.stringify(result.counts)}`);
   }
   console.log("PASS: unselected items keep no-op");
@@ -99,7 +99,7 @@ async function testSelectionWritesPurgedAndFailed() {
   const runner = new PurgeRunner({ pageAdapter: page, confirmAdapter: confirm });
   const result = await runner.run({ type: "likes", timeoutMs: 3600000, batchSize: 5, inputKeys: ["s1", "s2"] });
 
-  if (result.counts.purged !== 1) throw new Error(`Expected purged=1, got ${result.counts.purged}`);
+  if (result.counts.deleted !== 1) throw new Error(`Expected purged=1, got ${result.counts.deleted}`);
   if (result.counts.failed !== 1) throw new Error(`Expected failed=1, got ${result.counts.failed}`);
   console.log("PASS: success writes purged-state, refusal writes failed through store");
 }
@@ -119,7 +119,7 @@ async function testSelectionIndifferentToPageOrder() {
     const result = await runner.run({ type: "likes", timeoutMs: 3600000, batchSize: 5, inputKeys: selected });
 
     if (result.deleted !== 2) throw new Error(`${label}: expected deleted=2, got ${result.deleted}`);
-    if (result.counts.purged !== 2) throw new Error(`${label}: expected purged=2, got ${result.counts.purged}`);
+    if (result.counts.deleted !== 2) throw new Error(`${label}: expected purged=2, got ${result.counts.deleted}`);
   }
   console.log("PASS: runner indifferent to page order");
 }
@@ -134,7 +134,7 @@ async function testSelectionNotFoundMarkedNotFound() {
   // k-ghost is selected but not present on the page.
   const result = await runner.run({ type: "likes", batchSize: 5, inputKeys: ["k1", "k-ghost"] });
 
-  if (result.counts.purged !== 1 || result.counts.failed !== 0 || result.counts.notFound !== 1 || result.counts.noOp !== 0) {
+  if (result.counts.deleted !== 1 || result.counts.failed !== 0 || result.counts.notFound !== 1 || result.counts.noOp !== 0) {
     throw new Error(`bad counts: ${JSON.stringify(result.counts)}`);
   }
   console.log("PASS: exhausted walk marks unmatched selection not-found and reports it by identity");
@@ -149,8 +149,8 @@ async function testSelectionRetryRunSkipsPurgedRetriesRest() {
   fs.writeFileSync(file, JSON.stringify({
     type: "likes",
     items: [
-      { key: "reaction:a", cardId: "card-a", status: "pending" },
-      { key: "reaction:b", cardId: "card-b", status: "pending" },
+      { key: "reaction:a", cardId: "card-a", status: "todo" },
+      { key: "reaction:b", cardId: "card-b", status: "todo" },
     ],
   }));
 
@@ -161,7 +161,7 @@ async function testSelectionRetryRunSkipsPurgedRetriesRest() {
   // First run: a purged, b failed
   const runner1 = new PurgeRunner({ pageAdapter: page, confirmAdapter: confirm, envelopeStore: store });
   const first = await runner1.run({ type: "likes", batchSize: 5, inputKeys: ["card-a", "card-b"] });
-  if (first.counts.purged !== 1 || first.counts.failed !== 1) {
+  if (first.counts.deleted !== 1 || first.counts.failed !== 1) {
     throw new Error(`bad first-run counts: ${JSON.stringify(first.counts)}`);
   }
 
@@ -170,13 +170,13 @@ async function testSelectionRetryRunSkipsPurgedRetriesRest() {
   const runner2 = new PurgeRunner({ pageAdapter: page, confirmAdapter: confirm, envelopeStore: store });
   const second = await runner2.run({ type: "likes", batchSize: 5, inputKeys: ["card-a", "card-b"] });
   if (second.deleted !== 1) throw new Error(`retry must act only on b, deleted=${second.deleted}`);
-  if (second.counts.purged !== 1 || second.counts.noOp !== 1 || second.counts.failed !== 0 || second.counts.notFound !== 0) {
+  if (second.counts.deleted !== 1 || second.counts.noOp !== 1 || second.counts.failed !== 0 || second.counts.notFound !== 0) {
     throw new Error(`bad retry counts: ${JSON.stringify(second.counts)}`);
   }
   const marked = JSON.parse(fs.readFileSync(file, "utf8"));
   const by = Object.fromEntries(marked.items.map((i) => [i.cardId, i.status]));
-  if (by["card-a"] !== "purged" || by["card-b"] !== "purged") {
-    throw new Error(`envelope not both purged: ${JSON.stringify(by)}`);
+  if (by["card-a"] !== "deleted" || by["card-b"] !== "deleted") {
+    throw new Error(`envelope not both deleted: ${JSON.stringify(by)}`);
   }
   console.log("PASS: re-run skips purged, retries failed and not-found, leaves no-op alone");
 }
@@ -190,8 +190,8 @@ async function testSelectionMarksEnvelopeAtomically() {
   fs.writeFileSync(file, JSON.stringify({
     type: "likes",
     items: [
-      { key: "reaction:0", cardId: "card-1", status: "pending" },
-      { key: "reaction:1", cardId: "card-2", status: "pending" },
+      { key: "reaction:0", cardId: "card-1", status: "todo" },
+      { key: "reaction:1", cardId: "card-2", status: "todo" },
     ],
   }));
 
@@ -209,9 +209,9 @@ async function testSelectionMarksEnvelopeAtomically() {
 
   const marked = JSON.parse(fs.readFileSync(file, "utf8"));
   const by = Object.fromEntries(marked.items.map((i) => [i.cardId, i.status]));
-  if (by["card-1"] !== "purged") throw new Error(`card-1 expected purged on disk, got ${by["card-1"]}`);
+  if (by["card-1"] !== "deleted") throw new Error(`card-1 expected deleted on disk, got ${by["card-1"]}`);
   if (by["card-2"] !== "not-found") throw new Error(`card-2 expected not-found on disk, got ${by["card-2"]}`);
-  if (result.counts.purged !== 1 || result.counts.notFound !== 1) {
+  if (result.counts.deleted !== 1 || result.counts.notFound !== 1) {
     throw new Error(`bad counts: ${JSON.stringify(result.counts)}`);
   }
   console.log("PASS: selection run marks the envelope atomically (purged and not-found)");

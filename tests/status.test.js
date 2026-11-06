@@ -41,20 +41,20 @@ function envelope(items) {
 async function testCounts() {
   const dir = fs.mkdtempSync(path.join(tmp, "status-counts-"));
   const data = envelope([
-    { key: "reaction:1", cardId: "card-1", status: "purged" },
+    { key: "reaction:1", cardId: "card-1", status: "deleted" },
     { key: "reaction:2", cardId: "card-2", status: "failed" },
     { key: "reaction:3", cardId: "card-3", status: "not-found" },
-    { key: "reaction:4", cardId: "card-4", status: "pending" },
+    { key: "reaction:4", cardId: "card-4", status: "todo" },
     { key: "reaction:5", cardId: "card-5", status: "no-op" },
   ]);
   fs.writeFileSync(path.join(dir, "scan-likes.json"), JSON.stringify(data, null, 2));
 
   const { output } = await captureConsole(() => runStatus(["--data-dir", dir, "--type", "likes"]));
   assert.ok(output.includes("likes"), "prints the type");
-  assert.ok(/purged\D*1/.test(output), "prints purged count");
+  assert.ok(/deleted\D*1/.test(output), "prints deleted count");
   assert.ok(/failed\D*1/.test(output), "prints failed count");
   assert.ok(/not.?found\D*1/i.test(output), "prints not-found count");
-  assert.ok(/pending\D*1/.test(output), "prints pending count");
+  assert.ok(/todo\D*1/.test(output), "prints todo count");
   assert.ok(/no-op\D*1/.test(output), "prints no-op count");
   console.log("PASS: status counts");
 }
@@ -69,10 +69,10 @@ async function testMissingEnvelope() {
 async function testNoCheckpointRead() {
   const dir = fs.mkdtempSync(path.join(tmp, "status-nocheckpoint-"));
   fs.writeFileSync(path.join(dir, "checkpoint-likes.json"), "{ this is not valid json");
-  const data = envelope([{ key: "reaction:1", cardId: "card-1", status: "purged" }]);
+  const data = envelope([{ key: "reaction:1", cardId: "card-1", status: "deleted" }]);
   fs.writeFileSync(path.join(dir, "scan-likes.json"), JSON.stringify(data, null, 2));
   const { output } = await captureConsole(() => runStatus(["--data-dir", dir, "--type", "likes"]));
-  assert.ok(output.includes("purged"), "status reads envelope, not checkpoint");
+  assert.ok(output.includes("deleted"), "status reads envelope, not checkpoint");
   console.log("PASS: status does not read checkpoint");
 }
 

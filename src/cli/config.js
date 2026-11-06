@@ -29,7 +29,7 @@ const DEFAULT_CONFIG = {
     limit: 0,
     resetCheckpoint: false,
     deepScan: false,
-    links: false,
+    links: true,
   },
 };
 

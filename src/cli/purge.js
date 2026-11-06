@@ -40,13 +40,13 @@ export async function runPurge(args) {
   // Optional: restrict deletion to a selection from --input. This is the
   // v0.5.0 review-first flow: scan writes data/selection-<type>.html from the
   // scan envelope, the person ticks the items worth deleting, Export writes
-  // data/selection-<type>.json with status: pending, and purge --input acts
+  // data/selection-<type>.json with status: todo, and purge --input acts
   // on that file. Selected items outside the selection are never touched.
   const inputFile = getFlag(args, "input", null);
 
   // Load the selection before the browser launches, so an unusable file fails
-  // without a visit. Statuses already final (purged) or no-op are skipped;
-  // anything pending/failed/not-found is actionable, and a selection with
+  // without a visit. Statuses already final (deleted) or no-op are skipped;
+  // anything todo/failed/not-found is actionable, and a selection with
   // zero actionable items exits without prompting.
   let selection = null;
   if (inputFile) {
@@ -107,6 +107,7 @@ export async function runPurge(args) {
     batchMax,
     limit: limitArg,
     inputKeys,
+    selectionStatusMap: selection && selection.statusMap ? selection.statusMap : null,
   };
 
   try {
@@ -184,7 +185,7 @@ function reportSummary(results) {
     if (result.counts) {
       // Selection runs: per-status tally appended regardless of deletions.
       const c = result.counts;
-      log(`${result.type}: ${c.purged} purged, ${c.failed} failed, ${c.notFound} not-found, ${c.noOp} no-op`);
+      log(`${result.type}: ${c.deleted} deleted, ${c.failed} failed, ${c.notFound} not-found, ${c.noOp} no-op`);
     }
   }
   if (results.length > 1) {

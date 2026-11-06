@@ -6,6 +6,16 @@
 
 ## Unreleased
 
+* [x] v0.5.5 - Fix selection purge, author shown as visible on the page, links on by default, status vocabulary
+    * Selection purge now works: the Export button stamps `status: todo` (was `pending`), and the purge command passes the selection's own statuses to the runner, whose `remaining` set is computed from the selection instead of the scan envelope's `no-op` (previously every item was skipped as already-final, reporting "purge cancelled or nothing to delete"). Stale `purged`/`pending` names were swept from `loadSelection` filtering, `reportSummary`, and the status command so reported tallies are real.
+    * Status vocabulary is now `no-op`, `todo`, `deleted`: `pending` and `purged` no longer appear in code, tests, or user docs.
+    * Author shows the visible header actor: for Zebraworks company posts the page shows "Zebraworks" but the extractor's aria-label gave the person who posted on behalf ("Erin Barrio"). The extractor now prefers the first profile/company link in DOM order and keeps the aria-label as fallback.
+    * New Headline column replaces Company: shows the author's job-title line, blank when none is found (company posts have no personal headline); the former `company` duplicate of author is gone.
+    * Dates normalize to `Oct 5, 2026` when the year is known (`<time datetime>` is preferred, then the visible month/day text), `Oct 5` otherwise; invalid days ("Oct 81") are rejected.
+    * Links are captured by default: `behavior.links` defaults to true and the `--links` flag is removed from help and scan; link capture is configured only via `behavior.links`.
+    * Text extraction widened (multi-selector fallback chains with longest-text fallback) so the Text column populates for both tabs.
+    * Selection page polish: primary Export button, sized checkbox column, truncated text cells, no link hint span.
+
 ## Released
 
 * [x] v0.5.4 - Pin puppeteer-extra-plugin-stealth to a version with the deepmerge fix; npm audit clean

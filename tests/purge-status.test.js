@@ -16,29 +16,29 @@ assert.deepStrictEqual(
   PURGE_STATUSES,
   {
     NO_OP: "no-op",
-    PENDING: "pending",
-    PURGED: "purged",
+    TODO: "todo",
+    DELETED: "deleted",
     FAILED: "failed",
     NOT_FOUND: "not-found",
   },
   "PURGE_STATUSES must match the exact five values"
 );
 
-// Finality: only purged.
-assert.strictEqual(isFinalStatus("purged"), true, "purged is final");
-for (const s of ["no-op", "pending", "failed", "not-found"]) {
+// Finality: only deleted.
+assert.strictEqual(isFinalStatus("deleted"), true, "deleted is final");
+for (const s of ["no-op", "todo", "failed", "not-found"]) {
   assert.strictEqual(isFinalStatus(s), false, `${s} is not final`);
 }
 
 // no-op is never acted on.
 assert.strictEqual(isNoOp("no-op"), true, "no-op is no-op");
-for (const s of ["pending", "purged", "failed", "not-found"]) {
+for (const s of ["todo", "deleted", "failed", "not-found"]) {
   assert.strictEqual(isNoOp(s), false, `${s} is not no-op`);
 }
 
-// Actionable: pending, failed, not-found only; purged and no-op excluded.
-const actionable = ["pending", "failed", "not-found"];
-const notActionable = ["purged", "no-op"];
+// Actionable: todo, failed, not-found only; deleted and no-op excluded.
+const actionable = ["todo", "failed", "not-found"];
+const notActionable = ["deleted", "no-op"];
 for (const s of actionable) {
   assert.strictEqual(isActionable(s), true, `${s} may be acted on`);
 }
@@ -54,36 +54,36 @@ assert.deepStrictEqual(
 // Every status pinned against the transition rules.
 for (const s of Object.values(PURGE_STATUSES)) {
   const mayAct = isActionable(s);
-  if (s === "purged" || s === "no-op") {
+  if (s === "deleted" || s === "no-op") {
     assert.strictEqual(mayAct, false, `${s} is not actionable`);
   } else {
     assert.strictEqual(mayAct, true, `${s} is actionable`);
   }
 }
 
-// Attempt outcomes map to exactly one of purged, failed, not-found.
-assert.strictEqual(outcomeToStatus(true), "purged", "success maps to purged");
+// Attempt outcomes map to exactly one of deleted, failed, not-found.
+assert.strictEqual(outcomeToStatus(true), "deleted", "success maps to deleted");
 assert.strictEqual(outcomeToStatus(false), "failed", "failure maps to failed");
 assert.strictEqual(outcomeToStatus("not-found"), "not-found", "not-found maps to not-found");
-assert.strictEqual(outcomeToStatus("success"), "purged");
+assert.strictEqual(outcomeToStatus("success"), "deleted");
 assert.strictEqual(outcomeToStatus("refused"), "failed");
-assert.strictEqual(outcomeToStatus({ ok: true }), "purged");
+assert.strictEqual(outcomeToStatus({ ok: true }), "deleted");
 assert.strictEqual(outcomeToStatus({ ok: false }), "failed");
 assert.strictEqual(outcomeToStatus({ found: false }), "not-found");
 assert.strictEqual(outcomeToStatus(true, false), "not-found");
 
 // transitionStatus respects finality / no-op.
-assert.strictEqual(transitionStatus("purged", true), "purged", "purged stays purged");
+assert.strictEqual(transitionStatus("deleted", true), "deleted", "deleted stays deleted");
 assert.strictEqual(transitionStatus("no-op", true), "no-op", "no-op stays no-op");
-assert.strictEqual(transitionStatus("pending", true), "purged");
+assert.strictEqual(transitionStatus("todo", true), "deleted");
 assert.strictEqual(transitionStatus("failed", false), "failed");
 assert.strictEqual(transitionStatus("not-found", "not-found"), "not-found");
 
 // Legal transitions.
-assert.strictEqual(isLegalTransition("purged", "purged"), true);
-assert.strictEqual(isLegalTransition("purged", "failed"), false);
-assert.strictEqual(isLegalTransition("pending", "purged"), true);
-assert.strictEqual(isLegalTransition("no-op", "pending"), true);
+assert.strictEqual(isLegalTransition("deleted", "deleted"), true);
+assert.strictEqual(isLegalTransition("deleted", "failed"), false);
+assert.strictEqual(isLegalTransition("todo", "deleted"), true);
+assert.strictEqual(isLegalTransition("no-op", "todo"), true);
 
 // STATUS_TRANSITIONS covers every status.
 for (const s of Object.values(PURGE_STATUSES)) {

@@ -21,7 +21,22 @@ export function generateSelectionPage(input) {
 <head>
 <meta charset="utf-8">
 <title>Selection - ${escapeHtml(type)}</title>
-<style>body{font-family:system-ui;margin:1rem;color:#222}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:.4rem .5rem;text-align:left;vertical-align:top}th{background:#f5f5f5}a{color:#0a66c2}.filters{display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;align-items:flex-end;margin-bottom:.75rem}.filter-state-option{display:inline-flex;gap:.35rem;align-items:center;font-size:.9rem}label{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem}button{padding:.4rem .8rem;cursor:pointer}#empty-state{padding:1rem;border:1px dashed #bbb;border-radius:.4rem;color:#555}</style>
+<style>
+body{font-family:system-ui;margin:1rem;color:#222}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #ddd;padding:.4rem .5rem;text-align:left;vertical-align:top}
+th{background:#f5f5f5}
+a{color:#0a66c2}
+.filters{display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;align-items:flex-end;margin-bottom:.75rem}
+.filter-state-option{display:inline-flex;gap:.35rem;align-items:center;font-size:.9rem}
+label{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem}
+button{padding:.4rem .8rem;cursor:pointer}
+#export-btn{background:#0a66c2;color:#fff;font-weight:600;border:none;border-radius:.25rem}
+#export-btn:hover{background:#004182}
+#empty-state{padding:1rem;border:1px dashed #bbb;border-radius:.4rem;color:#555}
+.checkbox-col{width:3rem;min-width:3rem;text-align:center}
+.text-truncate{max-width:28rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+</style>
 </head>
 <body>
 <h1>Selection: ${escapeHtml(type)}</h1>
@@ -55,9 +70,10 @@ export function generateSelectionPage(input) {
 <table id="selection-table">
   <thead>
     <tr>
-      <th><input type="checkbox" id="master-select" title="Select every visible row"></th>
+      <th class="checkbox-col"><input type="checkbox" id="master-select" title="Select every visible row"></th>
       <th>State</th>
       <th>Author</th>
+      <th>Headline</th>
       <th>Date</th>
       <th>Text</th>
       <th>Status</th>
@@ -220,7 +236,7 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
   });
 
   // Export: gather the ticked items (by data-index back into the items array),
-  // stamp each status: pending, narrow count/keys to them, preserve scannedAt
+  // stamp each status: todo, narrow count/keys to them, preserve scannedAt
   // and add selectedAt, then trigger a download named selection-<type>.json.
   // Exporting with nothing ticked is refused with a visible message; nothing
   // is written to disk by the page itself.
@@ -245,7 +261,7 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
       if (!item) return null;
       var copy = {};
       for (var k in item) if (Object.prototype.hasOwnProperty.call(item, k)) copy[k] = item[k];
-      copy.status = "pending";
+      copy.status = "todo";
       return copy;
     }).filter(Boolean);
     var exportEnvelope = {
@@ -311,6 +327,9 @@ function renderRow(item, hasLinks, itemIdx) {
   const stateRaw = escapeAttr(it.state != null ? String(it.state) : "");
   const author = escapeHtml(it.author != null ? it.author : "");
   const authorRaw = escapeAttr(it.author != null ? String(it.author) : "");
+  // Headline: the author's job-title line. Blank when none was found
+  // (company posts have no personal headline).
+  const headline = escapeHtml(it.headline != null ? it.headline : "");
   const rawDate = it.dateTime != null ? it.dateTime : it.date != null ? it.date : "";
   const date = escapeHtml(rawDate);
   const dateRaw = escapeAttr(String(rawDate));
@@ -319,11 +338,12 @@ function renderRow(item, hasLinks, itemIdx) {
   const link = linkValue(it);
   const linkCell = hasLinks ? (link ? `<td><a href="${escapeAttr(link)}" target="_blank" rel="noopener noreferrer">link</a></td>` : "<td></td>") : "";
   return `    <tr data-index="${itemIdx}" data-state="${stateRaw}" data-author="${authorRaw}" data-date="${dateRaw}">
-      <td><input type="checkbox" class="row-select"></td>
+      <td class="checkbox-col"><input type="checkbox" class="row-select"></td>
       <td>${state}</td>
       <td>${author}</td>
+      <td>${headline}</td>
       <td>${date}</td>
-      <td>${text}</td>
+      <td class="text-truncate">${text}</td>
       <td>${status}</td>
       ${linkCell}
     </tr>`;

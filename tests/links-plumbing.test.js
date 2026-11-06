@@ -8,7 +8,7 @@ import { createActivityPage } from "../src/activity-loader.js";
 
 // --- Config default ---------------------------------------------------------
 const cfg = loadConfig();
-assert.strictEqual(cfg.behavior.links, false, "behavior.links defaults to false");
+assert.strictEqual(cfg.behavior.links, true, "behavior.links defaults to true");
 
 // --- Flag resolution: CLI source -------------------------------------------
 assert.strictEqual(
@@ -17,9 +17,9 @@ assert.strictEqual(
   "CLI --links resolves to true"
 );
 assert.strictEqual(
-  asBool(resolveFlag([], "links", "behavior.links", false), false),
-  false,
-  "absent CLI flag with default config resolves to false"
+  asBool(resolveFlag([], "links", "behavior.links", true), true),
+  true,
+  "absent CLI flag with default config resolves to true"
 );
 
 // --- Flag resolution: config source -----------------------------------------
@@ -50,7 +50,7 @@ if (existed) {
     if (base.behavior) delete base.behavior.links;
     fs.writeFileSync(configPath, JSON.stringify(base, null, 2) + "\n");
     const resolved = asBool(resolveFlag([], "links", "behavior.links", false), false);
-    assert.strictEqual(resolved, false, "missing config key falls back to false");
+    assert.strictEqual(resolved, true, "missing config key falls back to true");
   } finally {
     fs.writeFileSync(configPath, backup2);
   }

@@ -1,27 +1,27 @@
 // Purge status vocabulary, finality, and transition rules.
-// `purged` is final; `pending`, `failed` and `not-found` are retried;
+// `deleted` is final; `todo`, `failed` and `not-found` are retried;
 // `no-op` is never acted on. One module owns these rules so the runner and
 // the status command cannot invent a status the page does not understand.
 
 export const PURGE_STATUSES = {
   NO_OP: "no-op",
-  PENDING: "pending",
-  PURGED: "purged",
+  TODO: "todo",
+  DELETED: "deleted",
   FAILED: "failed",
   NOT_FOUND: "not-found",
 };
 
-const { NO_OP, PENDING, PURGED, FAILED, NOT_FOUND } = PURGE_STATUSES;
+const { NO_OP, TODO, DELETED, FAILED, NOT_FOUND } = PURGE_STATUSES;
 
-// Statuses a purge may act on: everything except the final one (`purged`)
+// Statuses a purge may act on: everything except the final one (`deleted`)
 // and the never-touched one (`no-op`), which are excluded for different
 // reasons (finality vs. not selected).
-export const ACTIONABLE_STATUSES = new Set([PENDING, FAILED, NOT_FOUND]);
+export const ACTIONABLE_STATUSES = new Set([TODO, FAILED, NOT_FOUND]);
 export const RETRYABLE_STATUSES = ACTIONABLE_STATUSES;
-export const FINAL_STATUSES = new Set([PURGED]);
+export const FINAL_STATUSES = new Set([DELETED]);
 
 export function isFinalStatus(status) {
-  return status === PURGED;
+  return status === DELETED;
 }
 
 export function isNoOp(status) {
@@ -34,13 +34,12 @@ export function isActionable(status) {
 
 // Transition attempt outcomes always resolve to exactly one of these three.
 const OUTCOME_ALIASES = {
-  purged: PURGED,
-  success: PURGED,
-  ok: PURGED,
-  true: PURGED,
-  deleted: PURGED,
-  done: PURGED,
-  acted: PURGED,
+  deleted: DELETED,
+  success: DELETED,
+  ok: DELETED,
+  true: DELETED,
+  done: DELETED,
+  acted: DELETED,
   "not-found": NOT_FOUND,
   notfound: NOT_FOUND,
   "not_found": NOT_FOUND,
@@ -61,7 +60,7 @@ function mapOutcomeString(value) {
   }
   if (/not.?found|missing|unmatched/.test(key)) return NOT_FOUND;
   if (/refus|fail|error/.test(key)) return FAILED;
-  if (/success|purged|deleted|ok|done|acted/.test(key)) return PURGED;
+  if (/success|deleted|ok|done|acted/.test(key)) return DELETED;
   return FAILED;
 }
 
@@ -75,7 +74,7 @@ export function outcomeToStatus(input, ...rest) {
     const o = input;
     if (typeof o.outcome === "string") return mapOutcomeString(o.outcome);
     if (typeof o.result === "string") return mapOutcomeString(o.result);
-    if (typeof o.status === "string" && (o.status === PURGED || o.status === FAILED || o.status === NOT_FOUND)) {
+    if (typeof o.status === "string" && (o.status === DELETED || o.status === FAILED || o.status === NOT_FOUND)) {
       return o.status;
     }
     if (
@@ -91,11 +90,10 @@ export function outcomeToStatus(input, ...rest) {
       o.ok === true ||
       o.success === true ||
       o.deleted === true ||
-      o.purged === true ||
       o.acted === true ||
       o.done === true
     ) {
-      return PURGED;
+      return DELETED;
     }
     if (
       o.ok === false ||
@@ -114,7 +112,7 @@ export function outcomeToStatus(input, ...rest) {
     const success = !!input;
     const found = rest[0];
     if (!found) return NOT_FOUND;
-    return success ? PURGED : FAILED;
+    return success ? DELETED : FAILED;
   }
 
   if (typeof input === "string") return mapOutcomeString(input);
@@ -122,7 +120,7 @@ export function outcomeToStatus(input, ...rest) {
     const foundArg = rest.find((v) => typeof v === "boolean");
     if (input === true) {
       if (foundArg === false) return NOT_FOUND;
-      return PURGED;
+      return DELETED;
     }
     if (foundArg === false) return NOT_FOUND;
     return FAILED;
@@ -141,18 +139,18 @@ export function transitionStatus(status, outcome, ...rest) {
 }
 
 export function isLegalTransition(from, to) {
-  if (from === PURGED) return to === PURGED;
-  if (from === NO_OP) return to === NO_OP || to === PENDING;
-  if (from === PENDING || from === FAILED || from === NOT_FOUND) {
-    return to === PURGED || to === FAILED || to === NOT_FOUND;
+  if (from === DELETED) return to === DELETED;
+  if (from === NO_OP) return to === NO_OP || to === TODO;
+  if (from === TODO || from === FAILED || from === NOT_FOUND) {
+    return to === DELETED || to === FAILED || to === NOT_FOUND;
   }
   return false;
 }
 
 export const STATUS_TRANSITIONS = {
   [NO_OP]: "skip",
-  [PENDING]: "act",
-  [PURGED]: "final",
+  [TODO]: "act",
+  [DELETED]: "final",
   [FAILED]: "retry",
   [NOT_FOUND]: "retry",
 };

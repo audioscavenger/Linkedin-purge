@@ -145,9 +145,9 @@ try {
 
 // --- resolveFlag still works through the shared seam -------------------------
 assert.strictEqual(
-  asBool(resolveFlag([], "links", "behavior.links", false), false),
-  false,
-  "shared resolveFlag seam still resolves behavior.links to false"
+  asBool(resolveFlag([], "links", "behavior.links", true), true),
+  true,
+  "shared resolveFlag seam still resolves behavior.links to true (default on)"
 );
 
 console.log("PASS: headless plumbing (default, config, CLI precedence, legacy deprecation)");

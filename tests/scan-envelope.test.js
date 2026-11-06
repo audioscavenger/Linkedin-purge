@@ -78,13 +78,13 @@ async function testDeepPartialEnvelope() {
 // not preserved.
 async function testStatusReset() {
   const items = [
-    { key: "reaction:1", status: "pending" },
+    { key: "reaction:1", status: "todo" },
     { key: "reaction:2" },
   ];
   const envelope = buildScanEnvelope({ type: "likes", items });
   if (envelope.items[0].status !== PURGE_STATUSES.NO_OP) throw new Error(`carried status not reset: ${envelope.items[0].status}`);
   if (envelope.items[1].status !== PURGE_STATUSES.NO_OP) throw new Error(`missing status not defaulted: ${envelope.items[1].status}`);
-  if (items[0].status !== "pending") throw new Error("builder mutated caller item status");
+  if (items[0].status !== "todo") throw new Error("builder mutated caller item status");
   if (items[1].status !== undefined) throw new Error("builder mutated caller item (added status)");
   console.log("PASS: every item reset to no-op on fresh scan");
 }

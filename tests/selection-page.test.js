@@ -45,7 +45,7 @@ async function main() {
       text: null,
       postExcerpt: "second excerpt",
       postHref: null,
-      status: "pending",
+      status: "todo",
     },
   ];
 
@@ -80,7 +80,7 @@ async function main() {
     { key: "reaction:3", cardId: "c3", state: "LIKE", author: "C", dateTime: "Sep 18", postExcerpt: "x", postHref: null, status: "no-op" },
   ]);
   const html2 = generateSelectionPage(noLinks);
-  assert.ok(!html2.includes("<th>Link</th>"), "link header absent when no item has a link");
+  assert.ok(!html2.includes("<th>Link<span"), "link header absent when no item has a link");
 
   const checkboxCount = (html.match(/<input type="checkbox"/g) || []).length
     - (html.match(/class="state-filter"/g) || []).length

@@ -43,10 +43,10 @@ async function testMarkWritesDisk() {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   const store = new EnvelopeStore(dir, "likes");
   await store.load();
-  await store.mark("card-1", "purged");
+  await store.mark("card-1", "deleted");
   // No separate save call: the file on disk must already reflect the mark.
   const onDisk = JSON.parse(fs.readFileSync(file, "utf8"));
-  assert.strictEqual(onDisk.items[0].status, "purged", "mark writes the file on disk");
+  assert.strictEqual(onDisk.items[0].status, "deleted", "mark writes the file on disk");
   console.log("PASS: mark writes disk");
 }
 
@@ -60,12 +60,12 @@ async function testReloadAfterInterrupt() {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   const store = new EnvelopeStore(dir, "likes");
   await store.load();
-  await store.mark("card-1", "purged");
+  await store.mark("card-1", "deleted");
   // Simulate an interrupt: discard the in-memory store, then reload from disk.
   const store2 = new EnvelopeStore(dir, "likes");
   await store2.load();
   const counts = await store2.counts();
-  assert.strictEqual(counts.purged, 1, "reload sees the earned status");
+  assert.strictEqual(counts.deleted, 1, "reload sees the earned status");
   assert.strictEqual(counts["no-op"], 1, "reload keeps the untouched item");
   console.log("PASS: reload after interrupt");
 }
@@ -79,7 +79,7 @@ async function testUnknownIdentity() {
   await store.load();
   let threw = false;
   try {
-    await store.mark("no-such-card", "purged");
+    await store.mark("no-such-card", "deleted");
   } catch (e) {
     threw = true;
     assert.ok(e instanceof Error, "throws an Error");
@@ -98,23 +98,23 @@ async function testAtomicity() {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   const store = new EnvelopeStore(dir, "likes");
   await store.load();
-  await store.mark("card-1", "purged");
+  await store.mark("card-1", "deleted");
   // After a successful mark there must be no leftover temp files.
   const leftovers = fs.readdirSync(dir).filter((n) => n.includes(".tmp"));
   assert.strictEqual(leftovers.length, 0, "no leftover temp files");
   // The file must be valid JSON (never truncated).
   const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
-  assert.strictEqual(parsed.items[0].status, "purged", "file is valid and updated");
+  assert.strictEqual(parsed.items[0].status, "deleted", "file is valid and updated");
   console.log("PASS: atomicity");
 }
 
 async function testCounts() {
   const dir = fs.mkdtempSync(path.join(tmp, "counts-"));
   const data = envelope([
-    { key: "a", cardId: "c1", status: "purged" },
+    { key: "a", cardId: "c1", status: "deleted" },
     { key: "b", cardId: "c2", status: "failed" },
     { key: "c", cardId: "c3", status: "not-found" },
-    { key: "d", cardId: "c4", status: "pending" },
+    { key: "d", cardId: "c4", status: "todo" },
     { key: "e", cardId: "c5", status: "no-op" },
   ]);
   fs.writeFileSync(path.join(dir, "scan-likes.json"), JSON.stringify(data, null, 2));
@@ -123,8 +123,8 @@ async function testCounts() {
   const counts = await store.counts();
   assert.deepStrictEqual(counts, {
     "no-op": 1,
-    pending: 1,
-    purged: 1,
+    todo: 1,
+    deleted: 1,
     failed: 1,
     "not-found": 1,
   });

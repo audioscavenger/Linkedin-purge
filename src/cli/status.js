@@ -25,13 +25,13 @@ export async function runStatus(args) {
     }
     const counts = await store.counts();
     log(
-      `${t}: ${counts.purged} purged, ${counts.failed} failed, ` +
-        `${counts["not-found"]} not found, ${counts.pending} pending, ` +
+      `${t}: ${counts.deleted} deleted, ${counts.failed} failed, ` +
+        `${counts["not-found"]} not found, ${counts.todo} todo, ` +
         `${counts["no-op"]} no-op`
     );
     log(
-      `${t}: purged=${counts.purged} failed=${counts.failed} ` +
-        `not-found=${counts["not-found"]} pending=${counts.pending} ` +
+      `${t}: deleted=${counts.deleted} failed=${counts.failed} ` +
+        `not-found=${counts["not-found"]} todo=${counts.todo} ` +
         `no-op=${counts["no-op"]}`
     );
     results.push({ type: t, hasEnvelope: true, counts });

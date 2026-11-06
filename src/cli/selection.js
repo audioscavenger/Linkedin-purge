@@ -11,7 +11,7 @@
 // loaded page, so purge --input re-resolves every card by its container id.
 import fs from "node:fs";
 
-const NON_ACTIONABLE = new Set(["purged", "no-op"]);
+const NON_ACTIONABLE = new Set(["deleted", "no-op"]);
 
 // Resolve the identity to act on for one item: prefer cardId, then key.
 function itemIdentity(item) {
@@ -48,12 +48,23 @@ export function loadSelection(file) {
   const statusOf = (item) => (item && typeof item.status === "string" && item.status ? item.status : "no-op");
   const actionableItems = items.filter((item) => !NON_ACTIONABLE.has(statusOf(item)));
   const identities = actionableItems.map(itemIdentity);
+  const statusMap = new Map();
+  for (const item of actionableItems) {
+    if (item && typeof item === "object") {
+      let id = null;
+      if (typeof item.cardId === "string" && item.cardId !== "") id = item.cardId;
+      else if (typeof item.key === "string" && item.key !== "") id = item.key;
+      const status = typeof item.status === "string" && item.status ? item.status : "no-op";
+      if (id) statusMap.set(id, status);
+    }
+  }
   return {
     type: typeof data.type === "string" && data.type ? data.type : null,
     status: typeof data.status === "string" ? data.status : null,
     total: items.length,
     actionable: actionableItems.length,
     identities,
+    statusMap,
     scannedAt: data.scannedAt || null,
   };
 }

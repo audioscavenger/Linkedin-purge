@@ -20,8 +20,8 @@ const full = fixture("sel.json", JSON.stringify({
   scannedAt: "2026-11-05T00:00:00.000Z",
   selectedAt: "2026-11-05T01:00:00.000Z",
   items: [
-    { key: "reaction:0", cardId: "card-a", status: "purged" },
-    { key: "reaction:1", cardId: "card-b", status: "pending" },
+    { key: "reaction:0", cardId: "card-a", status: "deleted" },
+    { key: "reaction:1", cardId: "card-b", status: "todo" },
     { key: "reaction:2", cardId: "card-c", status: "failed" },
     { key: "reaction:3", cardId: "card-d", status: "no-op" },
   ],
@@ -31,11 +31,16 @@ assert.equal(sel.type, "likes");
 assert.equal(sel.total, 4);
 assert.equal(sel.actionable, 2, "failed and pending are actionable");
 assert.deepEqual(sel.identities, ["card-b", "card-c"], "cardId preferred over key");
+assert.ok(sel.statusMap instanceof Map, "statusMap is a Map");
+assert.strictEqual(sel.statusMap.get("card-b"), "todo", "statusMap maps identity to its selection status");
+assert.strictEqual(sel.statusMap.get("card-c"), "failed", "statusMap carries every actionable status");
+assert.ok(!sel.statusMap.has("card-a"), "statusMap excludes final items");
+assert.ok(!sel.statusMap.has("card-d"), "statusMap excludes no-op items");
 
 // All items final: nothing actionable (purge exits without prompting).
 const finalSel = fixture("final.json", JSON.stringify({
   items: [
-    { cardId: "card-a", status: "purged" },
+    { cardId: "card-a", status: "deleted" },
     { cardId: "card-b", status: "no-op" },
   ],
 }));
@@ -45,12 +50,12 @@ assert.deepEqual(fs2.identities, []);
 
 // Fallback: entries without cardId use key (pre-cardId selections).
 const keysSel = fixture("keys.json", JSON.stringify({
-  items: [{ key: "reaction:9", status: "pending" }],
+  items: [{ key: "reaction:9", status: "todo" }],
 }));
 assert.deepEqual(loadSelection(keysSel).identities, ["reaction:9"]);
 
 // Entries with neither cardId nor key are rejected, naming the file.
-const bad = fixture("bad.json", JSON.stringify({ items: [{ status: "pending" }] }));
+const bad = fixture("bad.json", JSON.stringify({ items: [{ status: "todo" }] }));
 assert.throws(() => loadSelection(bad), /cardId \(Card Identity\) or a key/);
 
 // Malformed JSON fails loudly with the file named.

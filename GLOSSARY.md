@@ -7,7 +7,7 @@ One full sequential pass over items of a single type (comments or reactions), fr
 A single deletable entity on the user's LinkedIn activity page: either a comment or a reaction. Each purge item is identified by its Card Identity and carries its card metadata: state, author, postHref, dateTime, and - with `--links` - itemHref and postHref.
 
 ## Selection
-The subset of a scan's Purge Items that the user chooses on the Selection Page and exports, so that a purge acts on exactly those items and nothing else. Exported as `data/selection-<type>.json` at `status: pending`, with `count` and `keys` narrowed to the ticked items, `scannedAt` preserved and `selectedAt` added.
+The subset of a scan's Purge Items that the user chooses on the Selection Page and exports, so that a purge acts on exactly those items and nothing else. Exported as `data/selection-<type>.json` at `status: todo`, with `count` and `keys` narrowed to the ticked items, `scannedAt` preserved and `selectedAt` added.
 
 ## Purge Status
 The state of one Purge Item with respect to purging: `no-op` (not chosen), `pending` (chosen, not yet acted on), `purged` (deleted), `failed` (refused after an attempt), or `not-found` (chosen but never found on the page). Every item carries exactly one, and the scan envelope is where they live. A fresh scan starts every item at `no-op`, so a new scan resets statuses.

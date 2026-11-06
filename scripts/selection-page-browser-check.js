@@ -48,7 +48,7 @@ async function assertPage() {
     type: "likes",
     items: [
       { key: "reaction:1", cardId: "card-secret-1", state: "LIKE", author: "Ada", dateTime: "Sep 16", text: null, postExcerpt: "first excerpt", postHref: "/feed/update/1", status: "no-op" },
-      { key: "reaction:2", cardId: "card-secret-2", state: "LOVE", author: "Bo", dateTime: "Sep 17", text: null, postExcerpt: "second excerpt", postHref: null, status: "pending" },
+      { key: "reaction:2", cardId: "card-secret-2", state: "LOVE", author: "Bo", dateTime: "Sep 17", text: null, postExcerpt: "second excerpt", postHref: null, status: "todo" },
       { key: "reaction:3", cardId: "card-secret-3", state: "LIKE", author: "Cy", dateTime: "Sep 18", text: null, postExcerpt: "third excerpt", postHref: null, status: "no-op" },
     ],
     scannedAt: "2026-11-05T00:00:00.000Z",
@@ -227,8 +227,8 @@ async function assertPage() {
     }
     const exportedItems = exported.items.map((it) => ({ key: it.key, cardId: it.cardId, state: it.state, author: it.author, status: it.status }));
     const expectedItems = [
-      { key: "reaction:1", cardId: "card-secret-1", state: "LIKE", author: "Ada", status: "pending" },
-      { key: "reaction:3", cardId: "card-secret-3", state: "LIKE", author: "Cy", status: "pending" },
+      { key: "reaction:1", cardId: "card-secret-1", state: "LIKE", author: "Ada", status: "todo" },
+      { key: "reaction:3", cardId: "card-secret-3", state: "LIKE", author: "Cy", status: "todo" },
     ];
     if (JSON.stringify(exportedItems) !== JSON.stringify(expectedItems)) {
       err(`FAIL: assertion export-items - expected ${JSON.stringify(expectedItems)}, observed ${JSON.stringify(exportedItems)}`);

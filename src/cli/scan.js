@@ -29,9 +29,10 @@ export async function runScan(args) {
   const cdpEndpoint = getFlag(args, "cdp", null);
   // Deep is opt-in: the CLI flag, then behavior.deepScan, then false.
   const deep = asBool(resolveFlag(args, "deep", "behavior.deepScan", false));
-  // Links are opt-in: CLI flag, then behavior.links, then false. Capturing a
-  // link opens each card's menu, so it costs about one second per item.
-  const links = asBool(resolveFlag(args, "links", "behavior.links", false));
+  // Links are on by default: behavior.links in config (default true). Capturing
+  // a link opens each card's menu, so it costs about one second per item.
+  // No CLI flag - the option was removed; config is the only knob.
+  const links = asBool(loadConfig().behavior.links, true);
   // The loader's stopping rules reuse the existing timing knobs: growthWait is
   // now the per-step growth deadline, maxEmptyScrolls the idle limit and
   // timeout the overall walk limit (0 = none).

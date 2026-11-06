@@ -35,17 +35,24 @@ export class PurgeRunner {
       // match cards by Card Identity, stop when every selected item is final.
       const prior = this.envelopeStore ? await this.envelopeStore.load(type) : null;
       const priorStatus = new Map();
-      if (prior && Array.isArray(prior.items)) {
+
+      // Use the selection items' statuses when provided (they carry "todo"
+      // from the Export stamp); fall back to the scan envelope otherwise.
+      if (options.selectionStatusMap) {
+        for (const [id, st] of options.selectionStatusMap) {
+          priorStatus.set(id, st);
+        }
+      } else if (prior && Array.isArray(prior.items)) {
         for (const it of prior.items) {
           if (it && it.cardId) priorStatus.set(it.cardId, it.status);
           else if (it && it.key) priorStatus.set(it.key, it.status);
         }
       }
-      const counts = { purged: 0, failed: 0, notFound: 0, noOp: 0 };
+      const counts = { deleted: 0, failed: 0, notFound: 0, noOp: 0 };
       let deleted = 0;
 
       // Build the set of selected cardIds that are not yet final.
-      // Already-final items (`purged`, `no-op`) are counted as no-op but not acted on.
+      // Already-final items (`deleted`, `no-op`) are counted as no-op but not acted on.
       const remaining = new Set();
       for (const key of options.inputKeys) {
         const st = priorStatus.get(key);
@@ -86,9 +93,9 @@ export class PurgeRunner {
           const status = outcomeToStatus(result?.ok ?? false, result?.error);
           remaining.delete(cardId);
 
-          if (status === PURGE_STATUSES.PURGED) {
+          if (status === PURGE_STATUSES.DELETED) {
             deleted++;
-            counts.purged++;
+            counts.deleted++;
           } else if (status === PURGE_STATUSES.NOT_FOUND) {
             counts.notFound++;
           } else {
@@ -183,12 +190,12 @@ export class PurgeRunner {
         processedLocally.add(cardId);
         const result = await this.pageAdapter.oneCardAct(cardId);
         const status = outcomeToStatus(result?.ok ?? false, result?.error);
-        if (status === PURGE_STATUSES.PURGED) {
+        if (status === PURGE_STATUSES.DELETED) {
           deleted++;
           // Best-effort: a missing scan envelope (e.g. purge without a prior
           // scan) must not crash the run.
           if (this.envelopeStore) {
-            try { await this.envelopeStore.mark(cardId, PURGE_STATUSES.PURGED); } catch (err) { warn(`Could not persist purged status for ${cardId}: ${err.message}`); }
+            try { await this.envelopeStore.mark(cardId, PURGE_STATUSES.DELETED); } catch (err) { warn(`Could not persist deleted status for ${cardId}: ${err.message}`); }
           }
         } else if (this.envelopeStore) {
           try { await this.envelopeStore.mark(cardId, status); } catch (err2) { warn(`Could not persist status for ${cardId}: ${err2.message}`); }

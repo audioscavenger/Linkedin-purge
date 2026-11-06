@@ -73,7 +73,6 @@ Parameters:
   --batch-max <ms>                Max batch pause                      (default: 60000)
   --input <file>                  Purge only the selection in this JSON file (purge only)
   --headed                        Run the browser in a visible window (scan and purge are headless by default)
-  --links                         Capture a link for every item (opens each card's menu; about one second per item; default: false)
   -h, --help                      Show this help (works with any command)
 
 Examples:

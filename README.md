@@ -67,10 +67,10 @@ npm run scan -- --type all --deep
 Every scan writes `data/scan-<type>.json` (the scan envelope) and then writes and
 opens `data/selection-<type>.html` in your default browser: one page per item
 type, with one row per item (checkbox, reaction state, author, date, comment
-text or post excerpt, status, and - when `--links` was used - a link column).
+text or post excerpt, status, and - since links are captured by default - a link column).
 Review it, tick the items to delete, and click **Export** to download
 `data/selection-<type>.json`, which holds only the ticked items at
-`status: pending`. Then purge exactly that selection:
+`status: todo`. Then purge exactly that selection:
 
 ```sh
 # Purge only the ticked items from the exported selection
@@ -94,7 +94,7 @@ npm run purge -- --type likes
 npm run status
 ```
 
-reports per-type status counts (purged, failed, not-found, pending, no-op)
+reports per-type status counts (deleted, failed, not-found, todo, no-op)
 from the scan envelope, and says "no scan yet" when a type has no envelope.
 
 ## What a scan covers
@@ -137,7 +137,7 @@ The following command-line parameters are accepted:
 
 - `--type` - Type of items to process: `comments`, `likes`, or `all` (default)
 - `--deep` - Walk the whole Activity List instead of collecting the first render (default: false; scan only; also `behavior.deepScan` in `config.json`)
-- `--links` - Capture a link for every item (opens each card's menu; about one second per item; default: false). The link column on the Selection Page appears only when at least one item has a link, with empty cells for items without one.
+- Links are captured by default for every item (opens each card's menu; about one second per item; config: `behavior.links`, default true). The link column on the Selection Page appears only when at least one item has a link, with empty cells for items without one.
 - `--profile-dir` - Chromium profile directory path  
 - `--data-dir` - Data directory for scan envelopes and selection pages (default: data)
 - `--chromium-path` - Path to Chromium binary
@@ -219,9 +219,9 @@ number. A plain scan reads one page and never consults the timeout at all.
 ## Statuses on the page
 
 Every item in the scan envelope carries a Purge Status: `no-op` (not chosen),
-`pending` (chosen, not yet acted on), `purged` (deleted), `failed` (refused),
-or `not-found` (card never appeared). A fresh scan starts every item at
-`no-op`, so a new scan resets statuses - nothing carries over from a previous
+`todo` (chosen, not yet acted on), `deleted` (removed from LinkedIn), `failed`
+(refused), or `not-found` (card never appeared). A fresh scan starts every item
+at `no-op`, so a new scan resets statuses - nothing carries over from a previous
 run.
 
 `npm run status` reports per-type counts by status from the scan envelope, and
