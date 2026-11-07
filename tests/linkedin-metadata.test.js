@@ -26,6 +26,10 @@ const {
   cleanText,
   extractCommentText,
   stripDegreeSuffix,
+  squash,
+  excerpt,
+  realHref,
+  isExternal,
 } = globalThis;
 
 function setViewer(pathname) {
@@ -409,6 +413,82 @@ function testCommentTextFromDivNoDir() {
   );
 }
 
+// ---- realHref ----
+function testRealHrefSafetyGo() {
+  const a = fakeEl(
+    "",
+    {},
+    {},
+    {
+      href: "https://www.linkedin.com/safety/go/?url=https%3A%2F%2Fexample.com%2Fx",
+      "aria-label": "",
+    }
+  );
+  assert.strictEqual(
+    realHref(a),
+    "https://example.com/x",
+    "safety/go unwrapped"
+  );
+}
+function testRealHrefOpenLabel() {
+  const a = fakeEl(
+    "",
+    {},
+    {},
+    { href: "#", "aria-label": "Open https://example.com/y" }
+  );
+  assert.strictEqual(realHref(a), "https://example.com/y", "Open label used");
+}
+function testRealHrefPassthrough() {
+  const a = fakeEl(
+    "",
+    {},
+    {},
+    { href: "https://example.com/z", "aria-label": "" }
+  );
+  assert.strictEqual(realHref(a), "https://example.com/z", "passthrough");
+}
+
+// ---- isExternal ----
+function testIsExternal() {
+  assert.strictEqual(
+    isExternal("https://www.linkedin.com/in/foo"),
+    false,
+    "linkedin.com not external"
+  );
+  assert.strictEqual(
+    isExternal("https://linkedin.com/x"),
+    false,
+    "linkedin.com not external"
+  );
+  assert.strictEqual(
+    isExternal("https://lnkd.in/abc"),
+    true,
+    "lnkd.in is external"
+  );
+  assert.strictEqual(
+    isExternal("https://example.com/x"),
+    true,
+    "other host external"
+  );
+}
+
+// ---- squash ----
+function testSquash() {
+  assert.strictEqual(squash("  a   b  "), "a b", "squash works");
+  assert.strictEqual(squash(null), "", "null -> empty");
+}
+
+// ---- excerpt ----
+function testExcerpt() {
+  assert.strictEqual(excerpt("short"), "short", "short unchanged");
+  const long = "a".repeat(300);
+  assert.strictEqual(excerpt(long).length, 280, "truncated to 280");
+  assert.ok(excerpt(long).endsWith("..."), "ends with ellipsis");
+}
+
+// ---- boxText ----
+
 const tests = [
   testRejectsViewer,
   testRejectsGarbage,
@@ -428,6 +508,12 @@ const tests = [
   testRelativeDateParsing,
   testCarveHeadlineFromAuthorLink,
   testCommentTextFromDivNoDir,
+  testRealHrefSafetyGo,
+  testRealHrefOpenLabel,
+  testRealHrefPassthrough,
+  testIsExternal,
+  testSquash,
+  testExcerpt,
 ];
 
 async function main() {
