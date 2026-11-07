@@ -1,6 +1,6 @@
 /*
   End-to-end fixture test: run the in-page extractor against the saved
-  anonymized reactions page and sanity-check the output.
+  anonymized reactions page and compare to the expected output.
 */
 import fs from "node:fs";
 import path from "node:path";
@@ -10,6 +10,12 @@ const root = "E:/Gitea/Linkedin-purge";
 const html = fs.readFileSync(
   path.join(root, "tests", "reactions-input-test-202611.html"),
   "utf8"
+);
+const expected = JSON.parse(
+  fs.readFileSync(
+    path.join(root, "data", "parser-reactions-202611.json"),
+    "utf8"
+  )
 );
 
 const dom = new JSDOM(html, {
@@ -25,48 +31,43 @@ window.eval(src);
 const items = await window.LP.collectItems(null, false);
 
 let failed = 0;
-function assert(cond, msg) {
-  if (!cond) {
-    console.error("FAIL: " + msg);
+function check(idx, field, actual, exp) {
+  if (JSON.stringify(actual) !== JSON.stringify(exp)) {
+    console.error(
+      `MISMATCH item ${idx} ${field}: got ${JSON.stringify(actual)} expected ${JSON.stringify(exp)}`
+    );
     failed++;
   }
 }
 
-assert(
-  items.length === 18,
-  `expected 18 active reactions, got ${items.length}`
-);
-assert(
-  items.every((it) => it.author),
-  "all items have author"
-);
-assert(
-  items.every((it) => it.dateTime),
-  "all items have dateTime"
-);
-assert(
-  items.every((it) => it.state && it.state !== "no reaction"),
-  "no 'no reaction' items"
-);
+for (let i = 0; i < expected.length; i++) {
+  const exp = expected[i];
+  const got = items[i];
+  if (!got) {
+    console.error(`MISSING item ${i}`);
+    failed++;
+    continue;
+  }
+  check(i, "key", got.key, exp.key);
+  check(i, "text", got.text, exp.text);
+  check(i, "postExcerpt", got.postExcerpt, exp.postExcerpt);
+  check(i, "state", got.state, exp.state);
+  check(i, "author", got.author, exp.author);
+  check(i, "headline", got.headline, exp.headline);
+  check(i, "postHref", got.postHref, exp.postHref);
+  check(i, "dateTime", got.dateTime, exp.dateTime);
+}
 
-const nullExcerpts = items.filter((it) => !it.postExcerpt).length;
-assert(nullExcerpts === 2, `expected 2 null postExcerpt, got ${nullExcerpts}`);
+// itemHref is captured via menu (not in fixture); skip exact match but ensure present
+for (let i = 0; i < items.length; i++) {
+  if (items[i].itemHref === undefined) {
+    console.error(`item ${i} missing itemHref field`);
+    failed++;
+  }
+}
 
-// Check states
-const states = {};
-items.forEach((it) => {
-  states[it.state] = (states[it.state] || 0) + 1;
-});
-assert(states.Like === 16, `expected 16 Like, got ${states.Like}`);
-assert(states.Funny === 2, `expected 2 Funny, got ${states.Funny}`);
-
-// Check authors don't include viewer name
-assert(
-  items.every((it) => !/firstname/i.test(it.author) || true),
-  "viewer not author (informational)"
+const passed = expected.length - failed;
+console.log(
+  `\n${passed}/${expected.length} items matched (${failed} mismatches)`
 );
-
-const passed = items.length - failed;
-console.log(`\n${passed}/${items.length} checks passed (${failed} failures)`);
-console.log("states:", JSON.stringify(states));
 process.exit(failed > 0 ? 1 : 0);

@@ -12,7 +12,10 @@ const html = fs.readFileSync(
   "utf8"
 );
 const expected = JSON.parse(
-  fs.readFileSync(path.join(root, "data", "parser-comments.json"), "utf8")
+  fs.readFileSync(
+    path.join(root, "data", "parser-comments-202611.json"),
+    "utf8"
+  )
 );
 
 const dom = new JSDOM(html, {
