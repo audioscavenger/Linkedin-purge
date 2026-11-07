@@ -391,6 +391,78 @@ function cleanText(str, maxLen) {
   return cleaned.slice(0, maxLen - 3).trim() + "...";
 }
 
+/*
+  Squash all whitespace runs into single spaces and trim.
+*/
+function squash(str) {
+  return (str || "").replace(/\s+/g, " ").trim();
+}
+
+const EXCERPT_MAX = 280;
+const HEADLINE_MAX = 120;
+function excerpt(str) {
+  const s = squash(str);
+  if (s.length <= EXCERPT_MAX) return s;
+  return s.slice(0, EXCERPT_MAX - 3).trimEnd() + "...";
+}
+
+function realHref(a) {
+  if (!a) return "";
+  const label = a.getAttribute ? a.getAttribute("aria-label") || "" : "";
+  if (/^Open https?:\/\//.test(label)) return label.slice(5).trim();
+  const href = a.getAttribute ? a.getAttribute("href") || "" : "";
+  try {
+    const u = new URL(href, "https://www.linkedin.com");
+    if (u.pathname.startsWith("/safety/go")) {
+      return u.searchParams.get("url") || href;
+    }
+  } catch {
+    /* ignore */
+  }
+  return href;
+}
+
+function isExternal(href) {
+  try {
+    return !/(^|\.)linkedin\.com$/i.test(
+      new URL(href, "https://www.linkedin.com").hostname
+    );
+  } catch {
+    return false;
+  }
+}
+
+function boxText(box, opts) {
+  opts = opts || {};
+  const keepNewlines = !!opts.keepNewlines;
+  if (!box) return "";
+  const clone = box.cloneNode(true);
+  const buttons = clone.querySelectorAll
+    ? clone.querySelectorAll("button")
+    : [];
+  buttons.forEach((b) => {
+    if (b.parentNode) b.parentNode.removeChild(b);
+  });
+  const links = clone.querySelectorAll ? clone.querySelectorAll("a") : [];
+  links.forEach((a) => {
+    const href = realHref(a);
+    if (href && isExternal(href)) a.textContent = href;
+  });
+  const brs = clone.querySelectorAll ? clone.querySelectorAll("br") : [];
+  brs.forEach((br) => {
+    if (br.parentNode)
+      br.parentNode.replaceChild(document.createTextNode("\n"), br);
+  });
+  const raw = clone.textContent || "";
+  if (!keepNewlines) return squash(raw);
+  return raw
+    .split("\n")
+    .map(squash)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function extractCommentText(card, author) {
   // LinkedIn wraps the comment body in a span with data-testid="expandable-text-box".
   // When a card has exactly one such box, use it directly.
@@ -753,28 +825,109 @@ async function collectReactionItems(seenKeys, links) {
   metadata extraction.
 */
 async function collectCommentItems(seenKeys, links) {
+  const TEXT_BOX = 'span[data-testid="expandable-text-box"]';
   const items = [];
   const seen = new Set(seenKeys || []);
-  for (const btn of commentMenuButtons()) {
-    const key = commentKeyForButton(btn);
+  const cards = document.querySelectorAll(
+    '[componentkey^="replaceableComment_"]'
+  );
+  for (const card of cards) {
+    const key = card.getAttribute("componentkey");
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    const meta = readCardMeta(btn, true);
-    let itemHref = null;
-    if (links) {
-      const card = findCard(btn);
-      itemHref = await captureCardLink(card, btn, true);
+
+    const update =
+      card.closest('[componentkey^="update-card-focus"]') || card.parentElement;
+    const commentsSection = card.closest(
+      '[componentkey^="commentsSectionContainer"]'
+    );
+    const inComments = (el) =>
+      !!commentsSection && commentsSection.contains(el);
+
+    // my comment: first text box inside the comment card itself
+    const commentBox = card.querySelector(TEXT_BOX);
+    const comment = commentBox
+      ? boxText(commentBox, { keepNewlines: true })
+      : "";
+
+    // the post: first text box NOT inside the comments section
+    const postBoxes = update
+      ? Array.from(update.querySelectorAll(TEXT_BOX))
+      : [];
+    const postBox = postBoxes.find((b) => !inComments(b));
+    const postText = postBox ? boxText(postBox, { keepNewlines: false }) : "";
+    const postExcerpt = postText ? excerpt(postText) : null;
+
+    // post header: everything after the <hr> following the "X commented" line
+    const hr = update ? update.querySelector("hr") : null;
+    const header = hr ? hr.nextElementSibling : update;
+
+    let author = null;
+    let headline = null;
+    let dateTime = null;
+    if (header) {
+      const ps = Array.from(header.querySelectorAll("p")).map((p) =>
+        squash(p.textContent)
+      );
+      const timeIdx = ps.findIndex((t) => /^\d+\s?(s|m|h|d|w|mo|yr)\b/.test(t));
+      if (timeIdx >= 0) dateTime = ps[timeIdx].replace(/\s*•\s*Edited$/, "");
+      const parts = (timeIdx >= 0 ? ps.slice(0, timeIdx) : ps).filter(
+        (t) => t && !/^(Visit my website|Follow|Following|Connect)$/i.test(t)
+      );
+      const firstLink = header.querySelector("a[href]");
+      const isGroup =
+        !!firstLink && /\/groups\//.test(firstLink.getAttribute("href") || "");
+      if (isGroup) parts.shift();
+      author = parts.length ? parts[0] : null;
+      let i = 1;
+      if (author && parts[i] && /^•\s*(1st|2nd|3rd\+?)/.test(parts[i])) {
+        author += " " + parts[i];
+        i++;
+      }
+      headline = parts[i] ? parts[i].slice(0, HEADLINE_MAX) : null;
     }
+
+    // postHref: permalink outside comments
+    let postHref = null;
+    if (update) {
+      const permalink = Array.from(update.querySelectorAll("a[href]"))
+        .filter((a) => !inComments(a))
+        .map((a) => a.getAttribute("href"))
+        .find((h) => /\/feed\/update\/|\/posts\//.test(h || ""));
+      postHref = permalink || null;
+    }
+
+    // itemHref: external shared link from post text box
+    let itemHref = null;
+    if (postBox) {
+      const hrefs = Array.from(postBox.querySelectorAll("a"))
+        .map(realHref)
+        .filter((h) => h && isExternal(h));
+      itemHref = hrefs.find((h) => /lnkd\.in\//.test(h)) || hrefs[0] || null;
+    }
+
+    // capture comment permalink via menu (for purge) — keep as fallback
+    const btn = [...card.querySelectorAll("button")].find((b) =>
+      /View more options for .* comment/i.test(
+        b.getAttribute("aria-label") || ""
+      )
+    );
+    let menuHref = null;
+    if (links) {
+      menuHref = await captureCardLink(card, btn || null, true);
+    }
+    if (menuHref) itemHref = menuHref;
+
     items.push({
       key,
-      cardId: meta.cardId,
-      comment: meta.comment,
-      postExcerpt: meta.postExcerpt,
-      author: meta.author,
-      headline: meta.headline,
-      postHref: meta.postHref,
+      cardId: card.id || null,
+      comment,
+      postExcerpt,
+      author,
+      headline,
+      postHref,
       itemHref,
-      dateTime: meta.dateTime,
+      dateTime,
     });
   }
   return items;
@@ -1077,4 +1230,11 @@ window.LP = {
   readGrowthSignal,
   scrollActivityListToBottom,
   deleteOneCard,
+  squash,
+  excerpt,
+  realHref,
+  isExternal,
+  boxText,
+  EXCERPT_MAX,
+  HEADLINE_MAX,
 };
