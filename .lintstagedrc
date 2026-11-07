@@ -1,3 +1,7 @@
 {
-  "*.{js,mjs,cjs}": ["eslint --fix", "prettier --write"]
+  "*.{js,mjs,cjs}": [
+    "node scripts/fix-comments.js",
+    "eslint --fix",
+    "prettier --write"
+  ]
 }
