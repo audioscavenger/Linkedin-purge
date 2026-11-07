@@ -392,11 +392,13 @@ function cleanText(str, maxLen) {
 }
 
 function extractCommentText(card, author) {
-  const commentTextEl = card.querySelector(
-    '[data-testid="expandable-text-box"]'
-  );
-  if (commentTextEl) {
-    const text = cleanText(commentTextEl.textContent, 280);
+  // LinkedIn wraps the comment body in a span with data-testid="expandable-text-box".
+  // When a card has exactly one such box, use it directly.
+  const boxes = [
+    ...card.querySelectorAll('[data-testid="expandable-text-box"]'),
+  ];
+  if (boxes.length === 1) {
+    const text = cleanText(boxes[0].textContent, 280);
     if (text) return stripAuthorPrefixesFromText(text, author);
   }
 
@@ -440,15 +442,14 @@ function extractCommentText(card, author) {
     )
       return true;
     if (/^\d+(,\d+)*\s*impressions?\b/i.test(text)) return true; // "111,124 impressions"
-    if (/@/.test(text) || /\|\s*\w/.test(text)) return true; // viewer badge garbage
-    if (text.includes("Verified Profile")) return true; // viewer profile badge
-    if (text.startsWith("Feed post") || text.startsWith(viewer)) return true; // viewer badge/profile text
-    if (viewerDisplayName && text.startsWith(viewerDisplayName)) return true; // viewer badge (display name form)
-    if (author && text.startsWith(author)) return true; // post attribution line
+    if (/@/.test(text) || /\|\s*\w/.test(text)) return true;
+    if (text.includes("Verified Profile")) return true;
+    if (text.startsWith("Feed post") || text.startsWith(viewer)) return true;
+    if (viewerDisplayName && text.startsWith(viewerDisplayName)) return true;
+    if (/ commented\s*$/i.test(text)) return true;
+    if (author && text.startsWith(author)) return true;
     return false;
   };
-  // First pass: look in <p> elements (comment bodies are usually in <p>),
-  // picking the longest non-garbage text
   const pEls = card.querySelectorAll("p");
   let bestP = null;
   for (const el of pEls) {
@@ -460,12 +461,11 @@ function extractCommentText(card, author) {
   if (bestP) {
     return stripAuthorPrefixesFromText(bestP, author);
   }
-  // Second pass: any element with substantial text that isn't garbage
   const els = [...card.querySelectorAll("span, div, a, time, li")];
   let best = null;
   for (const el of els) {
     const text = cleanText(el.textContent, 280);
-    if (!text || text.length <= 10) continue; // comment bodies are longer than metadata
+    if (!text || text.length <= 10) continue;
     if (isGarbageText(text)) continue;
     if (!best || text.length > best.length) best = text;
   }
