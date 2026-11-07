@@ -8,7 +8,7 @@ import { JSDOM } from "jsdom";
 
 const root = "E:/Gitea/Linkedin-purge";
 const html = fs.readFileSync(
-  path.join(root, "tests", "reactions-input-test-date.html"),
+  path.join(root, "tests", "reactions-input-test-202611.html"),
   "utf8"
 );
 
