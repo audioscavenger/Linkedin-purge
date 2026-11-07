@@ -8,7 +8,7 @@ import { JSDOM } from "jsdom";
 
 const root = "E:/Gitea/Linkedin-purge";
 const html = fs.readFileSync(
-  path.join(root, "data", "parser-comments-input.html"),
+  path.join(root, "tests", "comments-input-test-date.html"),
   "utf8"
 );
 const expected = JSON.parse(
