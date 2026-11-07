@@ -32,6 +32,12 @@
 
 ## Released
 
+- [x] v0.5.7 - Comments DOM extraction ported to the reliable parser strategy; selection page fixed
+  - Comment extraction now selects cards directly by their `componentkey`, separates post text from the viewer's comment using the update-card-focus and comments-section containers, and reads author, headline and date from the post-header paragraphs after the "X commented" rule, so all 20 first-page comments extract correctly (spec #13).
+  - New helpers `boxText`, `realHref`, `isExternal`, `squash`, `excerpt` clean text boxes (drop buttons, unwrap `/safety/go/` links, `<br>` to newline) and are covered by unit tests.
+  - Fixture tests: `tests/fixture-comments.test.js` (20/20 against `data/parser-comments-202611.json`) and `tests/fixture-reactions.test.js` (18/18 against `data/parser-reactions-202611.json`) run the live extractor against the anonymized page dumps in `tests/comments-input-test-202611.html` and `tests/reactions-input-test-202611.html` (scripts and SVGs stripped).
+  - Selection page fixed: a `display:block` on table cells took Post and Comment out of the table grid (they rendered stacked inside the Headline cell, pushing Status and Link to the right). Truncation now lives on inner spans, columns have fixed widths via a colgroup (headline 400px, post and comment 22rem) with a scrollable wrapper, and comments columns are checkbox, date, author, headline, post, comment, status, link.
+
 - [x] v0.5.6 - Add ESLint + Prettier and wire lint-staged into the pre-commit flow
   - Added `eslint.config.js` with `@eslint/js` recommended and `eslint-config-prettier`, plus `globals` for browser and node environments.
   - Added `lint-staged` config; the husky pre-commit hook now runs `eslint --fix` and `prettier --write` on staged JS files, and the placeholder `lint` script was replaced with `eslint .`.
