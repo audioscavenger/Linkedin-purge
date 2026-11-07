@@ -61,6 +61,7 @@ button{padding:.4rem .8rem;cursor:pointer}
 #empty-state{padding:1rem;border:1px dashed #bbb;border-radius:.4rem;color:#555}
 .checkbox-col{width:3rem;min-width:3rem;text-align:center}
 .text-truncate{max-width:28rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.headline-cell{max-width:400px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
 </style>
 </head>
 <body>
@@ -97,10 +98,7 @@ button{padding:.4rem .8rem;cursor:pointer}
     <tr>
       <th class="checkbox-col"><input type="checkbox" id="master-select" title="Select every visible row"></th>
       ${hasState ? "<th>State</th>" : ""}
-      <th>Author</th>
-      <th>Headline</th>
-      <th>Date</th>
-      ${isComment ? "<th>Comment</th><th>Post</th>" : "<th>Post</th>"}
+      ${isComment ? "<th>Date</th><th>Author</th><th>Headline</th><th>Post</th><th>Comment</th>" : "<th>Author</th><th>Headline</th><th>Date</th><th>Post</th>"}
       <th>Status</th>
       ${hasLinks ? "<th>Link</th>" : ""}
     </tr>
@@ -394,10 +392,7 @@ function renderRow(item, hasLinks, hasState, itemIdx, isComment) {
   return `    <tr data-index="${itemIdx}" ${hasState ? `data-state="${stateRaw}"` : ""} data-author="${authorRaw}" data-date="${dateRaw}">
       <td class="checkbox-col"><input type="checkbox" class="row-select"></td>
       ${hasState ? `<td>${state}</td>` : ""}
-      <td>${author}</td>
-      <td>${headline}</td>
-      <td>${date}</td>
-      ${isComment ? commentCell + postCell : postCell}
+      ${isComment ? `<td>${date}</td><td>${author}</td><td class="headline-cell">${headline}</td>${postCell}${commentCell}` : `<td>${author}</td><td>${headline}</td><td>${date}</td>${postCell}`}
       <td>${status}</td>
       ${linkCell}
     </tr>`;
