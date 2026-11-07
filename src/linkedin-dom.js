@@ -1,5 +1,11 @@
-// In-page helpers for the current LinkedIn activity UI.
-// Exposed as window.LP.
+/*
+  In-page helpers for the current LinkedIn activity UI.
+  Exposed as window.LP. Injected into the LinkedIn page by src/cli.js during
+  scan and purge; reads the live DOM and returns structured item metadata.
+  Interacts with: src/cli.js (caller), src/scan.js (consumer of collectItems),
+  src/purge.js (consumer of deleteOneCard), src/selection-page.js (renders
+  the collected metadata).
+*/
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -391,21 +397,35 @@ function cleanText(str, maxLen) {
   return cleaned.slice(0, maxLen - 3).trim() + "...";
 }
 
-/*
-  Squash all whitespace runs into single spaces and trim.
-*/
+/**
+ * Squash all whitespace runs into single spaces and trim.
+ * @param {string} str - input string
+ * @returns {string} normalized string
+ */
 function squash(str) {
   return (str || "").replace(/\s+/g, " ").trim();
 }
 
 const EXCERPT_MAX = 280;
 const HEADLINE_MAX = 120;
+/**
+ * Truncate a string to EXCERPT_MAX chars, appending "..." when truncated.
+ * Headlines are hard-cut at HEADLINE_MAX (no ellipsis).
+ * @param {string} str - input string
+ * @returns {string} truncated string
+ */
 function excerpt(str) {
   const s = squash(str);
   if (s.length <= EXCERPT_MAX) return s;
   return s.slice(0, EXCERPT_MAX - 3).trimEnd() + "...";
 }
 
+/**
+ * Resolve the real target URL of a link, unwrapping /safety/go/?url= and
+ * "Open https://..." aria-labels.
+ * @param {Element} a - anchor element
+ * @returns {string} resolved URL
+ */
 function realHref(a) {
   if (!a) return "";
   const label = a.getAttribute ? a.getAttribute("aria-label") || "" : "";
@@ -422,6 +442,11 @@ function realHref(a) {
   return href;
 }
 
+/**
+ * Whether a URL points outside linkedin.com (lnkd.in counts as external).
+ * @param {string} href - URL to check
+ * @returns {boolean}
+ */
 function isExternal(href) {
   try {
     return !/(^|\.)linkedin\.com$/i.test(
@@ -432,6 +457,14 @@ function isExternal(href) {
   }
 }
 
+/**
+ * Readable text of an expandable-text-box. Drops buttons, unwraps external
+ * links to their real URL, converts <br> to newlines.
+ * @param {Element} box - the text box element
+ * @param {Object} [opts] - options
+ * @param {boolean} [opts.keepNewlines] - preserve line breaks
+ * @returns {string} cleaned text
+ */
 function boxText(box, opts) {
   opts = opts || {};
   const keepNewlines = !!opts.keepNewlines;
