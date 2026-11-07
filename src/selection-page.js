@@ -2,10 +2,23 @@
   Selection page generator: a pure function from a scan envelope to a
   self-contained HTML page with the envelope embedded inline.
 
-  The page embeds its data as JSON and renders one row per item. No Card
-  Identity and no Key are rendered (they are implementation detail, not
-  something a person picks by); selection state lives in each row's
-  checkbox for the tickets that build selection and export on top.
+  The page embeds its data as JSON and renders one row per item. No
+  Card Identity and no Key are rendered (they are implementation
+  detail, not something a person picks by); selection state lives in
+  each row's checkbox for the tickets that build selection and export
+  on top.
+
+  Column order
+  ------------
+  Comments: checkbox, date, author, headline (max 400px), post,
+  comment, status, link.
+  Likes: checkbox, state, author, headline, date, post, status, link.
+
+  A truncation class must never be applied to a <td> itself: a
+  display:block on a table cell takes it out of the table grid, so
+  the cell and everything after it stack as nested boxes instead of
+  sitting side by side. Truncation always lives on an inner <span>
+  and the cells keep the default table-cell display.
 */
 export function generateSelectionPage(input) {
   const envelope = normalizeEnvelope(input);
@@ -13,7 +26,8 @@ export function generateSelectionPage(input) {
   const isComment = type === "comments";
   const items = Array.isArray(envelope && envelope.items) ? envelope.items : [];
   const hasLinks = items.some(hasLink);
-  // Comments carry no reaction state; drop the State column when nothing has one.
+  // Comments carry no reaction state; drop the State column when nothing
+  // has one, so the comments page carries no empty State column.
   const hasState = items.some(
     (it) => it && it.state && String(it.state).trim() !== ""
   );
@@ -41,6 +55,14 @@ export function generateSelectionPage(input) {
         )
         .join("\n")
     : "";
+  const headCells = isComment
+    ? "<th>Date</th><th>Author</th><th>Headline</th><th>Post</th><th>Comment</th>"
+    : "<th>Author</th><th>Headline</th><th>Date</th><th>Post</th>";
+  // Column widths are set once on the <colgroup> so truncation clips
+  // inside the cell instead of stretching the table.
+  const cols = isComment
+    ? `<col class="col-checkbox"><col class="col-date"><col class="col-author"><col class="col-headline"><col class="col-text"><col class="col-text"><col class="col-status"><col class="col-link">`
+    : `<col class="col-checkbox">${hasState ? '<col class="col-state">' : ""}<col class="col-author"><col class="col-headline"><col class="col-date"><col class="col-text"><col class="col-status"><col class="col-link">`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -48,27 +70,36 @@ export function generateSelectionPage(input) {
 <title>Selection - ${escapeHtml(type)}</title>
 <style>
 body{font-family:system-ui;margin:1rem;color:#222}
-table{border-collapse:collapse;width:100%}
-th,td{border:1px solid #ddd;padding:.4rem .5rem;text-align:left;vertical-align:top}
+table{border-collapse:collapse;width:100%;min-width:95rem;table-layout:fixed}
+th,td{border:1px solid #ddd;padding:.4rem .5rem;text-align:left;vertical-align:top;overflow:hidden}
 th{background:#f5f5f5}
 a{color:#0a66c2}
+.col-checkbox{width:2.5rem}
+.col-date{width:4.5rem}
+.col-author{width:12rem}
+.col-headline{width:400px}
+.col-state{width:5rem}
+.col-text{width:22rem}
+.table-wrap{overflow-x:auto}
+.col-status{width:5.5rem}
+.col-link{width:3.5rem}
+.truncate{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .filters{display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;align-items:flex-end;margin-bottom:.75rem}
 .filter-state-option{display:inline-flex;gap:.35rem;align-items:center;font-size:.9rem}
 label{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem}
+fieldset{border:none;padding:0;margin:0}
+legend{font-size:.85rem;padding:0}
 button{padding:.4rem .8rem;cursor:pointer}
 #export-btn{background:#0a66c2;color:#fff;font-weight:600;border:none;border-radius:.25rem}
 #export-btn:hover{background:#004182}
 #empty-state{padding:1rem;border:1px dashed #bbb;border-radius:.4rem;color:#555}
-.checkbox-col{width:3rem;min-width:3rem;text-align:center}
-.text-truncate{max-width:28rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
-.headline-cell{max-width:400px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
 </style>
 </head>
 <body>
 <h1>Selection: ${escapeHtml(type)}</h1>
 <div class="filters">
-  <fieldset id="filter-states" style="border:none;padding:0;margin:0">
-    <legend style="font-size:.85rem">State</legend>
+  <fieldset id="filter-states">
+    <legend>State</legend>
     ${stateBoxes}
   </fieldset>
   <label>Author contains
@@ -93,12 +124,14 @@ button{padding:.4rem .8rem;cursor:pointer}
 <p id="selection-status"><span id="selected-count">0</span> selected &nbsp;&middot;&nbsp; <span id="row-count">${items.length}</span> of <span id="total-count">${items.length}</span> rows shown</p>
 <div id="export-message" style="color:#b00020;font-size:.9rem;margin-top:.4rem;display:none"></div>
 <div id="empty-state" hidden>No items match the current filters.</div>
+<div class="table-wrap">
 <table id="selection-table">
+  <colgroup>${cols}</colgroup>
   <thead>
     <tr>
-      <th class="checkbox-col"><input type="checkbox" id="master-select" title="Select every visible row"></th>
+      <th><input type="checkbox" id="master-select" title="Select every visible row"></th>
       ${hasState ? "<th>State</th>" : ""}
-      ${isComment ? "<th>Date</th><th>Author</th><th>Headline</th><th>Post</th><th>Comment</th>" : "<th>Author</th><th>Headline</th><th>Date</th><th>Post</th>"}
+      ${headCells}
       <th>Status</th>
       ${hasLinks ? "<th>Link</th>" : ""}
     </tr>
@@ -107,6 +140,7 @@ button{padding:.4rem .8rem;cursor:pointer}
 ${rows}
   </tbody>
 </table>
+</div>
 <script type="application/json" id="selection-data">${embedded}</script>
 <script>
 window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").textContent);
@@ -322,39 +356,58 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
 </body>
 </html>`;
 }
+
 export default generateSelectionPage;
+
 function normalizeEnvelope(input) {
   if (input == null) return { type: "likes", items: [] };
   if (Array.isArray(input)) return { type: "likes", items: input };
   if (typeof input === "object") {
     if (Array.isArray(input.items)) return input;
-    if (input.envelope && Array.isArray(input.envelope.items))
+    if (input.envelope && Array.isArray(input.envelope.items)) {
       return input.envelope;
+    }
     if (input.data && Array.isArray(input.data.items)) return input.data;
-    if (input.envelope && typeof input.envelope === "object")
+    if (input.envelope && typeof input.envelope === "object") {
       return input.envelope;
+    }
     if (input.data && typeof input.data === "object") return input.data;
   }
   return { type: "likes", items: [] };
 }
+
 function hasLink(item) {
   if (!item || typeof item !== "object") return false;
   return [item.itemHref, item.link, item.href, item.url, item.postHref].some(
     (v) => typeof v === "string" && v.trim() !== ""
   );
 }
+
 function linkValue(item) {
-  for (const v of [
+  const candidates = [
     item.itemHref,
     item.link,
     item.href,
     item.url,
     item.postHref,
-  ]) {
+  ];
+  for (const v of candidates) {
     if (typeof v === "string" && v.trim() !== "") return v.trim();
   }
   return "";
 }
+
+/**
+ * Render one table row. Long text is truncated on an inner span so the
+ * cells stay in the table grid (see the module note above).
+ *
+ * @param {Object} item - one scan envelope item
+ * @param {boolean} hasLinks - whether any item has a link column
+ * @param {boolean} hasState - whether the State column is shown
+ * @param {number} itemIdx - row index into the items array
+ * @param {boolean} isComment - whether this is the comments page
+ * @returns {string} the row HTML
+ */
 function renderRow(item, hasLinks, hasState, itemIdx, isComment) {
   const it = item && typeof item === "object" ? item : {};
   const state = escapeHtml(it.state != null ? it.state : "");
@@ -369,18 +422,14 @@ function renderRow(item, hasLinks, hasState, itemIdx, isComment) {
   const date = escapeHtml(rawDate);
   const dateRaw = escapeAttr(String(rawDate));
   /*
-  Likes: the "post" column shows the post text the user reacted to.
-  Comments: the "comment" column shows the comment text; the "post" column
-  shows the post excerpt (if any).
-*/
-  const postCell = `<td class="text-truncate">${escapeHtml(
-    it.postExcerpt != null ? String(it.postExcerpt) : ""
-  )}</td>`;
+    Likes: the "post" column shows the post text the user reacted to.
+    Comments: the "comment" column shows the comment text; the "post"
+    column shows the post excerpt (if any).
+  */
+  const postCell = `<td><span class="truncate">${escapeHtml(it.postExcerpt != null ? String(it.postExcerpt) : "")}</span></td>`;
   let commentCell = "";
   if (isComment) {
-    commentCell = `<td class="text-truncate">${escapeHtml(
-      it.comment != null ? String(it.comment) : ""
-    )}</td>`;
+    commentCell = `<td><span class="truncate">${escapeHtml(it.comment != null ? String(it.comment) : "")}</span></td>`;
   }
   const status = escapeHtml(it.status != null ? it.status : "");
   const link = linkValue(it);
@@ -389,14 +438,19 @@ function renderRow(item, hasLinks, hasState, itemIdx, isComment) {
       ? `<td><a href="${escapeAttr(link)}" target="_blank" rel="noopener noreferrer">link</a></td>`
       : "<td></td>"
     : "";
+  const stateCell = hasState ? `<td>${state}</td>` : "";
+  const middleCells = isComment
+    ? `<td>${date}</td><td><span class="truncate">${author}</span></td><td><span class="truncate">${headline}</span></td>${postCell}${commentCell}`
+    : `<td><span class="truncate">${author}</span></td><td><span class="truncate">${headline}</span></td><td>${date}</td>${postCell}`;
   return `    <tr data-index="${itemIdx}" ${hasState ? `data-state="${stateRaw}"` : ""} data-author="${authorRaw}" data-date="${dateRaw}">
-      <td class="checkbox-col"><input type="checkbox" class="row-select"></td>
-      ${hasState ? `<td>${state}</td>` : ""}
-      ${isComment ? `<td>${date}</td><td>${author}</td><td class="headline-cell">${headline}</td>${postCell}${commentCell}` : `<td>${author}</td><td>${headline}</td><td>${date}</td>${postCell}`}
+      <td><input type="checkbox" class="row-select"></td>
+      ${stateCell}
+      ${middleCells}
       <td>${status}</td>
       ${linkCell}
     </tr>`;
 }
+
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -405,6 +459,7 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
 function escapeAttr(value) {
   return String(value)
     .replace(/&/g, "&amp;")
