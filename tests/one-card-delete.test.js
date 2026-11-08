@@ -32,7 +32,9 @@ function makeReactionWorld({ toggleWorks = true } = {}) {
     parentElement: card,
     _state: "LIKE",
     getAttribute(name) {
-      return name === "aria-label" ? `Reaction button state: ${this._state}` : null;
+      return name === "aria-label"
+        ? `Reaction button state: ${this._state}`
+        : null;
     },
     click() {
       if (toggleWorks) this._state = "NO REACTION";
@@ -73,7 +75,11 @@ tests.push({
     const w = makeReactionWorld({ toggleWorks: true });
     const res = await deleteOne(w, "card-42");
     assert.strictEqual(res.ok, true, `expected ok, got ${JSON.stringify(res)}`);
-    assert.strictEqual(res.cardId, "card-42", "result does not name the Card Identity");
+    assert.strictEqual(
+      res.cardId,
+      "card-42",
+      "result does not name the Card Identity"
+    );
   },
 });
 
@@ -84,7 +90,10 @@ tests.push({
     const w = makeReactionWorld({ toggleWorks: false });
     const res = await deleteOne(w, "card-42");
     assert.strictEqual(res.ok, false, "expected failure");
-    assert.ok(/refused/i.test(res.error), `error does not name the refusal: ${res.error}`);
+    assert.ok(
+      /refused/i.test(res.error),
+      `error does not name the refusal: ${res.error}`
+    );
     assert.strictEqual(res.cardId, "card-42");
   },
 });
@@ -96,7 +105,10 @@ tests.push({
     const w = makeReactionWorld();
     const res = await deleteOne(w, "no-such-card");
     assert.strictEqual(res.ok, false);
-    assert.ok(/not.?found/i.test(res.error), `error does not say not found: ${res.error}`);
+    assert.ok(
+      /not.?found/i.test(res.error),
+      `error does not say not found: ${res.error}`
+    );
     assert.strictEqual(res.cardId, "no-such-card");
   },
 });
@@ -105,7 +117,10 @@ tests.push({
 tests.push({
   name: "the list-shaped deleteFirstEligible is gone from the source",
   fn: async () => {
-    assert.ok(!src.includes("deleteFirstEligible"), "deleteFirstEligible still present");
+    assert.ok(
+      !src.includes("deleteFirstEligible"),
+      "deleteFirstEligible still present"
+    );
   },
 });
 

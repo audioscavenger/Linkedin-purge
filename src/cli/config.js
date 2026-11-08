@@ -37,14 +37,20 @@ const DEFAULT_CONFIG = {
 export function loadConfig() {
   const configPath = path.resolve(process.cwd(), "config.json");
   if (!fs.existsSync(configPath)) {
-    fs.writeFileSync(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2) + "\n");
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify(DEFAULT_CONFIG, null, 2) + "\n"
+    );
     return DEFAULT_CONFIG;
   }
   let fileConfig;
   try {
     fileConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
   } catch (error) {
-    console.error("config.json is invalid; using built-in defaults:", error.message);
+    console.error(
+      "config.json is invalid; using built-in defaults:",
+      error.message
+    );
     return DEFAULT_CONFIG;
   }
   return deepMerge(DEFAULT_CONFIG, fileConfig);
@@ -94,9 +100,14 @@ export function asInt(v, fallback = 0) {
 export function resolveHeadless(args) {
   const config = loadConfig();
   if (config.behavior && config.behavior.headless !== undefined) {
-    console.error("config.json: 'behavior.headless' is deprecated and ignored; use 'behavior.headed' instead.");
+    console.error(
+      "config.json: 'behavior.headless' is deprecated and ignored; use 'behavior.headed' instead."
+    );
   }
-  const headed = asBool(resolveFlag(args, "headed", "behavior.headed", false), false);
+  const headed = asBool(
+    resolveFlag(args, "headed", "behavior.headed", false),
+    false
+  );
   return !headed; // true = headless, false = headed
 }
 

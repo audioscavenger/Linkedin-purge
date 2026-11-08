@@ -30,7 +30,11 @@ try {
   // still wins when it is present (CLI > config).
   let base = {};
   if (existed) {
-    try { base = JSON.parse(backup); } catch (e) { base = {}; }
+    try {
+      base = JSON.parse(backup);
+    } catch (e) {
+      base = {};
+    }
   }
   if (!base.behavior) base.behavior = {};
   base.behavior.headed = true;
@@ -57,7 +61,11 @@ if (existed2) backup2 = fs.readFileSync(configPath, "utf8");
 try {
   let base = {};
   if (existed2) {
-    try { base = JSON.parse(backup2); } catch (e) { base = {}; }
+    try {
+      base = JSON.parse(backup2);
+    } catch (e) {
+      base = {};
+    }
   }
   if (!base.behavior) base.behavior = {};
   base.behavior.headed = false;
@@ -84,7 +92,11 @@ if (existed3) backup3 = fs.readFileSync(configPath, "utf8");
 try {
   let base = {};
   if (existed3) {
-    try { base = JSON.parse(backup3); } catch (e) { base = {}; }
+    try {
+      base = JSON.parse(backup3);
+    } catch (e) {
+      base = {};
+    }
   }
   if (!base.behavior) base.behavior = {};
   // The legacy key is ignored: the value is not used.
@@ -92,7 +104,9 @@ try {
   fs.writeFileSync(configPath, JSON.stringify(base, null, 2) + "\n");
   const originalError = console.error;
   let deprecationLines = [];
-  console.error = (...args) => { deprecationLines.push(args.join(" ")); };
+  console.error = (...args) => {
+    deprecationLines.push(args.join(" "));
+  };
   try {
     const result = resolveHeadless([]);
   } finally {
@@ -124,14 +138,18 @@ let backup4 = null;
 let existed4 = fs.existsSync(configPath);
 if (existed4) backup4 = fs.readFileSync(configPath, "utf8");
 try {
-/*
+  /*
   Write a config that carries the legacy key. resolveHeadless reads it
   (loadConfig creates nothing here because the file exists) and must not
   touch the file on disk.
 */
   let base = {};
   if (existed4) {
-    try { base = JSON.parse(backup4); } catch (e) { base = {}; }
+    try {
+      base = JSON.parse(backup4);
+    } catch (e) {
+      base = {};
+    }
   }
   if (!base.behavior) base.behavior = {};
   base.behavior.headless = true;
@@ -139,7 +157,11 @@ try {
   const before = fs.readFileSync(configPath, "utf8");
   resolveHeadless([]);
   const after = fs.readFileSync(configPath, "utf8");
-  assert.strictEqual(after, before, "config.json is not rewritten when the legacy key is present");
+  assert.strictEqual(
+    after,
+    before,
+    "config.json is not rewritten when the legacy key is present"
+  );
 } finally {
   if (existed4) fs.writeFileSync(configPath, backup4);
   else if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
@@ -152,4 +174,6 @@ assert.strictEqual(
   "shared resolveFlag seam still resolves behavior.links to true (default on)"
 );
 
-console.log("PASS: headless plumbing (default, config, CLI precedence, legacy deprecation)");
+console.log(
+  "PASS: headless plumbing (default, config, CLI precedence, legacy deprecation)"
+);

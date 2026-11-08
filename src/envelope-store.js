@@ -96,7 +96,8 @@ function parseArgs(args) {
 
 function resolveFile(dataDir, type, file) {
   if (file) return path.resolve(file);
-  if (dataDir && type) return path.join(path.resolve(dataDir), `scan-${type}.json`);
+  if (dataDir && type)
+    return path.join(path.resolve(dataDir), `scan-${type}.json`);
   if (dataDir) {
     // Try to find a single scan-*.json in the directory.
     try {
@@ -120,7 +121,13 @@ function normaliseMarkArgs(args) {
     const o = args[0];
     type = o.type || o.kind || null;
     identity =
-      o.cardId || o.cardIdentity || o.identity || o.id || o.key || o.card || null;
+      o.cardId ||
+      o.cardIdentity ||
+      o.identity ||
+      o.id ||
+      o.key ||
+      o.card ||
+      null;
     status = o.status || o.value || o.state || o.mark || null;
     return { type, identity, status };
   }
@@ -138,7 +145,13 @@ function normaliseMarkArgs(args) {
       if (typeof a === "string") identity = a;
       else if (a && typeof a === "object") {
         identity =
-          a.cardId || a.cardIdentity || a.identity || a.id || a.key || a.card || null;
+          a.cardId ||
+          a.cardIdentity ||
+          a.identity ||
+          a.id ||
+          a.key ||
+          a.card ||
+          null;
       }
     }
   }
@@ -175,10 +188,12 @@ class EnvelopeStore {
   _resolveFile = function (type) {
     const t = this._resolveType(type);
     if (this.file && !type) return this.file;
-    if (this.dataDir && t) return path.join(path.resolve(this.dataDir), `scan-${t}.json`);
+    if (this.dataDir && t)
+      return path.join(path.resolve(this.dataDir), `scan-${t}.json`);
     if (this.file && t && this.type && t !== this.type) {
       // recompute from dataDir if possible
-      if (this.dataDir) return path.join(path.resolve(this.dataDir), `scan-${t}.json`);
+      if (this.dataDir)
+        return path.join(path.resolve(this.dataDir), `scan-${t}.json`);
     }
     if (this.file) return this.file;
     return resolveFile(this.dataDir, t, null);
@@ -251,7 +266,9 @@ class EnvelopeStore {
         item.id,
         item.key,
       ];
-      return candidates.some((c) => c !== undefined && c !== null && String(c) === String(identity));
+      return candidates.some(
+        (c) => c !== undefined && c !== null && String(c) === String(identity)
+      );
     });
   };
 
@@ -313,7 +330,8 @@ class EnvelopeStore {
     for (const s of KNOWN_STATUSES) result[s] = 0;
     if (env && Array.isArray(env.items)) {
       for (const item of env.items) {
-        const s = item && typeof item.status === "string" ? item.status : "no-op";
+        const s =
+          item && typeof item.status === "string" ? item.status : "no-op";
         if (!(s in result)) result[s] = 0;
         result[s]++;
       }

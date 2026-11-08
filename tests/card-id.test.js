@@ -5,13 +5,51 @@ import { checkActivityTab } from "../src/page-check.js";
 function itemsFor(tab) {
   if (tab === "comments") {
     return [
-      { key: "replaceableComment_1", cardId: "urn:li:activity:12345", text: "comment 1", postExcerpt: "excerpt 1", author: "Ada", postHref: "/feed/update/1", itemHref: "/item/1", dateTime: "Sep 16" },
-      { key: "replaceableComment_2", cardId: "urn:li:activity:67890", text: "comment 2", postExcerpt: "excerpt 2", author: "Bo", postHref: null, itemHref: null, dateTime: "Sep 17" },
+      {
+        key: "replaceableComment_1",
+        cardId: "urn:li:activity:12345",
+        text: "comment 1",
+        postExcerpt: "excerpt 1",
+        author: "Ada",
+        postHref: "/feed/update/1",
+        itemHref: "/item/1",
+        dateTime: "Sep 16",
+      },
+      {
+        key: "replaceableComment_2",
+        cardId: "urn:li:activity:67890",
+        text: "comment 2",
+        postExcerpt: "excerpt 2",
+        author: "Bo",
+        postHref: null,
+        itemHref: null,
+        dateTime: "Sep 17",
+      },
     ];
   }
   return [
-    { key: "reaction:0", cardId: "urn:li:activity:11111", text: null, postExcerpt: "excerpt 1", state: "LIKE", author: "Ada", postHref: "/feed/update/1", itemHref: "/item/1", dateTime: "Sep 16" },
-    { key: "reaction:1", cardId: "urn:li:activity:22222", text: null, postExcerpt: "excerpt 2", state: "LOVE", author: "Bo", postHref: null, itemHref: null, dateTime: "Sep 17" },
+    {
+      key: "reaction:0",
+      cardId: "urn:li:activity:11111",
+      text: null,
+      postExcerpt: "excerpt 1",
+      state: "LIKE",
+      author: "Ada",
+      postHref: "/feed/update/1",
+      itemHref: "/item/1",
+      dateTime: "Sep 16",
+    },
+    {
+      key: "reaction:1",
+      cardId: "urn:li:activity:22222",
+      text: null,
+      postExcerpt: "excerpt 2",
+      state: "LOVE",
+      author: "Bo",
+      postHref: null,
+      itemHref: null,
+      dateTime: "Sep 17",
+    },
   ];
 }
 
@@ -37,7 +75,9 @@ function fakePage(options = {}) {
     },
     collectItems: (seenKeys = []) => {
       const seen = new Set(options.ignoreSeen ? [] : seenKeys);
-      return items.filter((item) => !seen.has(item.key)).map((item) => ({ ...item }));
+      return items
+        .filter((item) => !seen.has(item.key))
+        .map((item) => ({ ...item }));
     },
   };
   return { ...page, ...(options.overrides || {}) };
@@ -70,24 +110,41 @@ function failures(result) {
 }
 
 function failureText(result) {
-  return failures(result).map((r) => r.message).join(" | ") || "(no failures)";
+  return (
+    failures(result)
+      .map((r) => r.message)
+      .join(" | ") || "(no failures)"
+  );
 }
 
 async function testCardIdPresentAndValid() {
   for (const tab of ["reactions", "comments"]) {
     const result = await check(fakePage({ tab }), { tab });
-    assert(result.ok, `${tab}: expected check to pass with valid cardId; ${failureText(result)}`);
+    assert(
+      result.ok,
+      `${tab}: expected check to pass with valid cardId; ${failureText(result)}`
+    );
   }
   console.log("PASS: cardId present and valid on both tabs");
 }
 
 async function testMissingCardIdFailsCheck() {
   for (const tab of ["reactions", "comments"]) {
-    const badItems = itemsFor(tab).map((it, idx) => idx === 0 ? { ...it, cardId: null } : it);
+    const badItems = itemsFor(tab).map((it, idx) =>
+      idx === 0 ? { ...it, cardId: null } : it
+    );
     const result = await check(fakePage({ tab, items: badItems }), { tab });
-    const metaFailure = failures(result).find((r) => r.step === "item metadata");
-    assert(metaFailure, `${tab}: expected item metadata failure when cardId is missing`);
-    assert(metaFailure.observed.includes("no cardId on item 0"), `${tab}: expected failure message to name missing cardId on item 0, got ${metaFailure.observed}`);
+    const metaFailure = failures(result).find(
+      (r) => r.step === "item metadata"
+    );
+    assert(
+      metaFailure,
+      `${tab}: expected item metadata failure when cardId is missing`
+    );
+    assert(
+      metaFailure.observed.includes("no cardId on item 0"),
+      `${tab}: expected failure message to name missing cardId on item 0, got ${metaFailure.observed}`
+    );
   }
   console.log("PASS: missing cardId fails live page check item metadata step");
 }

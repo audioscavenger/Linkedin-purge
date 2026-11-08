@@ -9,7 +9,10 @@
 import assert from "node:assert";
 import fs from "node:fs";
 import path from "node:path";
-import { setLaunchBrowserImpl, resetLaunchBrowserImpl } from "../src/browser.js";
+import {
+  setLaunchBrowserImpl,
+  resetLaunchBrowserImpl,
+} from "../src/browser.js";
 import { runScan } from "../src/cli/scan.js";
 import { runPurge } from "../src/cli/purge.js";
 import { runLogin } from "../src/cli/login.js";
@@ -38,7 +41,10 @@ async function captureHeadless(runFn, args) {
 try {
   // A clean config (behavior present but empty) yields the built-in default,
   // behavior.headed: false, so the "default" cases below are deterministic.
-  fs.writeFileSync(configPath, JSON.stringify({ behavior: {} }, null, 2) + "\n");
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify({ behavior: {} }, null, 2) + "\n"
+  );
 
   assert.strictEqual(
     (await captureHeadless(runScan, [])).headless,

@@ -5,7 +5,9 @@ import { log } from "../logger.js";
 import { resolveFlag } from "./config.js";
 
 export async function runStatus(args) {
-  const dataDir = path.resolve(resolveFlag(args, "data-dir", "paths.dataDir", "data"));
+  const dataDir = path.resolve(
+    resolveFlag(args, "data-dir", "paths.dataDir", "data")
+  );
   const typeArg = getFlag(args, "type", "all");
 
   function typesToRun(type) {

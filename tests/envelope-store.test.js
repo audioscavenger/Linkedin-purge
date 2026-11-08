@@ -26,11 +26,18 @@ async function testLoad() {
     { key: "reaction:1", cardId: "card-1", status: "no-op" },
     { key: "reaction:2", cardId: "card-2", status: "no-op" },
   ]);
-  fs.writeFileSync(path.join(dir, "scan-likes.json"), JSON.stringify(data, null, 2));
+  fs.writeFileSync(
+    path.join(dir, "scan-likes.json"),
+    JSON.stringify(data, null, 2)
+  );
   const store = new EnvelopeStore(dir, "likes");
   const loaded = await store.load();
   assert.strictEqual(loaded.count, 2, "load returns the envelope");
-  assert.strictEqual(store.envelope.items.length, 2, "store holds the envelope");
+  assert.strictEqual(
+    store.envelope.items.length,
+    2,
+    "store holds the envelope"
+  );
   console.log("PASS: load");
 }
 
@@ -46,7 +53,11 @@ async function testMarkWritesDisk() {
   await store.mark("card-1", "deleted");
   // No separate save call: the file on disk must already reflect the mark.
   const onDisk = JSON.parse(fs.readFileSync(file, "utf8"));
-  assert.strictEqual(onDisk.items[0].status, "deleted", "mark writes the file on disk");
+  assert.strictEqual(
+    onDisk.items[0].status,
+    "deleted",
+    "mark writes the file on disk"
+  );
   console.log("PASS: mark writes disk");
 }
 
@@ -72,7 +83,9 @@ async function testReloadAfterInterrupt() {
 
 async function testUnknownIdentity() {
   const dir = fs.mkdtempSync(path.join(tmp, "unknown-"));
-  const data = envelope([{ key: "reaction:1", cardId: "card-1", status: "no-op" }]);
+  const data = envelope([
+    { key: "reaction:1", cardId: "card-1", status: "no-op" },
+  ]);
   const file = path.join(dir, "scan-likes.json");
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   const store = new EnvelopeStore(dir, "likes");
@@ -87,13 +100,19 @@ async function testUnknownIdentity() {
   assert.ok(threw, "marking an unknown identity throws");
   // The item must not have been created.
   const onDisk = JSON.parse(fs.readFileSync(file, "utf8"));
-  assert.strictEqual(onDisk.items.length, 1, "no item created for unknown identity");
+  assert.strictEqual(
+    onDisk.items.length,
+    1,
+    "no item created for unknown identity"
+  );
   console.log("PASS: unknown identity");
 }
 
 async function testAtomicity() {
   const dir = fs.mkdtempSync(path.join(tmp, "atomic-"));
-  const data = envelope([{ key: "reaction:1", cardId: "card-1", status: "no-op" }]);
+  const data = envelope([
+    { key: "reaction:1", cardId: "card-1", status: "no-op" },
+  ]);
   const file = path.join(dir, "scan-likes.json");
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   const store = new EnvelopeStore(dir, "likes");
@@ -104,7 +123,11 @@ async function testAtomicity() {
   assert.strictEqual(leftovers.length, 0, "no leftover temp files");
   // The file must be valid JSON (never truncated).
   const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
-  assert.strictEqual(parsed.items[0].status, "deleted", "file is valid and updated");
+  assert.strictEqual(
+    parsed.items[0].status,
+    "deleted",
+    "file is valid and updated"
+  );
   console.log("PASS: atomicity");
 }
 
@@ -117,7 +140,10 @@ async function testCounts() {
     { key: "d", cardId: "c4", status: "todo" },
     { key: "e", cardId: "c5", status: "no-op" },
   ]);
-  fs.writeFileSync(path.join(dir, "scan-likes.json"), JSON.stringify(data, null, 2));
+  fs.writeFileSync(
+    path.join(dir, "scan-likes.json"),
+    JSON.stringify(data, null, 2)
+  );
   const store = new EnvelopeStore(dir, "likes");
   await store.load();
   const counts = await store.counts();

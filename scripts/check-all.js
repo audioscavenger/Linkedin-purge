@@ -13,7 +13,8 @@ function walk(dir) {
     const full = path.join(dir, entry);
     const stat = fs.statSync(full);
     if (stat.isDirectory()) out.push(...walk(full));
-    else if (entry.endsWith(".js") && !entry.endsWith(".backup")) out.push(full);
+    else if (entry.endsWith(".js") && !entry.endsWith(".backup"))
+      out.push(full);
   }
   return out;
 }

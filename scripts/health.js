@@ -11,20 +11,27 @@ const results = [];
 function run(label, fn) {
   try {
     const out = fn();
-    results.push({ label, ok: true, detail: (out || "").trim().split("\n").slice(-1)[0] });
+    results.push({
+      label,
+      ok: true,
+      detail: (out || "").trim().split("\n").slice(-1)[0],
+    });
   } catch (e) {
     results.push({ label, ok: false, detail: e.message || String(e) });
   }
 }
 
 run("syntax check", () =>
-  execFileSync(process.execPath, [path.join(root, "scripts/check-all.js")], { encoding: "utf8" })
+  execFileSync(process.execPath, [path.join(root, "scripts/check-all.js")], {
+    encoding: "utf8",
+  })
 );
 
 // Run exactly the test set that `npm run test` runs, read from package.json so
 // a newly registered test file cannot be silently skipped here.
 const testCommands = String(
-  JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).scripts.test || ""
+  JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).scripts
+    .test || ""
 )
   .split("&&")
   .map((cmd) => cmd.trim())
@@ -32,24 +39,39 @@ const testCommands = String(
 
 run("unit tests", () =>
   testCommands
-    .map((cmd) => execSync(cmd, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }))
+    .map((cmd) =>
+      execSync(cmd, {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+    )
     .join("\n")
 );
 
 run("lockfile in sync", () =>
-  execSync("npm ci --dry-run --ignore-scripts", { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })
+  execSync("npm ci --dry-run --ignore-scripts", {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  })
 );
 
 const hooksActive = fs.existsSync(path.join(root, ".husky/pre-commit"));
 results.push({
   label: "pre-commit hook",
   ok: hooksActive,
-  detail: hooksActive ? "active (.husky/pre-commit)" : "MISSING — run `npx husky install`",
+  detail: hooksActive
+    ? "active (.husky/pre-commit)"
+    : "MISSING — run `npx husky install`",
 });
 
 const gitBranch = (() => {
   try {
-    return execSync("git branch --show-current", { encoding: "utf8", cwd: root }).trim();
+    return execSync("git branch --show-current", {
+      encoding: "utf8",
+      cwd: root,
+    }).trim();
   } catch {
     return "unknown";
   }

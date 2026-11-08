@@ -26,7 +26,9 @@ const DEFAULT_IDLE_LIMIT = 8;
 const DEFAULT_TIMEOUT_MS = 3600000;
 
 function numberOr(value, fallback) {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value
+    : fallback;
 }
 
 function defaultSleep(ms) {
@@ -46,7 +48,13 @@ function grewBetween(before, after) {
 }
 
 export class ActivityLoader {
-  constructor({ page, timing = {}, onStep = null, now = Date.now, sleep = defaultSleep }) {
+  constructor({
+    page,
+    timing = {},
+    onStep = null,
+    now = Date.now,
+    sleep = defaultSleep,
+  }) {
     this.page = page;
     this.timing = timing || {};
     this.onStep = onStep;
@@ -65,7 +73,7 @@ export class ActivityLoader {
     return numberOr(this.timing.maxEmptyScrolls, DEFAULT_IDLE_LIMIT);
   }
 
-/*
+  /*
   Overall walk limit (timing.timeout). 0 means no time limit, the same way
   purge's runner treats it (`timeoutMs > 0` guards its check) and the way
   `--limit 0` reads. Absent or null falls back to the built-in hour.
@@ -81,7 +89,7 @@ export class ActivityLoader {
     return this.page.readItems(seenKeys);
   }
 
-/*
+  /*
   Perform one load step: read the growth signal, scroll the Activity List to
   its bottom, then poll until the signal grows or the wait budget expires.
   Returns { grew, waitedMs, target }.
@@ -106,7 +114,7 @@ export class ActivityLoader {
     return { grew, waitedMs: this.now() - startedAt, target: target || null };
   }
 
-/*
+  /*
   The first render is one operation: the cards LinkedIn put on the page on
   load, one step, complete, every item in step 0. The shallow scan is only
   this, and the walk starts with it, so both paths share one read and one
@@ -114,11 +122,17 @@ export class ActivityLoader {
 */
   async readFirstRender() {
     const items = (await this.readItems([])) || [];
-    this.emitStep({ step: 0, total: items.length, added: items.length, waitedMs: 0, target: null });
+    this.emitStep({
+      step: 0,
+      total: items.length,
+      added: items.length,
+      waitedMs: 0,
+      target: null,
+    });
     return { items, steps: 1, complete: true };
   }
 
-/*
+  /*
   Walk the Activity List to exhaustion. The first render is step 0; each load
   step gets the next step number. Growth ends a step immediately and resets
   the idle counter; a fruitless step increments it.
@@ -139,8 +153,10 @@ export class ActivityLoader {
       if (remaining <= 0) return { items, steps, complete: false };
 
       const step = steps; // zero-based: the first load step after the render is 1
-      const result = await this.loadStep(Math.min(this.growthDeadlineMs, remaining));
-/*
+      const result = await this.loadStep(
+        Math.min(this.growthDeadlineMs, remaining)
+      );
+      /*
   Read the unseen cards once per step, whether or not the polling loop saw
   growth. Cards can land between one step's last poll and the next step's
   first growth read, and a growth-only read would drop that batch from a
@@ -151,9 +167,16 @@ export class ActivityLoader {
       added = mergeItems(items, seenKeys, freshItems, step);
       idle = result.grew || added > 0 ? 0 : idle + 1;
       steps++;
-      this.emitStep({ step, total: items.length, added, waitedMs: result.waitedMs, target: result.target });
+      this.emitStep({
+        step,
+        total: items.length,
+        added,
+        waitedMs: result.waitedMs,
+        target: result.target,
+      });
 
-      if (this.now() - startedAt >= this.timeoutMs) return { items, steps, complete: false };
+      if (this.now() - startedAt >= this.timeoutMs)
+        return { items, steps, complete: false };
       if (idle >= this.idleLimit) return { items, steps, complete: true };
     }
 
@@ -185,16 +208,21 @@ function mergeItems(items, seenKeys, incoming, step) {
   (about one second per item); it defaults to off so a plain scan is unchanged.
 */
 export function createActivityPage(page, options = {}) {
-  const links = typeof options === "boolean" ? options : !!(options && options.links);
+  const links =
+    typeof options === "boolean" ? options : !!(options && options.links);
   return {
     links,
     readItems: (seenKeys) => {
       if (links) {
-        return page.evaluate((keys) => window.LP.collectItems(keys, true), seenKeys);
+        return page.evaluate(
+          (keys) => window.LP.collectItems(keys, true),
+          seenKeys
+        );
       }
       return page.evaluate((keys) => window.LP.collectItems(keys), seenKeys);
     },
     readGrowth: () => page.evaluate(() => window.LP.readGrowthSignal()),
-    scrollToBottom: () => page.evaluate(() => window.LP.scrollActivityListToBottom()),
+    scrollToBottom: () =>
+      page.evaluate(() => window.LP.scrollActivityListToBottom()),
   };
 }

@@ -39,8 +39,15 @@ function fakePage(options = {}) {
   return {
     isReactionsPage: () => tab === "reactions",
     isCommentsPage: () => tab === "comments",
-    readGrowthSignal: () => ({ scrollHeight: scrolled ? 1500 : 1000, count: scrolled ? items.length + 10 : items.length, lastKey: items[items.length - 1].key }),
-    scrollActivityListToBottom: () => { scrolled = true; return { tag: "MAIN", id: "workspace" }; },
+    readGrowthSignal: () => ({
+      scrollHeight: scrolled ? 1500 : 1000,
+      count: scrolled ? items.length + 10 : items.length,
+      lastKey: items[items.length - 1].key,
+    }),
+    scrollActivityListToBottom: () => {
+      scrolled = true;
+      return { tag: "MAIN", id: "workspace" };
+    },
     collectItems: () => items.map((it) => ({ ...it })),
   };
 }
@@ -53,7 +60,13 @@ async function main() {
       now: () => 0,
       sleep: async () => {},
     });
-    assert(res.ok, `${tab} check failed: ${res.results.filter(r => !r.ok).map(r => r.message).join(", ")}`);
+    assert(
+      res.ok,
+      `${tab} check failed: ${res.results
+        .filter((r) => !r.ok)
+        .map((r) => r.message)
+        .join(", ")}`
+    );
   }
   console.log("PASS: text and postExcerpt verified successfully across tabs");
 }

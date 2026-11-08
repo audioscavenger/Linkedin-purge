@@ -20,11 +20,14 @@
     "check": "node scripts/check-all.js && node scripts/check-comments.js && node scripts/test-runner.js",
     "check-changelog": "node scripts/check-changelog.js",
     "fix:comments": "node scripts/fix-comments.js",
+    "fix:slop": "node scripts/fix-slop.js",
+    "check:slop": "node scripts/fix-slop.js --check",
     "health": "node scripts/health.js",
-    "lint": "eslint .",
+    "lint": "eslint . && node scripts/check-syntax.js",
     "test": "node scripts/test-runner.js",
     "postinstall": "echo 'No build step needed'",
-    "prepare": "husky"
+    "prepare": "husky",
+    "format": "prettier --write \"src/**/*.{js,mjs,cjs,jsx,tsx,ts}\" \"tests/**/*.{js,mjs,cjs,jsx,tsx,ts}\" \"scripts/*.js\" \"*.js\""
   },
   "dependencies": {
     "audit": "^0.0.6",

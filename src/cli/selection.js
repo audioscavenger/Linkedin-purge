@@ -18,7 +18,8 @@ const NON_ACTIONABLE = new Set(["deleted", "no-op"]);
 // Resolve the identity to act on for one item: prefer cardId, then key.
 function itemIdentity(item) {
   if (item && typeof item === "object") {
-    if (typeof item.cardId === "string" && item.cardId !== "") return item.cardId;
+    if (typeof item.cardId === "string" && item.cardId !== "")
+      return item.cardId;
     if (typeof item.key === "string" && item.key !== "") return item.key;
   }
   return null;
@@ -33,30 +34,43 @@ export function loadSelection(file) {
     throw new Error(`Malformed JSON in ${file}: ${cause.message}`);
   }
   if (data === null || typeof data !== "object" || Array.isArray(data)) {
-    throw new Error(`Invalid selection in ${file}: expected an object envelope with items[], got ${Array.isArray(data) ? "a bare array" : typeof data}.`);
+    throw new Error(
+      `Invalid selection in ${file}: expected an object envelope with items[], got ${Array.isArray(data) ? "a bare array" : typeof data}.`
+    );
   }
   if (!Array.isArray(data.items) || data.items.length === 0) {
-    throw new Error(`Invalid selection in ${file}: expected an envelope with a non-empty items[] array.`);
+    throw new Error(
+      `Invalid selection in ${file}: expected an envelope with a non-empty items[] array.`
+    );
   }
   // Every entry must carry at least one usable identity (cardId, else key).
   for (const entry of data.items) {
     if (!itemIdentity(entry)) {
-      throw new Error(`Invalid selection in ${file}: every item entry must be an object with a cardId (Card Identity) or a key.`);
+      throw new Error(
+        `Invalid selection in ${file}: every item entry must be an object with a cardId (Card Identity) or a key.`
+      );
     }
   }
   const items = data.items;
   // Actionable = anything not final and not a no-op. Statuses missing in
   // older envelopes default to no-op, matching the fresh-scan default.
-  const statusOf = (item) => (item && typeof item.status === "string" && item.status ? item.status : "no-op");
-  const actionableItems = items.filter((item) => !NON_ACTIONABLE.has(statusOf(item)));
+  const statusOf = (item) =>
+    item && typeof item.status === "string" && item.status
+      ? item.status
+      : "no-op";
+  const actionableItems = items.filter(
+    (item) => !NON_ACTIONABLE.has(statusOf(item))
+  );
   const identities = actionableItems.map(itemIdentity);
   const statusMap = new Map();
   for (const item of actionableItems) {
     if (item && typeof item === "object") {
       let id = null;
-      if (typeof item.cardId === "string" && item.cardId !== "") id = item.cardId;
+      if (typeof item.cardId === "string" && item.cardId !== "")
+        id = item.cardId;
       else if (typeof item.key === "string" && item.key !== "") id = item.key;
-      const status = typeof item.status === "string" && item.status ? item.status : "no-op";
+      const status =
+        typeof item.status === "string" && item.status ? item.status : "no-op";
       if (id) statusMap.set(id, status);
     }
   }

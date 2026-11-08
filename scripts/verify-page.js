@@ -15,7 +15,11 @@ import path from "node:path";
 import { launchBrowser, injectDomHelpers } from "../src/browser.js";
 import { isLoggedOut } from "../src/login-guard.js";
 import { activityTargets } from "../src/activity-targets.js";
-import { checkActivityTab, createCheckPage, describeTarget } from "../src/page-check.js";
+import {
+  checkActivityTab,
+  createCheckPage,
+  describeTarget,
+} from "../src/page-check.js";
 import { log, warn, err } from "../src/logger.js";
 
 // The same first-render wait scan uses before reading the page.
@@ -26,13 +30,17 @@ async function main() {
   const profileDir = getFlag(args, "profile-dir", ".profile-chromium");
   const chromiumPath = getFlag(args, "chromium-path", null);
 
-  log("Live page-helper check (not part of `npm run check`; needs a logged-in profile).");
+  log(
+    "Live page-helper check (not part of `npm run check`; needs a logged-in profile)."
+  );
 
   let context;
   try {
     context = await launchBrowser({ profileDir, headless: true, chromiumPath });
   } catch (error) {
-    err(`Could not launch the browser: ${error && error.message ? error.message : error}`);
+    err(
+      `Could not launch the browser: ${error && error.message ? error.message : error}`
+    );
     process.exitCode = 1;
     return;
   }
@@ -43,7 +51,9 @@ async function main() {
     await injectDomHelpers(page, path.resolve("./src/linkedin-dom.js"));
 
     // The activity URL needs the vanity name, so resolve it the way scan does.
-    await page.goto("https://www.linkedin.com/in/me/", { waitUntil: "domcontentloaded" });
+    await page.goto("https://www.linkedin.com/in/me/", {
+      waitUntil: "domcontentloaded",
+    });
     await page.waitForTimeout(3000);
     if (isLoggedOut(page)) {
       warn("Not logged in. Run `npm run login` first.");
@@ -59,12 +69,17 @@ async function main() {
       await page.goto(baseUrl + target.tab, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(FIRST_RENDER_WAIT_MS);
       if (isLoggedOut(page)) {
-        warn(`${tab}: the session ended at this tab. Run \`npm run login\` and re-run.`);
+        warn(
+          `${tab}: the session ended at this tab. Run \`npm run login\` and re-run.`
+        );
         failed++;
         continue;
       }
 
-      const result = await checkActivityTab({ tab, page: createCheckPage(page) });
+      const result = await checkActivityTab({
+        tab,
+        page: createCheckPage(page),
+      });
       failed += report(tab, result);
     }
   } finally {
@@ -104,6 +119,8 @@ function getFlag(args, name, fallback) {
 }
 
 main().catch((error) => {
-  err(`page-helper check crashed: ${error && error.stack ? error.stack : error}`);
+  err(
+    `page-helper check crashed: ${error && error.stack ? error.stack : error}`
+  );
   process.exitCode = 1;
 });

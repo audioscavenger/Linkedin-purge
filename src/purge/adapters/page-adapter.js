@@ -9,7 +9,7 @@ export class PageAdapter {
     return this.page.evaluate(() => window.LP.collectKeys());
   }
 
-/*
+  /*
   Act on exactly one card by its card identity / key.
   The runner pre-computes eligibility; the adapter just hands the key
   to window.LP.deleteOneCard.

@@ -26,10 +26,18 @@ function testIsProfileLockFailureSignatures() {
     "browserType.launchPersistentContext: Target page, context or browser has been closed\n" +
       "Browser logs:\n<launched>\n  - [pid=12704] <process did exit: exitCode=21, signal=null>"
   );
-  if (!isProfileLockFailure(realError)) throw new Error("closed-on-launch signature not detected");
-  if (!isProfileLockFailure(new Error("some wrapper: exitCode=21 in call log"))) throw new Error("exitCode=21 not detected");
-  if (isProfileLockFailure(new Error("ENOENT: no such file or directory, launching chrome.exe"))) {
-    throw new Error("unrelated launch error must NOT be classified as a profile lock");
+  if (!isProfileLockFailure(realError))
+    throw new Error("closed-on-launch signature not detected");
+  if (!isProfileLockFailure(new Error("some wrapper: exitCode=21 in call log")))
+    throw new Error("exitCode=21 not detected");
+  if (
+    isProfileLockFailure(
+      new Error("ENOENT: no such file or directory, launching chrome.exe")
+    )
+  ) {
+    throw new Error(
+      "unrelated launch error must NOT be classified as a profile lock"
+    );
   }
   if (
     isProfileLockFailure(undefined) ||
@@ -45,10 +53,17 @@ function testMatchesProfilePathForms() {
   const forward = `--user-data-dir=E:/wintools/PortableApps/chromium-win64/profile --headless`;
   // Windows may render the same path backslashed and case-mixed.
   const backslashed = `chrome.exe --user-data-dir=E:\\WINTOOLS\\PortableApps\\Chromium-Win64\\PROFILE --no-sandbox`;
-  if (!matchesProfile(forward, PROFILE)) throw new Error("forward-slash form must match");
-  if (!matchesProfile(backslashed, PROFILE)) throw new Error("backslash/case variant must match");
-  if (matchesProfile("--user-data-dir=C:/other/profile", PROFILE)) throw new Error("a different profile must not match");
-  if (matchesProfile(null, PROFILE) || matchesProfile("", PROFILE) || matchesProfile(forward, null)) {
+  if (!matchesProfile(forward, PROFILE))
+    throw new Error("forward-slash form must match");
+  if (!matchesProfile(backslashed, PROFILE))
+    throw new Error("backslash/case variant must match");
+  if (matchesProfile("--user-data-dir=C:/other/profile", PROFILE))
+    throw new Error("a different profile must not match");
+  if (
+    matchesProfile(null, PROFILE) ||
+    matchesProfile("", PROFILE) ||
+    matchesProfile(forward, null)
+  ) {
     throw new Error("missing arguments must not match");
   }
 }
@@ -56,38 +71,70 @@ function testMatchesProfilePathForms() {
 // A sibling or subdirectory of the profile merely CONTAINS its path; treating
 // it as a holder would let killProcesses() force-kill an innocent browser.
 function testMatchesProfileBoundary() {
-  if (matchesProfile(`--user-data-dir=E:/wintools/PortableApps/chromium-win64/profile2 --headless`, PROFILE)) {
+  if (
+    matchesProfile(
+      `--user-data-dir=E:/wintools/PortableApps/chromium-win64/profile2 --headless`,
+      PROFILE
+    )
+  ) {
     throw new Error("sibling profile (profile2) must not match");
   }
-  if (matchesProfile(`--user-data-dir=E:\\wintools\\PortableApps\\chromium-win64\\profile-backup`, PROFILE)) {
+  if (
+    matchesProfile(
+      `--user-data-dir=E:\\wintools\\PortableApps\\chromium-win64\\profile-backup`,
+      PROFILE
+    )
+  ) {
     throw new Error("sibling profile (profile-backup) must not match");
   }
-  if (matchesProfile(`--user-data-dir=E:/wintools/PortableApps/chromium-win64/profile/session`, PROFILE)) {
+  if (
+    matchesProfile(
+      `--user-data-dir=E:/wintools/PortableApps/chromium-win64/profile/session`,
+      PROFILE
+    )
+  ) {
     throw new Error("a subdirectory of the profile must not match");
   }
   // The legit cases the boundary change must not break.
-  if (!matchesProfile(`--user-data-dir="${PROFILE}" --headless`, PROFILE)) throw new Error("quoted exact path must match");
-  if (!matchesProfile(`--user-data-dir=${PROFILE} --no-first-run`, PROFILE)) throw new Error("space-separated exact path must match");
-  if (!matchesProfile(`--user-data-dir=${PROFILE}`, PROFILE)) throw new Error("end-of-line exact path must match");
+  if (!matchesProfile(`--user-data-dir="${PROFILE}" --headless`, PROFILE))
+    throw new Error("quoted exact path must match");
+  if (!matchesProfile(`--user-data-dir=${PROFILE} --no-first-run`, PROFILE))
+    throw new Error("space-separated exact path must match");
+  if (!matchesProfile(`--user-data-dir=${PROFILE}`, PROFILE))
+    throw new Error("end-of-line exact path must match");
 }
 
 function testClassifyHoldersStragglersAndInteractive() {
   const rows = [
-    { pid: 12704, commandLine: `chrome.exe --headless --user-data-dir=${PROFILE}` },
+    {
+      pid: 12704,
+      commandLine: `chrome.exe --headless --user-data-dir=${PROFILE}`,
+    },
     { pid: 55, commandLine: `chrome.exe --user-data-dir=${PROFILE}` },
-    { pid: 9999, commandLine: `chrome.exe --user-data-dir=C:/unrelated/profile --headless` },
+    {
+      pid: 9999,
+      commandLine: `chrome.exe --user-data-dir=C:/unrelated/profile --headless`,
+    },
   ];
   const { stragglers, interactive } = classifyHolders(rows, PROFILE);
-  if (stragglers.length !== 1 || stragglers[0].pid !== 12704) throw new Error("headless holder must be a straggler");
-  if (interactive.length !== 1 || interactive[0].pid !== 55) throw new Error("bare holder must be interactive");
-  if (stragglers.some((row) => row.pid === 9999) || interactive.some((row) => row.pid === 9999)) {
-    throw new Error("a process of another profile must not appear in either list");
+  if (stragglers.length !== 1 || stragglers[0].pid !== 12704)
+    throw new Error("headless holder must be a straggler");
+  if (interactive.length !== 1 || interactive[0].pid !== 55)
+    throw new Error("bare holder must be interactive");
+  if (
+    stragglers.some((row) => row.pid === 9999) ||
+    interactive.some((row) => row.pid === 9999)
+  ) {
+    throw new Error(
+      "a process of another profile must not appear in either list"
+    );
   }
 }
 
 function testClassifyHoldersEmptyInputs() {
   const { stragglers, interactive } = classifyHolders(null, PROFILE);
-  if (stragglers.length !== 0 || interactive.length !== 0) throw new Error("null rows must yield no holders");
+  if (stragglers.length !== 0 || interactive.length !== 0)
+    throw new Error("null rows must yield no holders");
 }
 
 function testPickRecoveryActions() {
@@ -104,7 +151,9 @@ function testPickRecoveryActions() {
     interactive: [{ pid: 55 }],
   });
   if (ask.action !== "ask-user-close" || ask.pids.join(",") !== "55") {
-    throw new Error("an interactive browser must be reported to the user, never killed");
+    throw new Error(
+      "an interactive browser must be reported to the user, never killed"
+    );
   }
 
   const retry = pickRecovery({});
@@ -125,14 +174,18 @@ function testFinalFailureMessage() {
     originalError: bigError,
     profileDir: PROFILE,
   });
-  if (!/killed/.test(withOthers)) throw new Error("must say the leftover was killed");
+  if (!/killed/.test(withOthers))
+    throw new Error("must say the leftover was killed");
   if (!/12704/.test(withOthers)) throw new Error("must name the killed PIDs");
-  if (!/55, 66/.test(withOthers)) throw new Error("must name the still-holding browser PIDs");
-  if (!/close it and re-run/.test(withOthers)) throw new Error("must tell the user to close and retry");
+  if (!/55, 66/.test(withOthers))
+    throw new Error("must name the still-holding browser PIDs");
+  if (!/close it and re-run/.test(withOthers))
+    throw new Error("must tell the user to close and retry");
   if (!withOthers.includes("Target page, context or browser has been closed")) {
     throw new Error("must keep the first-line diagnosis");
   }
-  if (withOthers.includes("hundreds more lines")) throw new Error("must not carry the launch-log dump");
+  if (withOthers.includes("hundreds more lines"))
+    throw new Error("must not carry the launch-log dump");
 
   const solo = finalFailureMessage({
     killedPids: [],
@@ -140,15 +193,19 @@ function testFinalFailureMessage() {
     originalError: bigError,
     profileDir: PROFILE,
   });
-  if (/killed/.test(solo)) throw new Error("must not claim a kill when none happened");
-  if (!/close any browser/.test(solo)) throw new Error("must fall back to the generic close-and-retry hint");
+  if (/killed/.test(solo))
+    throw new Error("must not claim a kill when none happened");
+  if (!/close any browser/.test(solo))
+    throw new Error("must fall back to the generic close-and-retry hint");
 }
 
 function testProfileInUseErrorIsFriendly() {
   const e = new ProfileInUseError("close the browser and re-run");
   if (e.friendly !== true) throw new Error("friendly flag must be set");
-  if (e.message !== "close the browser and re-run") throw new Error("message must be preserved");
-  if (!(e instanceof Error)) throw new Error("must remain catchable as an Error");
+  if (e.message !== "close the browser and re-run")
+    throw new Error("message must be preserved");
+  if (!(e instanceof Error))
+    throw new Error("must remain catchable as an Error");
 }
 
 const tests = [

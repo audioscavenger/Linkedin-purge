@@ -27,13 +27,14 @@ export async function main() {
 
   try {
     if (command === "login") await runLogin(args);
-    else if (command === "login-import-profile") await runLoginImportProfile(args);
+    else if (command === "login-import-profile")
+      await runLoginImportProfile(args);
     else if (command === "scan") await runScan(args);
     else if (command === "purge") await runPurge(args);
     else if (command === "status") await runStatus(args);
     else printHelp();
   } catch (e) {
-    err(e && e.friendly ? e.message : (e && e.stack ? e.stack : String(e)));
+    err(e && e.friendly ? e.message : e && e.stack ? e.stack : String(e));
     process.exit(1);
   }
 }

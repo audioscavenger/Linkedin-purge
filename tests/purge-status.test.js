@@ -64,7 +64,11 @@ for (const s of Object.values(PURGE_STATUSES)) {
 // Attempt outcomes map to exactly one of deleted, failed, not-found.
 assert.strictEqual(outcomeToStatus(true), "deleted", "success maps to deleted");
 assert.strictEqual(outcomeToStatus(false), "failed", "failure maps to failed");
-assert.strictEqual(outcomeToStatus("not-found"), "not-found", "not-found maps to not-found");
+assert.strictEqual(
+  outcomeToStatus("not-found"),
+  "not-found",
+  "not-found maps to not-found"
+);
 assert.strictEqual(outcomeToStatus("success"), "deleted");
 assert.strictEqual(outcomeToStatus("refused"), "failed");
 assert.strictEqual(outcomeToStatus({ ok: true }), "deleted");
@@ -73,8 +77,16 @@ assert.strictEqual(outcomeToStatus({ found: false }), "not-found");
 assert.strictEqual(outcomeToStatus(true, false), "not-found");
 
 // transitionStatus respects finality / no-op.
-assert.strictEqual(transitionStatus("deleted", true), "deleted", "deleted stays deleted");
-assert.strictEqual(transitionStatus("no-op", true), "no-op", "no-op stays no-op");
+assert.strictEqual(
+  transitionStatus("deleted", true),
+  "deleted",
+  "deleted stays deleted"
+);
+assert.strictEqual(
+  transitionStatus("no-op", true),
+  "no-op",
+  "no-op stays no-op"
+);
 assert.strictEqual(transitionStatus("todo", true), "deleted");
 assert.strictEqual(transitionStatus("failed", false), "failed");
 assert.strictEqual(transitionStatus("not-found", "not-found"), "not-found");
@@ -87,7 +99,10 @@ assert.strictEqual(isLegalTransition("no-op", "todo"), true);
 
 // STATUS_TRANSITIONS covers every status.
 for (const s of Object.values(PURGE_STATUSES)) {
-  assert.ok(Object.prototype.hasOwnProperty.call(STATUS_TRANSITIONS, s), `STATUS_TRANSITIONS missing ${s}`);
+  assert.ok(
+    Object.prototype.hasOwnProperty.call(STATUS_TRANSITIONS, s),
+    `STATUS_TRANSITIONS missing ${s}`
+  );
 }
 
 console.log("purge-status.test.js passed successfully!");

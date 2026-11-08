@@ -30,13 +30,24 @@ if (existed) backup = fs.readFileSync(configPath, "utf8");
 try {
   let base = {};
   if (existed) {
-    try { base = JSON.parse(backup); } catch (e) { base = {}; }
+    try {
+      base = JSON.parse(backup);
+    } catch (e) {
+      base = {};
+    }
   }
   if (!base.behavior) base.behavior = {};
   base.behavior.links = true;
   fs.writeFileSync(configPath, JSON.stringify(base, null, 2) + "\n");
-  const resolved = asBool(resolveFlag([], "links", "behavior.links", false), false);
-  assert.strictEqual(resolved, true, "config behavior.links: true resolves to true");
+  const resolved = asBool(
+    resolveFlag([], "links", "behavior.links", false),
+    false
+  );
+  assert.strictEqual(
+    resolved,
+    true,
+    "config behavior.links: true resolves to true"
+  );
 } finally {
   if (existed) fs.writeFileSync(configPath, backup);
   else if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
@@ -49,7 +60,10 @@ if (existed) {
     const base = JSON.parse(backup2);
     if (base.behavior) delete base.behavior.links;
     fs.writeFileSync(configPath, JSON.stringify(base, null, 2) + "\n");
-    const resolved = asBool(resolveFlag([], "links", "behavior.links", false), false);
+    const resolved = asBool(
+      resolveFlag([], "links", "behavior.links", false),
+      false
+    );
     assert.strictEqual(resolved, true, "missing config key falls back to true");
   } finally {
     fs.writeFileSync(configPath, backup2);
@@ -73,7 +87,11 @@ const offSeam = createActivityPage(offPage);
 assert.strictEqual(offSeam.links, false, "page seam defaults links to false");
 await offSeam.readItems([]);
 assert.ok(
-  offPage.calls.some((c) => c.src.includes("collectItems(keys)") && !c.src.includes("collectItems(keys, true)")),
+  offPage.calls.some(
+    (c) =>
+      c.src.includes("collectItems(keys)") &&
+      !c.src.includes("collectItems(keys, true)")
+  ),
   "without links, collectItems is called without the link flag"
 );
 
@@ -88,6 +106,10 @@ assert.ok(
 
 const boolPage = makePage();
 const boolSeam = createActivityPage(boolPage, true);
-assert.strictEqual(boolSeam.links, true, "page seam accepts a boolean shorthand");
+assert.strictEqual(
+  boolSeam.links,
+  true,
+  "page seam accepts a boolean shorthand"
+);
 
 console.log("PASS: links plumbing (config, flag resolution, page seam)");

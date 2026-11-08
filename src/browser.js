@@ -31,7 +31,11 @@ export function findChromiumBinary() {
 
 // Default implementation: launch Chromium with the given options.
 // This is the real launch, used when no test stub is installed.
-async function defaultLaunchBrowser({ profileDir, headless = false, chromiumPath }) {
+async function defaultLaunchBrowser({
+  profileDir,
+  headless = false,
+  chromiumPath,
+}) {
   fs.mkdirSync(profileDir, { recursive: true });
   const exe = chromiumPath || findChromiumBinary();
   const opts = {
@@ -78,7 +82,11 @@ export function resetLaunchBrowserImpl() {
   launchBrowserImpl = defaultLaunchBrowser;
 }
 
-export async function launchBrowser({ profileDir, headless = false, chromiumPath }) {
+export async function launchBrowser({
+  profileDir,
+  headless = false,
+  chromiumPath,
+}) {
   return launchBrowserImpl({ profileDir, headless, chromiumPath });
 }
 
@@ -102,13 +110,17 @@ async function launchAfterRecovery({ profileDir, opts, exe }) {
   if (recovery.pids.length) {
     // A previous run of this tool left a headless/CDP instance holding the
     // profile lock: kill it, give it a beat to release, then try again.
-    warn(`Leftover browser process holding the profile (PID ${recovery.pids.join(", ")}) -- killing it and retrying the launch.`);
+    warn(
+      `Leftover browser process holding the profile (PID ${recovery.pids.join(", ")}) -- killing it and retrying the launch.`
+    );
     killProcesses(recovery.pids);
     killedPids = recovery.pids;
   } else {
     // Nothing live holds the profile: a stale lock file from a crashed or
     // force-closed run is the usual suspect.
-    warn("No live browser holds the profile; clearing stale lock files and retrying the launch.");
+    warn(
+      "No live browser holds the profile; clearing stale lock files and retrying the launch."
+    );
     removeStaleLockFiles(profileDir);
   }
   await wait(killedPids.length ? 750 : 300);
@@ -116,7 +128,7 @@ async function launchAfterRecovery({ profileDir, opts, exe }) {
   try {
     return await baseChromium.launchPersistentContext(profileDir, opts);
   } catch (retryError) {
-/*
+    /*
   The retry failed: re-scan for whoever still holds the profile so the
   message can name them (typically a browser window the user has open),
   and keep the first line of the underlying error as the diagnosis.
@@ -162,7 +174,10 @@ function listChromeProcesses() {
     const rows = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
     return rows
       .filter((row) => row && row.ProcessId)
-      .map((row) => ({ pid: row.ProcessId, commandLine: row.CommandLine || "" }));
+      .map((row) => ({
+        pid: row.ProcessId,
+        commandLine: row.CommandLine || "",
+      }));
   } catch {
     return [];
   }
@@ -184,9 +199,14 @@ function killProcesses(pids) {
         stdio: ["ignore", "pipe", "pipe"],
       });
     } catch (error) {
-      const detail = String(error && (error.stderr || error.message) || error);
+      const detail = String(
+        (error && (error.stderr || error.message)) || error
+      );
       if (/not found/i.test(detail)) continue;
-      const line = detail.split("\n").map((s) => s.trim()).find(Boolean);
+      const line = detail
+        .split("\n")
+        .map((s) => s.trim())
+        .find(Boolean);
       warn(`Could not kill PID ${pid} (${line || "unknown error"}).`);
     }
   }
@@ -195,7 +215,12 @@ function killProcesses(pids) {
 // The lock artifacts chromium leaves in the profile root. Only meaningful to
 // remove when no live process holds the profile -- the caller guarantees that.
 function removeStaleLockFiles(profileDir) {
-  for (const name of ["lockfile", "SingletonLock", "SingletonSocket", "SingletonCookie"]) {
+  for (const name of [
+    "lockfile",
+    "SingletonLock",
+    "SingletonSocket",
+    "SingletonCookie",
+  ]) {
     try {
       fs.rmSync(path.join(profileDir, name), { force: true });
     } catch {

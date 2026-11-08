@@ -13,18 +13,24 @@ import { activityTargets } from "../src/activity-targets.js";
 */
 async function testLikesResolvesToReactionsTab() {
   const targets = activityTargets("likes");
-  if (targets.length !== 1) throw new Error(`Expected 1 target for likes, got ${targets.length}`);
+  if (targets.length !== 1)
+    throw new Error(`Expected 1 target for likes, got ${targets.length}`);
   if (targets[0].type !== "likes" || targets[0].tab !== "reactions/") {
-    throw new Error(`Expected likes on reactions/, got ${JSON.stringify(targets[0])}`);
+    throw new Error(
+      `Expected likes on reactions/, got ${JSON.stringify(targets[0])}`
+    );
   }
   console.log("PASS: likes resolves to the reactions tab");
 }
 
 async function testCommentsResolvesToCommentsTab() {
   const targets = activityTargets("comments");
-  if (targets.length !== 1) throw new Error(`Expected 1 target for comments, got ${targets.length}`);
+  if (targets.length !== 1)
+    throw new Error(`Expected 1 target for comments, got ${targets.length}`);
   if (targets[0].type !== "comments" || targets[0].tab !== "comments/") {
-    throw new Error(`Expected comments on comments/, got ${JSON.stringify(targets[0])}`);
+    throw new Error(
+      `Expected comments on comments/, got ${JSON.stringify(targets[0])}`
+    );
   }
   console.log("PASS: comments resolves to the comments tab");
 }
@@ -39,12 +45,18 @@ async function testAllExpandsToConcreteTypes() {
   const targets = activityTargets("all");
   const summary = targets.map((t) => `${t.type}@${t.tab}`).join(",");
   if (summary !== "comments@comments/,likes@reactions/") {
-    throw new Error(`Expected comments@comments/,likes@reactions/, got ${summary}`);
+    throw new Error(
+      `Expected comments@comments/,likes@reactions/, got ${summary}`
+    );
   }
   if (targets.some((t) => t.type === "all")) {
-    throw new Error("The aggregate type leaked into a target; per-type adapters need a concrete type");
+    throw new Error(
+      "The aggregate type leaked into a target; per-type adapters need a concrete type"
+    );
   }
-  console.log("PASS: all expands to one concrete target per type, in run order");
+  console.log(
+    "PASS: all expands to one concrete target per type, in run order"
+  );
 }
 
 // An unknown type must fail before the browser launches, not after a visit to
@@ -58,7 +70,9 @@ async function testUnknownTypeRejected() {
       message = e.message;
     }
     if (message !== `Unknown type: ${type}`) {
-      throw new Error(`Expected "Unknown type: ${type}", got ${JSON.stringify(message)}`);
+      throw new Error(
+        `Expected "Unknown type: ${type}", got ${JSON.stringify(message)}`
+      );
     }
   }
   console.log("PASS: unknown type rejected with the same named error");

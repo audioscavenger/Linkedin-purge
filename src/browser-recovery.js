@@ -77,7 +77,9 @@ export function classifyHolders(rows, profileDir) {
   const interactive = [];
   for (const row of rows || []) {
     if (!matchesProfile(row && row.commandLine, profileDir)) continue;
-    const automatic = /--headless|--remote-debugging-pipe|-automation/i.test(row.commandLine || "");
+    const automatic = /--headless|--remote-debugging-pipe|-automation/i.test(
+      row.commandLine || ""
+    );
     (automatic ? stragglers : interactive).push(row);
   }
   return { stragglers, interactive };
@@ -96,7 +98,10 @@ export function pickRecovery({ stragglers = [], interactive = [] } = {}) {
     return { action: "kill-and-retry", pids: stragglers.map((row) => row.pid) };
   }
   if (interactive.length) {
-    return { action: "ask-user-close", pids: interactive.map((row) => row.pid) };
+    return {
+      action: "ask-user-close",
+      pids: interactive.map((row) => row.pid),
+    };
   }
   return { action: "retry", pids: [] };
 }
@@ -125,7 +130,9 @@ export function finalFailureMessage({
   } else {
     text += `close any browser that is using it and re-run the same command.`;
   }
-  const detail = firstNonEmptyLine(String(originalError && (originalError.message || originalError)));
+  const detail = firstNonEmptyLine(
+    String(originalError && (originalError.message || originalError))
+  );
   if (detail) text += ` Last error: ${detail}`;
   return text;
 }

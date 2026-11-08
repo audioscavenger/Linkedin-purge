@@ -23,27 +23,59 @@ function envelope(items, overrides = {}) {
 
 async function testPerTypeCountsLine() {
   const result = envelope([
-    { key: "reaction:1", state: "LIKE", author: "A", postHref: null, dateTime: "Sep 16", step: 0 },
-    { key: "reaction:2", state: "LIKE", author: "B", postHref: "/feed/update/2", dateTime: "Sep 17", step: 0 },
+    {
+      key: "reaction:1",
+      state: "LIKE",
+      author: "A",
+      postHref: null,
+      dateTime: "Sep 16",
+      step: 0,
+    },
+    {
+      key: "reaction:2",
+      state: "LIKE",
+      author: "B",
+      postHref: "/feed/update/2",
+      dateTime: "Sep 17",
+      step: 0,
+    },
   ]);
-  const text = buildScanSummary("likes", result, { pagePath: "data/selection-likes.html" });
+  const text = buildScanSummary("likes", result, {
+    pagePath: "data/selection-likes.html",
+  });
   assert.ok(text.startsWith("likes:"), "prints the type prefix");
-  assert.ok(/2 items \(2 first render\)/.test(text), "prints item count and first-render count");
+  assert.ok(
+    /2 items \(2 first render\)/.test(text),
+    "prints item count and first-render count"
+  );
   assert.ok(/1 steps/.test(text), "prints step count");
   assert.ok(/complete/.test(text), "prints complete");
   assert.ok(/0ms/.test(text), "prints elapsed");
   assert.ok(/-> data\/selection-likes\.html/.test(text), "prints page path");
-  assert.ok(/\(page: data\/selection-likes\.html\)/.test(text), "appends page path in parens");
+  assert.ok(
+    /\(page: data\/selection-likes\.html\)/.test(text),
+    "appends page path in parens"
+  );
   console.log("PASS: per-type counts line with page path");
 }
 
 async function testEmptyStateWhenNoPagePath() {
   const result = envelope([
-    { key: "reaction:1", state: "LIKE", author: "A", postHref: null, dateTime: "Sep 16", step: 0 },
+    {
+      key: "reaction:1",
+      state: "LIKE",
+      author: "A",
+      postHref: null,
+      dateTime: "Sep 16",
+      step: 0,
+    },
   ]);
   const text = buildScanSummary("comments", result, {});
   assert.ok(text.startsWith("comments:"), "prints the type prefix");
-  assert.ok(/1 items \(1 first render\)/.test(text), "prints item count and first-render count");
+  assert.ok(
+    /1 items \(1 first render\)/.test(text),
+    "prints item count and first-render count"
+  );
   assert.ok(/complete/.test(text), "prints complete");
   assert.ok(!/-> /.test(text), "no page path arrow when absent");
   assert.ok(!/\(page:/.test(text), "no page parens when absent");
@@ -52,24 +84,62 @@ async function testEmptyStateWhenNoPagePath() {
 
 async function testMultipleTypes() {
   const likes = envelope([
-    { key: "reaction:1", state: "LIKE", author: "A", postHref: null, dateTime: "Sep 16", step: 0 },
-    { key: "reaction:2", state: "LIKE", author: "B", postHref: null, dateTime: "Sep 17", step: 0 },
+    {
+      key: "reaction:1",
+      state: "LIKE",
+      author: "A",
+      postHref: null,
+      dateTime: "Sep 16",
+      step: 0,
+    },
+    {
+      key: "reaction:2",
+      state: "LIKE",
+      author: "B",
+      postHref: null,
+      dateTime: "Sep 17",
+      step: 0,
+    },
   ]);
   const comments = envelope([
-    { key: "comment:1", state: "COMMENT", author: "C", postHref: null, dateTime: "Sep 18", step: 0 },
+    {
+      key: "comment:1",
+      state: "COMMENT",
+      author: "C",
+      postHref: null,
+      dateTime: "Sep 18",
+      step: 0,
+    },
   ]);
-  const likesText = buildScanSummary("likes", likes, { pagePath: "data/selection-likes.html" });
-  const commentsText = buildScanSummary("comments", comments, { pagePath: "data/selection-comments.html" });
+  const likesText = buildScanSummary("likes", likes, {
+    pagePath: "data/selection-likes.html",
+  });
+  const commentsText = buildScanSummary("comments", comments, {
+    pagePath: "data/selection-comments.html",
+  });
   assert.ok(likesText.startsWith("likes:"), "likes line starts with likes");
-  assert.ok(commentsText.startsWith("comments:"), "comments line starts with comments");
+  assert.ok(
+    commentsText.startsWith("comments:"),
+    "comments line starts with comments"
+  );
   assert.ok(/2 items/.test(likesText), "likes line shows 2 items");
   assert.ok(/1 items/.test(commentsText), "comments line shows 1 item");
-  assert.ok(/-> data\/selection-likes\.html/.test(likesText), "likes page path");
-  assert.ok(/-> data\/selection-comments\.html/.test(commentsText), "comments page path");
+  assert.ok(
+    /-> data\/selection-likes\.html/.test(likesText),
+    "likes page path"
+  );
+  assert.ok(
+    /-> data\/selection-comments\.html/.test(commentsText),
+    "comments page path"
+  );
   console.log("PASS: multiple types produce independent lines");
 }
 
-const tests = [testPerTypeCountsLine, testEmptyStateWhenNoPagePath, testMultipleTypes];
+const tests = [
+  testPerTypeCountsLine,
+  testEmptyStateWhenNoPagePath,
+  testMultipleTypes,
+];
 
 async function main() {
   let failed = 0;

@@ -52,8 +52,25 @@ const OTHER_TAB = { reactions: "comments", comments: "reactions" };
   COMMENTS_STATE into a report). Every item also carries its key.
 */
 const METADATA_FIELDS = {
-  reactions: ["cardId", "text", "postExcerpt", "state", "author", "postHref", "itemHref", "dateTime"],
-  comments: ["cardId", "text", "postExcerpt", "author", "postHref", "itemHref", "dateTime"],
+  reactions: [
+    "cardId",
+    "text",
+    "postExcerpt",
+    "state",
+    "author",
+    "postHref",
+    "itemHref",
+    "dateTime",
+  ],
+  comments: [
+    "cardId",
+    "text",
+    "postExcerpt",
+    "author",
+    "postHref",
+    "itemHref",
+    "dateTime",
+  ],
 };
 
 const TIMED_OUT = Symbol("page-call-timed-out");
@@ -111,7 +128,10 @@ async function boundedCall(fn, callTimeoutMs) {
     handle = setTimeout(resolve, callTimeoutMs);
   });
   try {
-    const value = await Promise.race([Promise.resolve().then(fn), deadline.then(() => TIMED_OUT)]);
+    const value = await Promise.race([
+      Promise.resolve().then(fn),
+      deadline.then(() => TIMED_OUT),
+    ]);
     if (value === TIMED_OUT) return { ok: false, timedOut: true };
     return { ok: true, value };
   } catch (error) {
@@ -138,14 +158,26 @@ export async function checkActivityTab({
   captureLinks = null,
   withLinks = null,
 }) {
-  const linksEnabled = links === true || captureLinks === true || withLinks === true;
+  const linksEnabled =
+    links === true || captureLinks === true || withLinks === true;
   const detector = DETECTOR_BY_TAB[tab];
   if (!detector) throw new Error(`Unknown activity tab: ${tab}`);
   const otherDetector = DETECTOR_BY_TAB[OTHER_TAB[tab]];
 
   const results = [];
-  const facts = { tab, count: 0, target: null, growth: { from: 0, to: 0 }, items: 0 };
-  const finish = () => ({ tab, ok: results.every((r) => r.ok), facts, results });
+  const facts = {
+    tab,
+    count: 0,
+    target: null,
+    growth: { from: 0, to: 0 },
+    items: 0,
+  };
+  const finish = () => ({
+    tab,
+    ok: results.every((r) => r.ok),
+    facts,
+    results,
+  });
 
   // Every in-page call goes through here: bounded, and a failure (timeout or
   // throw) becomes a named result instead of an exception or a hang.
@@ -155,56 +187,109 @@ export async function checkActivityTab({
     const observed = called.timedOut
       ? `no result after ${callTimeoutMs} ms (the call never returned)`
       : `the call threw: ${errorLine(called.error)}`;
-    results.push(fail(tab, step, helperName, `a result within ${callTimeoutMs} ms`, observed));
+    results.push(
+      fail(
+        tab,
+        step,
+        helperName,
+        `a result within ${callTimeoutMs} ms`,
+        observed
+      )
+    );
     return called;
   }
 
   // --- Tab recognition: the opened tab's detector is true, the other is false.
-  const opened = await call("tab recognition", detector, () => page[detector]());
+  const opened = await call("tab recognition", detector, () =>
+    page[detector]()
+  );
   if (!opened.ok) return finish();
   const openedExpected = `true on the ${tab} tab`;
   results.push(
     opened.value === true
       ? pass(tab, "tab recognition", detector, openedExpected, "true")
-      : fail(tab, "tab recognition", detector, openedExpected, String(opened.value))
+      : fail(
+          tab,
+          "tab recognition",
+          detector,
+          openedExpected,
+          String(opened.value)
+        )
   );
 
-  const other = await call("tab recognition", otherDetector, () => page[otherDetector]());
+  const other = await call("tab recognition", otherDetector, () =>
+    page[otherDetector]()
+  );
   if (!other.ok) return finish();
   const otherExpected = `false on the ${tab} tab`;
   results.push(
     other.value === false
       ? pass(tab, "tab recognition", otherDetector, otherExpected, "false")
-      : fail(tab, "tab recognition", otherDetector, otherExpected, String(other.value))
+      : fail(
+          tab,
+          "tab recognition",
+          otherDetector,
+          otherExpected,
+          String(other.value)
+        )
   );
 
   // --- Growth signal: cheap, and the only thing the walk polls.
-  const growth = await call("growth signal", "readGrowthSignal", () => page.readGrowthSignal());
+  const growth = await call("growth signal", "readGrowthSignal", () =>
+    page.readGrowthSignal()
+  );
   if (!growth.ok) return finish();
   const signal = growth.value || {};
   facts.count = typeof signal.count === "number" ? signal.count : 0;
-  const signalExpected = "a positive scroll height, at least one card and a non-null last key";
+  const signalExpected =
+    "a positive scroll height, at least one card and a non-null last key";
   const signalObserved = `scrollHeight ${signal.scrollHeight}, count ${signal.count}, lastKey ${signal.lastKey}`;
   results.push(
     signal.scrollHeight > 0 && signal.count >= 1 && signal.lastKey != null
-      ? pass(tab, "growth signal", "readGrowthSignal", signalExpected, signalObserved)
-      : fail(tab, "growth signal", "readGrowthSignal", signalExpected, signalObserved)
+      ? pass(
+          tab,
+          "growth signal",
+          "readGrowthSignal",
+          signalExpected,
+          signalObserved
+        )
+      : fail(
+          tab,
+          "growth signal",
+          "readGrowthSignal",
+          signalExpected,
+          signalObserved
+        )
   );
 
   // --- Scroll target: the element the walk scrolls must be nameable, so a
   // reader can tell which scroller it fell back to.
-  const scroll = await call("scroll target", "scrollActivityListToBottom", () => page.scrollActivityListToBottom());
+  const scroll = await call("scroll target", "scrollActivityListToBottom", () =>
+    page.scrollActivityListToBottom()
+  );
   if (!scroll.ok) return finish();
   const target = scroll.value || {};
   facts.target = { tag: target.tag || null, id: target.id || null };
   const targetExpected = "an element named by tag or id";
   results.push(
     facts.target.tag || facts.target.id
-      ? pass(tab, "scroll target", "scrollActivityListToBottom", targetExpected, describeTarget(facts.target))
-      : fail(tab, "scroll target", "scrollActivityListToBottom", targetExpected, "no tag and no id")
+      ? pass(
+          tab,
+          "scroll target",
+          "scrollActivityListToBottom",
+          targetExpected,
+          describeTarget(facts.target)
+        )
+      : fail(
+          tab,
+          "scroll target",
+          "scrollActivityListToBottom",
+          targetExpected,
+          "no tag and no id"
+        )
   );
 
-/*
+  /*
   --- Real pagination: the card count has to grow, the way the walk's own
   scrolling expects. Scroll height alone is not proof of a new batch: it moves
   by a few pixels on a layout shift, which is how a dead list passed this check
@@ -218,29 +303,56 @@ export async function checkActivityTab({
   while (attempts < MAX_SCROLL_ATTEMPTS && after.count <= before.count) {
     attempts++;
     const attemptStartedAt = now();
-    while (now() - attemptStartedAt < growthWaitMs && after.count <= before.count) {
+    while (
+      now() - attemptStartedAt < growthWaitMs &&
+      after.count <= before.count
+    ) {
       await sleep(pollIntervalMs);
-      const read = await call("pagination", "readGrowthSignal", () => page.readGrowthSignal());
+      const read = await call("pagination", "readGrowthSignal", () =>
+        page.readGrowthSignal()
+      );
       if (!read.ok) return finish();
       after = read.value || {};
     }
     if (after.count > before.count) break;
-    const again = await call("pagination", "scrollActivityListToBottom", () => page.scrollActivityListToBottom());
+    const again = await call("pagination", "scrollActivityListToBottom", () =>
+      page.scrollActivityListToBottom()
+    );
     if (!again.ok) return finish();
   }
   facts.cards = { from: before.count || 0, to: after.count || 0 };
-  facts.growth = { from: before.scrollHeight || 0, to: after.scrollHeight || 0 };
+  facts.growth = {
+    from: before.scrollHeight || 0,
+    to: after.scrollHeight || 0,
+  };
   const paginationExpected = `the card count above ${facts.cards.from} after at most ${MAX_SCROLL_ATTEMPTS} scrolls of ${growthWaitMs} ms each`;
   const paginationObserved = `${describeTarget(facts.target)}, cards ${facts.cards.from} -> ${facts.cards.to}, scroll height ${facts.growth.from} -> ${facts.growth.to}`;
   results.push(
     facts.cards.to > facts.cards.from
-      ? pass(tab, "pagination", "scrollActivityListToBottom", paginationExpected, paginationObserved)
-      : fail(tab, "pagination", "scrollActivityListToBottom", paginationExpected, paginationObserved)
+      ? pass(
+          tab,
+          "pagination",
+          "scrollActivityListToBottom",
+          paginationExpected,
+          paginationObserved
+        )
+      : fail(
+          tab,
+          "pagination",
+          "scrollActivityListToBottom",
+          paginationExpected,
+          paginationObserved
+        )
   );
 
   // --- Item metadata: the shape the scan envelope writes and purge --input reads.
-  const collectCall = (seenKeys) => (linksEnabled ? page.collectItems(seenKeys, true) : page.collectItems(seenKeys));
-  const read = await call("item metadata", "collectItems", () => collectCall([]));
+  const collectCall = (seenKeys) =>
+    linksEnabled
+      ? page.collectItems(seenKeys, true)
+      : page.collectItems(seenKeys);
+  const read = await call("item metadata", "collectItems", () =>
+    collectCall([])
+  );
   if (!read.ok) return finish();
   const items = Array.isArray(read.value) ? read.value : [];
   facts.items = items.length;
@@ -248,10 +360,13 @@ export async function checkActivityTab({
   const problems = [];
   if (!items.length) problems.push("no items at all");
   for (const [index, item] of items.entries()) {
-    if (!item || item.key == null || item.key === "") problems.push(`no key on item ${index}`);
-    if (!item || item.cardId == null || item.cardId === "") problems.push(`no cardId on item ${index}`);
+    if (!item || item.key == null || item.key === "")
+      problems.push(`no key on item ${index}`);
+    if (!item || item.cardId == null || item.cardId === "")
+      problems.push(`no cardId on item ${index}`);
     for (const field of METADATA_FIELDS[tab]) {
-      if (!item || !(field in item)) problems.push(`no ${field} on item ${index}`);
+      if (!item || !(field in item))
+        problems.push(`no ${field} on item ${index}`);
     }
   }
   const authors = items.filter((item) => item && item.author != null).length;
@@ -265,8 +380,20 @@ export async function checkActivityTab({
     : `${items.length} items; ${authors} authors and ${dates} dates read`;
   results.push(
     problems.length
-      ? fail(tab, "item metadata", "collectItems", metadataExpected, metadataObserved)
-      : pass(tab, "item metadata", "collectItems", metadataExpected, metadataObserved)
+      ? fail(
+          tab,
+          "item metadata",
+          "collectItems",
+          metadataExpected,
+          metadataObserved
+        )
+      : pass(
+          tab,
+          "item metadata",
+          "collectItems",
+          metadataExpected,
+          metadataObserved
+        )
   );
 
   // --- Unique keys: the walk merges by key, so a repeat silently drops a card.
@@ -287,14 +414,19 @@ export async function checkActivityTab({
       : pass(tab, "unique keys", "collectItems", uniqueExpected, uniqueObserved)
   );
 
-/*
+  /*
   --- Seen keys: hand in every key but the last; only the last (and anything
   that loaded since) may come back. This is the incremental contract the walk
   depends on to stay linear.
 */
-  const handed = items.slice(0, -1).map((item) => (item ? item.key : null)).filter((key) => key != null);
+  const handed = items
+    .slice(0, -1)
+    .map((item) => (item ? item.key : null))
+    .filter((key) => key != null);
   const lastKey = items.length ? items[items.length - 1].key : null;
-  const fresh = await call("seen keys", "collectItems", () => collectCall(handed));
+  const fresh = await call("seen keys", "collectItems", () =>
+    collectCall(handed)
+  );
   if (!fresh.ok) return finish();
   const freshKeys = (Array.isArray(fresh.value) ? fresh.value : [])
     .map((item) => (item ? item.key : null))
@@ -328,16 +460,26 @@ export async function checkActivityTab({
   Playwright. The bound and the failure naming live in checkActivityTab().
 */
 export function createCheckPage(page, options = {}) {
-  const links = typeof options === "boolean" ? options : !!(options && (options.links || options.captureLinks || options.withLinks));
+  const links =
+    typeof options === "boolean"
+      ? options
+      : !!(
+          options &&
+          (options.links || options.captureLinks || options.withLinks)
+        );
   return {
     isReactionsPage: () => page.evaluate(() => window.LP.isReactionsPage()),
     isCommentsPage: () => page.evaluate(() => window.LP.isCommentsPage()),
     readGrowthSignal: () => page.evaluate(() => window.LP.readGrowthSignal()),
-    scrollActivityListToBottom: () => page.evaluate(() => window.LP.scrollActivityListToBottom()),
+    scrollActivityListToBottom: () =>
+      page.evaluate(() => window.LP.scrollActivityListToBottom()),
     collectItems: (seenKeys, linksFlag) => {
       const useLinks = links || linksFlag === true;
       if (useLinks) {
-        return page.evaluate((keys) => window.LP.collectItems(keys, true), seenKeys);
+        return page.evaluate(
+          (keys) => window.LP.collectItems(keys, true),
+          seenKeys
+        );
       }
       return page.evaluate((keys) => window.LP.collectItems(keys), seenKeys);
     },

@@ -46,7 +46,7 @@ const OUTCOME_ALIASES = {
   acted: DELETED,
   "not-found": NOT_FOUND,
   notfound: NOT_FOUND,
-  "not_found": NOT_FOUND,
+  not_found: NOT_FOUND,
   "not found": NOT_FOUND,
   missing: NOT_FOUND,
   unmatched: NOT_FOUND,
@@ -78,7 +78,10 @@ export function outcomeToStatus(input, ...rest) {
     const o = input;
     if (typeof o.outcome === "string") return mapOutcomeString(o.outcome);
     if (typeof o.result === "string") return mapOutcomeString(o.result);
-    if (typeof o.status === "string" && (o.status === DELETED || o.status === FAILED || o.status === NOT_FOUND)) {
+    if (
+      typeof o.status === "string" &&
+      (o.status === DELETED || o.status === FAILED || o.status === NOT_FOUND)
+    ) {
       return o.status;
     }
     if (

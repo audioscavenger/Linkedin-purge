@@ -2,11 +2,7 @@
 
 // Core module - owns the purge lifecycle
 export class PurgeRunner {
-  constructor({
-    pageAdapter,
-    confirmAdapter,
-    envelopeStore,
-  }) {
+  constructor({ pageAdapter, confirmAdapter, envelopeStore }) {
     this.pageAdapter = pageAdapter;
     this.confirmAdapter = confirmAdapter;
     this.envelopeStore = envelopeStore || null;
@@ -24,14 +20,26 @@ export class PageAdapter {
     this.page = page;
   }
 
-  async collectKeys() { throw new Error("Not implemented"); }
-  async collectCardIds() { throw new Error("Not implemented"); }
-  async oneCardAct(key) { throw new Error("Not implemented"); }
-  async loadStep() { throw new Error("Not implemented"); }
-  async wait(ms) { throw new Error("Not implemented"); }
+  async collectKeys() {
+    throw new Error("Not implemented");
+  }
+  async collectCardIds() {
+    throw new Error("Not implemented");
+  }
+  async oneCardAct(key) {
+    throw new Error("Not implemented");
+  }
+  async loadStep() {
+    throw new Error("Not implemented");
+  }
+  async wait(ms) {
+    throw new Error("Not implemented");
+  }
 }
 
 // Adapter: prompts user for confirmation before destructive action
 export class ConfirmAdapter {
-  async confirm(message) { throw new Error("Not implemented"); }
+  async confirm(message) {
+    throw new Error("Not implemented");
+  }
 }

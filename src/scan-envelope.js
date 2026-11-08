@@ -11,7 +11,13 @@
 */
 import { PURGE_STATUSES } from "./purge/status.js";
 
-export function buildScanEnvelope({ type, items, steps = 1, complete = true, scannedAt = new Date().toISOString() }) {
+export function buildScanEnvelope({
+  type,
+  items,
+  steps = 1,
+  complete = true,
+  scannedAt = new Date().toISOString(),
+}) {
   const withSteps = (items || []).map((item) => ({
     ...item,
     step: Number.isInteger(item.step) ? item.step : 0,

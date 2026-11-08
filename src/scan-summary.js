@@ -20,21 +20,44 @@ function pickType(obj, fallback) {
 }
 
 function pickResult(input, rest) {
-  if (input && typeof input === "object" && !Array.isArray(input) && (Array.isArray(input.items) || "steps" in input || "complete" in input)) {
+  if (
+    input &&
+    typeof input === "object" &&
+    !Array.isArray(input) &&
+    (Array.isArray(input.items) || "steps" in input || "complete" in input)
+  ) {
     return input;
   }
-  if (input && typeof input === "object" && !Array.isArray(input) && input.result && typeof input.result === "object") {
+  if (
+    input &&
+    typeof input === "object" &&
+    !Array.isArray(input) &&
+    input.result &&
+    typeof input.result === "object"
+  ) {
     return input.result;
   }
   for (const r of rest || []) {
-    if (r && typeof r === "object" && !Array.isArray(r) && (Array.isArray(r.items) || "steps" in r || "complete" in r)) {
+    if (
+      r &&
+      typeof r === "object" &&
+      !Array.isArray(r) &&
+      (Array.isArray(r.items) || "steps" in r || "complete" in r)
+    ) {
       return r;
     }
-    if (r && typeof r === "object" && r.result && typeof r.result === "object") {
+    if (
+      r &&
+      typeof r === "object" &&
+      r.result &&
+      typeof r.result === "object"
+    ) {
       return r.result;
     }
   }
-  return input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return input && typeof input === "object" && !Array.isArray(input)
+    ? input
+    : {};
 }
 
 function pickOptions(input, rest) {
@@ -54,7 +77,8 @@ function firstRenderCountOf(result, opts) {
   if (typeof opts.firstRenderItems === "number") return opts.firstRenderItems;
   if (typeof opts.rendered === "number") return opts.rendered;
   if (typeof result.firstRender === "number") return result.firstRender;
-  if (typeof result.firstRenderCount === "number") return result.firstRenderCount;
+  if (typeof result.firstRenderCount === "number")
+    return result.firstRenderCount;
   const items = asArray(result.items);
   return items.filter((it) => it && (it.step === 0 || it.step === "0")).length;
 }
@@ -100,7 +124,8 @@ function elapsedMsOf(opts, result) {
   ];
   for (const c of candidates) {
     if (typeof c === "number" && Number.isFinite(c)) return c;
-    if (typeof c === "string" && /^\d+(\.\d+)?$/.test(c.trim())) return Number(c.trim());
+    if (typeof c === "string" && /^\d+(\.\d+)?$/.test(c.trim()))
+      return Number(c.trim());
   }
   return 0;
 }
@@ -149,14 +174,25 @@ export function buildScanSummary(...args) {
     if (!type) type = pickType(a, pickType(b, pickType(c, undefined)));
   }
 
-  if (!result || typeof result !== "object" || Array.isArray(result)) result = {};
+  if (!result || typeof result !== "object" || Array.isArray(result))
+    result = {};
   opts = opts || {};
   if (type === undefined) type = pickType(result, pickType(opts, undefined));
 
   const items = asArray(result.items);
   const count = typeof result.count === "number" ? result.count : items.length;
-  const steps = typeof result.steps === "number" ? result.steps : (typeof opts.steps === "number" ? opts.steps : 0);
-  const complete = typeof result.complete === "boolean" ? result.complete : (typeof opts.complete === "boolean" ? opts.complete : true);
+  const steps =
+    typeof result.steps === "number"
+      ? result.steps
+      : typeof opts.steps === "number"
+        ? opts.steps
+        : 0;
+  const complete =
+    typeof result.complete === "boolean"
+      ? result.complete
+      : typeof opts.complete === "boolean"
+        ? opts.complete
+        : true;
   const firstRender = firstRenderCountOf(result, opts);
   const asked = linksAsked(opts, result);
   const links = linkCountOf(result);
@@ -183,7 +219,9 @@ export function buildScanSummary(...args) {
     asked ? `withLinks=${links}` : null,
     `elapsedMs=${ms}`,
     `elapsed=${ms}`,
-  ].filter(Boolean).join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
   let text = parts.join(", ");
   text += ` [${bracket}]`;
   if (pagePath) text += ` (page: ${pagePath})`;

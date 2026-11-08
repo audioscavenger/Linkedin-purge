@@ -30,20 +30,25 @@ function expectRejection(fn, ...expectedFragments) {
   if (!error) throw new Error("Expected the loader to throw, but it did not");
   for (const fragment of expectedFragments) {
     if (!error.message.includes(fragment)) {
-      throw new Error(`Error should mention "${fragment}", got: ${error.message}`);
+      throw new Error(
+        `Error should mention "${fragment}", got: ${error.message}`
+      );
     }
   }
 }
 
 // Happy path: keys come from the envelope's items[].key (the scan shape).
 function testItemsEnvelope() {
-  const file = fixture("items-envelope.json", JSON.stringify({
-    type: "likes",
-    count: 2,
-    keys: ["a", "b", "c"],
-    items: [{ key: "a", state: "no reaction" }, { key: "b" }],
-    scannedAt: "2026-01-01T00:00:00.000Z",
-  }));
+  const file = fixture(
+    "items-envelope.json",
+    JSON.stringify({
+      type: "likes",
+      count: 2,
+      keys: ["a", "b", "c"],
+      items: [{ key: "a", state: "no reaction" }, { key: "b" }],
+      scannedAt: "2026-01-01T00:00:00.000Z",
+    })
+  );
   const keys = loadInputKeys(file);
   if (keys.length !== 2 || keys[0] !== "a" || keys[1] !== "b") {
     throw new Error(`Expected [a, b], got ${JSON.stringify(keys)}`);
@@ -53,7 +58,10 @@ function testItemsEnvelope() {
 
 // Happy path: keys[] fallback when items is absent.
 function testKeysFallback() {
-  const file = fixture("keys-fallback.json", JSON.stringify({ keys: ["x", "y"] }));
+  const file = fixture(
+    "keys-fallback.json",
+    JSON.stringify({ keys: ["x", "y"] })
+  );
   const keys = loadInputKeys(file);
   if (keys.length !== 2 || keys[0] !== "x" || keys[1] !== "y") {
     throw new Error(`Expected [x, y], got ${JSON.stringify(keys)}`);
@@ -66,9 +74,9 @@ function testBareArrayRejection() {
   const file = fixture("bare-array.json", JSON.stringify(["k1", "k2"]));
   expectRejection(
     () => loadInputKeys(file),
-    "scan JSON envelope",    // names the expected shape
-    "items[].key",           // names the primary source
-    "keys[]"                 // names the fallback
+    "scan JSON envelope", // names the expected shape
+    "items[].key", // names the primary source
+    "keys[]" // names the fallback
   );
   console.log("PASS: bare array rejected with named-shape error");
 }
@@ -83,11 +91,14 @@ function testMalformedJson() {
 // Items made of strings carry no usable key: rejected instead of being
 // silently dropped into an empty run (US16).
 function testStringItemsRejection() {
-  const file = fixture("string-items.json", JSON.stringify({ items: ["a", "b"] }));
+  const file = fixture(
+    "string-items.json",
+    JSON.stringify({ items: ["a", "b"] })
+  );
   expectRejection(
     () => loadInputKeys(file),
     "Invalid purge input",
-    "items[].key",   // names the expected shape
+    "items[].key", // names the expected shape
     "object with a non-empty string key"
   );
   console.log("PASS: string items rejected with named-shape error");
@@ -96,7 +107,10 @@ function testStringItemsRejection() {
 // An items entry without a usable key (object, but no key field) is
 // rejected the same way: no silent empty run.
 function testItemWithoutKeyRejection() {
-  const file = fixture("item-without-key.json", JSON.stringify({ items: [{ state: "no reaction" }] }));
+  const file = fixture(
+    "item-without-key.json",
+    JSON.stringify({ items: [{ state: "no reaction" }] })
+  );
   expectRejection(
     () => loadInputKeys(file),
     "Invalid purge input",
@@ -109,7 +123,10 @@ function testItemWithoutKeyRejection() {
 // An envelope listing zero keys must fail loudly, naming the file - it
 // would otherwise run zero deletions with no explanation.
 function testEmptyItemsRejection() {
-  const file = fixture("empty-items.json", JSON.stringify({ type: "likes", count: 0, items: [], keys: [] }));
+  const file = fixture(
+    "empty-items.json",
+    JSON.stringify({ type: "likes", count: 0, items: [], keys: [] })
+  );
   expectRejection(
     () => loadInputKeys(file),
     "Empty purge input",
@@ -121,7 +138,10 @@ function testEmptyItemsRejection() {
 
 // keys[] is the fallback envelope: its entries must be non-empty strings.
 function testNonStringKeysRejection() {
-  const file = fixture("non-string-keys.json", JSON.stringify({ keys: ["a", 42] }));
+  const file = fixture(
+    "non-string-keys.json",
+    JSON.stringify({ keys: ["a", 42] })
+  );
   expectRejection(
     () => loadInputKeys(file),
     "Invalid purge input",

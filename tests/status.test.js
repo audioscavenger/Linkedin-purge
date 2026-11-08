@@ -47,9 +47,14 @@ async function testCounts() {
     { key: "reaction:4", cardId: "card-4", status: "todo" },
     { key: "reaction:5", cardId: "card-5", status: "no-op" },
   ]);
-  fs.writeFileSync(path.join(dir, "scan-likes.json"), JSON.stringify(data, null, 2));
+  fs.writeFileSync(
+    path.join(dir, "scan-likes.json"),
+    JSON.stringify(data, null, 2)
+  );
 
-  const { output } = await captureConsole(() => runStatus(["--data-dir", dir, "--type", "likes"]));
+  const { output } = await captureConsole(() =>
+    runStatus(["--data-dir", dir, "--type", "likes"])
+  );
   assert.ok(output.includes("likes"), "prints the type");
   assert.ok(/deleted\D*1/.test(output), "prints deleted count");
   assert.ok(/failed\D*1/.test(output), "prints failed count");
@@ -61,18 +66,36 @@ async function testCounts() {
 
 async function testMissingEnvelope() {
   const dir = fs.mkdtempSync(path.join(tmp, "status-missing-"));
-  const { output } = await captureConsole(() => runStatus(["--data-dir", dir, "--type", "likes"]));
-  assert.ok(output.includes("no scan yet"), "missing envelope reported as no scan yet");
+  const { output } = await captureConsole(() =>
+    runStatus(["--data-dir", dir, "--type", "likes"])
+  );
+  assert.ok(
+    output.includes("no scan yet"),
+    "missing envelope reported as no scan yet"
+  );
   console.log("PASS: status missing envelope");
 }
 
 async function testNoCheckpointRead() {
   const dir = fs.mkdtempSync(path.join(tmp, "status-nocheckpoint-"));
-  fs.writeFileSync(path.join(dir, "checkpoint-likes.json"), "{ this is not valid json");
-  const data = envelope([{ key: "reaction:1", cardId: "card-1", status: "deleted" }]);
-  fs.writeFileSync(path.join(dir, "scan-likes.json"), JSON.stringify(data, null, 2));
-  const { output } = await captureConsole(() => runStatus(["--data-dir", dir, "--type", "likes"]));
-  assert.ok(output.includes("deleted"), "status reads envelope, not checkpoint");
+  fs.writeFileSync(
+    path.join(dir, "checkpoint-likes.json"),
+    "{ this is not valid json"
+  );
+  const data = envelope([
+    { key: "reaction:1", cardId: "card-1", status: "deleted" },
+  ]);
+  fs.writeFileSync(
+    path.join(dir, "scan-likes.json"),
+    JSON.stringify(data, null, 2)
+  );
+  const { output } = await captureConsole(() =>
+    runStatus(["--data-dir", dir, "--type", "likes"])
+  );
+  assert.ok(
+    output.includes("deleted"),
+    "status reads envelope, not checkpoint"
+  );
   console.log("PASS: status does not read checkpoint");
 }
 
@@ -91,7 +114,9 @@ async function main() {
       }
     }
   } finally {
-    try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    } catch {}
   }
   const passed = tests.length - failed;
   console.log(`\n${passed} passed, ${failed} failed`);

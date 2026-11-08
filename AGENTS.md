@@ -17,7 +17,6 @@
 
 ## House style
 
-- No em-dashes anywhere in this repo's prose (docs, `README.md`, `CHANGELOG.md`, ADRs, changesets, code comments). Where a sentence reaches for one, rewrite it instead with a comma, colon, period, parentheses, or a conjunction, whichever the sentence actually wants; never do a blind character substitution.
 - Machine-wide file, encoding, and line-ending rules live in the global `~/.config/opencode/AGENTS.md`, not here.
 
 ## Commands

@@ -9,11 +9,7 @@ import {
 import { warn } from "../logger.js";
 
 export class PurgeRunner {
-  constructor({
-    pageAdapter,
-    confirmAdapter,
-    envelopeStore,
-  }) {
+  constructor({ pageAdapter, confirmAdapter, envelopeStore }) {
     this.pageAdapter = pageAdapter;
     this.confirmAdapter = confirmAdapter;
     this.envelopeStore = envelopeStore || null;
@@ -33,7 +29,9 @@ export class PurgeRunner {
     if (inputKeys) {
       // Selection mode (tickets 18/19/30): walk the Activity List via loadStep,
       // match cards by Card Identity, stop when every selected item is final.
-      const prior = this.envelopeStore ? await this.envelopeStore.load(type) : null;
+      const prior = this.envelopeStore
+        ? await this.envelopeStore.load(type)
+        : null;
       const priorStatus = new Map();
 
       // Use the selection items' statuses when provided (they carry "todo"
@@ -127,9 +125,14 @@ export class PurgeRunner {
               counts.notFound++;
               if (this.envelopeStore) {
                 try {
-                  await this.envelopeStore.mark(cardId, PURGE_STATUSES.NOT_FOUND);
+                  await this.envelopeStore.mark(
+                    cardId,
+                    PURGE_STATUSES.NOT_FOUND
+                  );
                 } catch (err) {
-                  warn(`Could not persist not-found for ${cardId}: ${err.message}`);
+                  warn(
+                    `Could not persist not-found for ${cardId}: ${err.message}`
+                  );
                 }
               }
             }
@@ -154,7 +157,7 @@ export class PurgeRunner {
       };
     }
 
-/*
+    /*
   Full purge mode (no selection): walk the Activity List and act on every
   collected card by its Card Identity (container element id). Statuses are
   persisted through envelopeStore (same as selection mode). Processed cardIds
@@ -183,7 +186,12 @@ export class PurgeRunner {
           `Delete ${newCardIds.length} ${type} items? Type YES to proceed: `
         );
         if (!ok) {
-          return { type, deleted: 0, durationMs: Date.now() - startTime, counts: null };
+          return {
+            type,
+            deleted: 0,
+            durationMs: Date.now() - startTime,
+            counts: null,
+          };
         }
         confirmed = true;
       }
@@ -197,14 +205,27 @@ export class PurgeRunner {
           // Best-effort: a missing scan envelope (e.g. purge without a prior
           // scan) must not crash the run.
           if (this.envelopeStore) {
-            try { await this.envelopeStore.mark(cardId, PURGE_STATUSES.DELETED); } catch (err) { warn(`Could not persist deleted status for ${cardId}: ${err.message}`); }
+            try {
+              await this.envelopeStore.mark(cardId, PURGE_STATUSES.DELETED);
+            } catch (err) {
+              warn(
+                `Could not persist deleted status for ${cardId}: ${err.message}`
+              );
+            }
           }
         } else if (this.envelopeStore) {
-          try { await this.envelopeStore.mark(cardId, status); } catch (err2) { warn(`Could not persist status for ${cardId}: ${err2.message}`); }
+          try {
+            await this.envelopeStore.mark(cardId, status);
+          } catch (err2) {
+            warn(`Could not persist status for ${cardId}: ${err2.message}`);
+          }
         }
         roundCount++;
         if (roundCount % batchSize === 0) {
-          const pause = Math.floor(Math.random() * (options.batchMax - options.batchMin + 1)) + options.batchMin;
+          const pause =
+            Math.floor(
+              Math.random() * (options.batchMax - options.batchMin + 1)
+            ) + options.batchMin;
           await this.pageAdapter.wait(pause);
         }
       }
