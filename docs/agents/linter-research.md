@@ -8,7 +8,7 @@ For this repository's specific needs (comment-run enforcement, pre-commit integr
 
 ### 1. ESLint + Prettier Capabilities
 
-- **Custom Rules**: ESLint supports custom rules via JavaScript plugins (e.g., `eslint-plugin-eslint-comments`), which can implement the exact "no 3+ consecutive `//` lines" house rule. The existing `scripts/check-comments.js` script demonstrates this is already implemented in the repo.
+- **Custom Rules**: ESLint supports custom rules via JavaScript plugins (e.g., `eslint-plugin-eslint-comments`), which can implement the exact "no 3+ consecutive `//` lines" house rule. The existing `scripts/check-comments.mjs` script demonstrates this is already implemented in the repo.
 - **Performance**: ESLint is slower than Biome (~15x slower), but for a small CLI tool like this, performance difference is negligible.
 - **Pre-commit Integration**: ESLint + Prettier work with established pre-commit tools:
   - `lint-staged` + Husky (used in repo via `npm run check`/`fix:comments`)
@@ -16,9 +16,9 @@ For this repository's specific needs (comment-run enforcement, pre-commit integr
   - `pre-commit` framework
   - Shell scripts (as shown in ESLint docs)
 - **Configuration Burden**: Requires multiple files:
-  - `eslint.config.js` (or similar)
+  - `eslint.config.mjs` (or similar)
   - `.prettierrc` (or similar)
-  - Pre-commit hook configuration (currently `scripts/check-commands.js`)
+  - Pre-commit hook configuration (currently `scripts/check-commands.mjs`)
 
 ### 2. Biome Capabilities
 
@@ -43,7 +43,7 @@ For this repository's specific needs (comment-run enforcement, pre-commit integr
 
 | Factor | ESLint + Prettier | Biome |
 |--------|-------------------|-------|
-| **Comment-Run Enforcement** | ✅ Supported via custom rule/plugin (existing `check-comments.js` works) | ❌ No native rule; would require suppression workaround |
+| **Comment-Run Enforcement** | ✅ Supported via custom rule/plugin (existing `check-comments.mjs` works) | ❌ No native rule; would require suppression workaround |
 | **Pre-commit Integration** | ✅ Mature ecosystem (lint-staged, husky, git-format-staged, pre-commit, shell scripts) | ✅ Well-documented support for multiple tools |
 | **Configuration Burden** | ❌ Higher (multiple config files + hook setup) | ✅ Lower (single `biome.json`) |
 | **Performance** | ❌ Slower (baseline) | ✅ 15-25x faster |
@@ -55,7 +55,7 @@ For this repository's specific needs (comment-run enforcement, pre-commit integr
 
 **Keep ESLint + Prettier** for now because:
 
-1. The existing `scripts/check-comments.js` and `scripts/fix-comments.mjs` already implement the required comment-run enforcement via custom ESLint rules
+1. The existing `scripts/check-comments.mjs` and `scripts/fix-comments.mjs` already implement the required comment-run enforcement via custom ESLint rules
 2. Migrating to Biome would require:
    - Converting ESLint config to `biome.json`
    - Potentially rewriting the comment-run enforcement logic (since Biome lacks a native rule)

@@ -1,33 +1,32 @@
 {
   "name": "linkedin-purge",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "description": "Purge your own LinkedIn comments and likes via Playwright with randomized pacing.",
   "license": "MIT",
-  "type": "module",
   "private": true,
   "bin": {
-    "linkedin-purge": "src/cli.js"
+    "linkedin-purge": "src/cli.mjs"
   },
   "scripts": {
-    "login": "node src/cli.js login",
-    "login-import-profile": "node src/cli.js login-import-profile",
-    "scan": "node src/cli.js scan",
-    "purge": "node src/cli.js purge",
-    "status": "node src/cli.js status",
-    "help": "node src/cli.js --help",
-    "verify:page": "node scripts/verify-page.js",
-    "verify:selection-page": "node scripts/selection-page-browser-check.js",
-    "check": "node scripts/check-all.js && node scripts/check-comments.js && node scripts/test-runner.js",
-    "check-changelog": "node scripts/check-changelog.js",
+    "login": "node src/cli.mjs login",
+    "login-import-profile": "node src/cli.mjs login-import-profile",
+    "scan": "node src/cli.mjs scan",
+    "purge": "node src/cli.mjs purge",
+    "status": "node src/cli.mjs status",
+    "help": "node src/cli.mjs --help",
+    "verify:page": "node scripts/verify-page.mjs",
+    "verify:selection-page": "node scripts/selection-page-browser-check.mjs",
+    "check": "node scripts/check-all.mjs && node scripts/check-comments.mjs && node scripts/test-runner.mjs",
+    "check-changelog": "node scripts/check-changelog.mjs",
     "fix:comments": "node scripts/fix-comments.mjs",
     "fix:slop": "node scripts/fix-slop.mjs",
     "check:slop": "node scripts/fix-slop.mjs --check",
-    "health": "node scripts/health.js",
+    "health": "node scripts/health.mjs",
     "lint": "eslint . && node scripts/check-syntax.mjs",
-    "test": "node scripts/test-runner.js",
+    "test": "node scripts/test-runner.mjs",
     "postinstall": "echo 'No build step needed'",
     "prepare": "husky",
-    "format": "prettier --write \"src/**/*.{js,mjs,cjs,jsx,tsx,ts}\" \"tests/**/*.{js,mjs,cjs,jsx,tsx,ts}\" \"scripts/*.js\" \"*.js\""
+    "format": "prettier --write \"src/**/*.{js,mjs,cjs,jsx,tsx,ts}\" \"tests/**/*.{js,mjs,cjs,jsx,tsx,ts}\" \"scripts/*.mjs\" \"*.js\""
   },
   "dependencies": {
     "audit": "^0.0.6",

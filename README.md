@@ -279,19 +279,19 @@ scrolls each tab once; it never clicks a card or deletes anything.
 ### DOM probe: discover selectors when LinkedIn changes its markup
 
 LinkedIn obfuscates its class names and markup to combat scrapers, so the
-selectors in `src/linkedin-dom.js` will rot over time. When scan metadata
+selectors in `src/linkedin-dom.mjs` will rot over time. When scan metadata
 (author, headline, date, text) breaks again, use the DOM probe to discover the
 current selectors against the live page, then update the extractor:
 
 ```sh
 # Dump per-card DOM structure for comments (default) or reactions (likes)
-node scripts/probe-dom.js                    # comments tab
-node scripts/probe-dom.js likes              # reactions tab
-node scripts/probe-dom.js --headless         # no visible window
+node scripts/probe-dom.mjs                    # comments tab
+node scripts/probe-dom.mjs likes              # reactions tab
+node scripts/probe-dom.mjs --headless         # no visible window
 
 # Dump full outerHTML + every text node of one comment card to /tmp/card-outer.html
-node scripts/dump-card.js                    # card index 0
-node scripts/dump-card.js 3                  # card index 3
+node scripts/dump-card.mjs                    # card index 0
+node scripts/dump-card.mjs 3                  # card index 3
 ```
 
 Both scripts are read-only: no clicks, no deletions, no scroll. Each carries a

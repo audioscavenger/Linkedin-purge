@@ -13,16 +13,15 @@ const __dirname =
   import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
 
 const files = [
-  "index.js",
   ...fs
     .readdirSync(path.resolve(__dirname, "../src"))
-    .filter((f) => f.endsWith(".js"))
+    .filter((f) => f.endsWith(".mjs"))
     .map((f) => path.join("src", f)),
 ];
 
 for (const file of files) {
   try {
-    const fullPath = path.resolve(path.dirname(file), file);
+    const fullPath = path.resolve(file);
     execFileSync("node", ["--check", fullPath], { stdio: "pipe" });
     console.log(`OK: ${file}`);
   } catch (err) {

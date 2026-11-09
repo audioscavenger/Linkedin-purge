@@ -30,7 +30,7 @@
 ## Gotchas
 
 - Chromium binary: `E:/wintools/PortableApps/chromium-win64/bin/chrome.exe`; profile source at `.../chromium-win64/profile`. Copy lands in `.profile-chromium/`; default resolution tries `.profile-chromium/` -> chrlauncher profile -> `.profile`.
-- Locked-profile recovery: `launchBrowser` self-heals when the profile is locked by a leftover browser from a previous run -- it kills only this tool's own headless/CDP instances and retries the launch. If a browser you have open holds the profile, it prints a one-line hint (with the PIDs) telling you to close it and retry; it never force-kills a user window. Decision logic: `src/browser-recovery.js` (unit-tested in `tests/browser-recovery.test.js`).
+- Locked-profile recovery: `launchBrowser` self-heals when the profile is locked by a leftover browser from a previous run -- it kills only this tool's own headless/CDP instances and retries the launch. If a browser you have open holds the profile, it prints a one-line hint (with the PIDs) telling you to close it and retry; it never force-kills a user window. Decision logic: `src/browser-recovery.mjs` (unit-tested in `tests/browser-recovery.test.mjs`).
 - Scan scrolls `#workspace` container (not window/body). Reactions use stable index key `reaction:<index>`, not shared permalink links.
 - Checkpoint saved every 10 deletions (`data/checkpoint-<type>.json`); resume automatically on `purge`. Ctrl+C stops after current item.
 - Purge loop saves checkpoint and exits when `cfgTiming.timeout` (default 3600000 ms = 1h from `config.json`) exceeded.
@@ -66,6 +66,6 @@ See `CODING_STANDARDS.md` for module depth, seam placement, test expectations, a
 
 ## Further Notes
 
-- The deletion test confirms this is a deepening opportunity: deleting `PurgeRunner` would not make `cli.js` work; it would need its own rewrite.
+- The deletion test confirms this is a deepening opportunity: deleting `PurgeRunner` would not make `cli.mjs` work; it would need its own rewrite.
 - "One adapter means a hypothetical seam. Two adapters means a real one." We have three adapters now, so this is a real seam.
 - The domain model should be updated with "Purge Run", "Purge Item", and "ConfirmAdapter" once the spec is accepted.

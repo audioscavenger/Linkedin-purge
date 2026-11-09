@@ -33,7 +33,7 @@ A module may legitimately exceed 100 lines when:
 - It owns a complete lifecycle end-to-end (e.g., `PurgeRunner` with its four adapters).
 - The complexity truly concentrates — deleting it would require rewriting dependent code.
 - No reasonable split preserves the depth property.
-- **Browser-injected script**: `src/linkedin-dom.js` is injected into the page via `page.addInitScript()`, which requires a single self-contained file — ES module imports are unavailable in that context. Do not split it into submodules without adding a build/bundle step first.
+- **Browser-injected script**: `src/linkedin-dom.mjs` is injected into the page via `page.addInitScript()`, which requires a single self-contained file — ES module imports are unavailable in that context. Do not split it into submodules without adding a build/bundle step first.
 
 **Disagreements** with this standard are recorded as ADRs in `docs/adr/`.
 

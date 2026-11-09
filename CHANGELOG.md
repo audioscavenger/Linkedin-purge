@@ -9,7 +9,7 @@
 - [ ] Added comment-run enforcement for the house two-line `//` comment rule: `npm run check` now fails when three or more consecutive comment lines are found, `npm run fix:comments` merges such runs into block comments, and unit tests cover both.
 
 - [ ] Activity Session owns the browser bootstrap for scan and purge: one module launches (or attaches over `--cdp`), opens the page, injects the helpers, guards the session, derives the profile base URL and parks on each Activity target tab, so the two commands no longer carry their own copy.
-  - Removed about 70 duplicated lines from `scan` and `purge`: the launch, page, helper injection, login guards, `/in/me` round trip and tab navigation now live in `src/activity-session.js`.
+  - Removed about 70 duplicated lines from `scan` and `purge`: the launch, page, helper injection, login guards, `/in/me` round trip and tab navigation now live in `src/activity-session.mjs`.
   - One pair of settle waits (3s after the profile page, 8s after a tab) replaces scan's 8s and purge's 5s.
   - `--cdp` now works for purge as the help screen already documented; scan read it and dropped it, purge never read it.
   - Deliberate behavior change: a lapsed session throws a friendly error, so a not-logged-in scan or purge exits 1 instead of 0. The message is unchanged: `Not logged in. Run \`npm run login\` first.`
@@ -27,19 +27,27 @@
   - DateTime: relative dates ("1mo", "1w", "3d") are now captured as a fallback when `<time datetime>` and month/day text are absent.
   - Headline: selectors broadened; also carved from the combined author+degree+headline+date text block when no selector matches. Still blank when LinkedIn's DOM exposes no headline.
   - Text (comments): comment body now extracted via an extended fallback that scans all text-bearing elements (not just `span[dir='ltr']`, which LinkedIn does not emit) and rejects UI strings, impression counts, and viewer-badge garbage. Reactions correctly stay `null`.
-  - `tests/linkedin-metadata.test.js`: 18 tests, fake DOM, no browser.
-  - `scripts/probe-dom.js` and `scripts/dump-card.js`: diagnostic tools for future DOM discovery, each with a `LAST VERIFIED WORKING` date (Fri Nov 06 2026).
+  - `tests/linkedin-metadata.test.mjs`: 18 tests, fake DOM, no browser.
+  - `scripts/probe-dom.mjs` and `scripts/dump-card.mjs`: diagnostic tools for future DOM discovery, each with a `LAST VERIFIED WORKING` date (Fri Nov 06 2026).
 
 ## Released
+
+- [x] v0.5.8 - ESM extension clarity: renamed all .js source files to .mjs, fixed lint errors
+  - Renamed all ESM `.js` files under `src/`, `scripts/`, `tests/`, `data/` to `.mjs` so the module system is explicit per file. `package.json` no longer needs `"type": "module"`.
+  - Added `.profile-chromium/`, `.profile/`, `.opencode/` to ESLint ignores, eliminating ~19,000 errors from vendored Chromium profile code.
+  - Fixed all `no-unused-vars` errors: removed unused imports and variables, prefixed intentionally-unused parameters with `_`.
+  - Fixed `no-undef` errors: added missing `finalFailureMessage` import, added `src/` and `data/` to ESLint `SOURCE_FILES`.
+  - Updated `scripts/check-syntax.mjs` to fix a pre-existing path bug and stale `index.mjs` reference.
+  - Lint now passes with 0 errors and 0 warnings.
 
 - [x] v0.5.7 - Comments DOM extraction ported to the reliable parser strategy; selection page fixed
   - Comment extraction now selects cards directly by their `componentkey`, separates post text from the viewer's comment using the update-card-focus and comments-section containers, and reads author, headline and date from the post-header paragraphs after the "X commented" rule, so all 20 first-page comments extract correctly (spec #13).
   - New helpers `boxText`, `realHref`, `isExternal`, `squash`, `excerpt` clean text boxes (drop buttons, unwrap `/safety/go/` links, `<br>` to newline) and are covered by unit tests.
-  - Fixture tests: `tests/fixture-comments.test.js` (20/20 against `data/parser-comments-202611.json`) and `tests/fixture-reactions.test.js` (18/18 against `data/parser-reactions-202611.json`) run the live extractor against the anonymized page dumps in `tests/comments-input-test-202611.html` and `tests/reactions-input-test-202611.html` (scripts and SVGs stripped).
+  - Fixture tests: `tests/fixture-comments.test.mjs` (20/20 against `data/parser-comments-202611.json`) and `tests/fixture-reactions.test.mjs` (18/18 against `data/parser-reactions-202611.json`) run the live extractor against the anonymized page dumps in `tests/comments-input-test-202611.html` and `tests/reactions-input-test-202611.html` (scripts and SVGs stripped).
   - Selection page fixed: a `display:block` on table cells took Post and Comment out of the table grid (they rendered stacked inside the Headline cell, pushing Status and Link to the right). Truncation now lives on inner spans, columns have fixed widths via a colgroup (headline 400px, post and comment 22rem) with a scrollable wrapper, and comments columns are checkbox, date, author, headline, post, comment, status, link.
 
 - [x] v0.5.6 - Add ESLint + Prettier and wire lint-staged into the pre-commit flow
-  - Added `eslint.config.js` with `@eslint/js` recommended and `eslint-config-prettier`, plus `globals` for browser and node environments.
+  - Added `eslint.config.mjs` with `@eslint/js` recommended and `eslint-config-prettier`, plus `globals` for browser and node environments.
   - Added `lint-staged` config; the husky pre-commit hook now runs `eslint --fix` and `prettier --write` on staged JS files, and the placeholder `lint` script was replaced with `eslint .`.
 
 - [x] v0.5.5 - Fix selection purge, author shown as visible on the page, links on by default, status vocabulary
@@ -111,7 +119,7 @@
   - A deep walk reconciles a late batch: cards that land between one step's last poll and the next step's first growth read are read once before the step counts toward the idle limit, so a file marked `complete: true` cannot silently omit a whole batch. A `timing.timeout` of `0` is no time limit now, matching `--limit 0`, instead of stopping the walk after the first render; `null` still falls back to the one-hour default.
   - `npm run verify:page` checks the injected page helpers against the live activity tabs, so a LinkedIn markup change fails loudly with the helper's name instead of a scan of 0 items, a scroll target of nothing, or a growth signal that never moves.
   - Asserts tab recognition, the growth signal shape, the named scroll target plus real pagination, the item metadata, unique keys and the incremental seen-key contract on both tabs. Every page call is bounded, so a hung evaluate fails with the helper's name and the step instead of hanging the command.
-  - Not part of `npm run check`, `lint` or `health`: it opens LinkedIn with your own profile and needs a logged-in session (`npm run login` first). The assertions live in `src/page-check.js`, unit-tested through a fake page seam; `scripts/verify-page.js` is only the browser wiring.
+  - Not part of `npm run check`, `lint` or `health`: it opens LinkedIn with your own profile and needs a logged-in session (`npm run login` first). The assertions live in `src/page-check.mjs`, unit-tested through a fake page seam; `scripts/verify-page.mjs` is only the browser wiring.
   - Running the check live found and fixed a permanently null `lastKey` in the growth signal (the Activity List ends with tiles that carry no key), and proved the pagination assertion has to count cards rather than scroll height: a 40 px layout shift passed the first version with no new cards.
   - A stalled or killed deep walk is still a known gap: the walk writes its file only at the end, and a 300-plus-card comments list stalled once with no diagnostics. Parked in `.scratch/deep-scan-scale/issue.md`.
 - [x] 0.3.4 - Standards fixes for the v0.3.3 release: records of destructive actions are now correct and single-sited, the Report Entry has one owner, and the purge input format is a named contract (ADR 0001).
@@ -124,17 +132,17 @@
 - [x] 0.3.3 - Enriched scan output with per-item card metadata and added purge-from-a-filtered-file.
   - Enriched scan output with rich per-item metadata (state/author/postHref/dateTime via collectItems).
   - Added `purge --input <file>` to purge only from a filtered scan JSON file.
-- [x] 0.3.2 - Fixed status.js `path` error, scan.js linkedin-dom.js not-found, `/me/` username detection, `--headless` default for each command; wired CLI parameters (profile-dir, data-dir, chromium-path, limit, headless, action-min/max, batch-min/max, reset-checkpoint) to config.json with CLI > config.json > built-in default precedence.
-  - New src/cli/config.js centralizes flag resolution.
+- [x] 0.3.2 - Fixed status.mjs `path` error, scan.mjs linkedin-dom.mjs not-found, `/me/` username detection, `--headless` default for each command; wired CLI parameters (profile-dir, data-dir, chromium-path, limit, headless, action-min/max, batch-min/max, reset-checkpoint) to config.json with CLI > config.json > built-in default precedence.
+  - New src/cli/config.mjs centralizes flag resolution.
   - config.json now includes paths.dataDir and a behavior section (headless, limit, resetCheckpoint).
-  - purge.js passes all timing options (actionMin/Max, batchMin/Max, timeoutMs, batchSize, maxRetries, maxEmptyScrolls, backoffBase) through to PurgeRunner.
-  - scan.js defaults to headless=true, purge/login default to headless=false.
+  - purge.mjs passes all timing options (actionMin/Max, batchMin/Max, timeoutMs, batchSize, maxRetries, maxEmptyScrolls, backoffBase) through to PurgeRunner.
+  - scan.mjs defaults to headless=true, purge/login default to headless=false.
 - [x] 0.3.1 - Added a `--help` / `-h` flag and an `npm run help` usage screen showing the full parameter reference (with defaults) and copy-paste examples.
   - `--help` / `-h` is honored from any argument position, for any command.
   - Readme Parameters and Development sections now document it; `npm run help` script added.
-- [x] 0.3.0 - Refactored large files (cli.js, purge.js, linkedin-dom.js) into smaller, more manageable modules with separation of concerns for better maintainability and testability.
+- [x] 0.3.0 - Refactored large files (cli.mjs, purge.mjs, linkedin-dom.mjs) into smaller, more manageable modules with separation of concerns for better maintainability and testability.
   - Added `npm run health` to check syntax, tests, and pre-commit hook status at a glance.
-  - Added comprehensive syntax check (`scripts/check-all.js`) covering all files under `src/` and `tests/` automatically.
+  - Added comprehensive syntax check (`scripts/check-all.mjs`) covering all files under `src/` and `tests/` automatically.
   - Wired Husky pre-commit hook: `npm run check` + `npm run test` now run automatically before each commit.
   - Updated `NAVIGATION.md` and `CODING_STANDARDS.md` with cross-references for easier onboarding and standards enforcement.
 - [x] 0.2.0 - Enriched reports with state/author/dateTime/postHref metadata for selective deletion filtering; added configurable timeout to scan/purge; headless scan by default; scroll #workspace container instead of window/body; stable index keys for reactions scan.

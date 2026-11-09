@@ -1,0 +1,89 @@
+// Main CLI entry point - delegates to per-command modules
+import { err } from "../logger.mjs";
+
+import { runLogin } from "./login.mjs";
+import { runLoginImportProfile } from "./login-import-profile.mjs";
+import { runScan } from "./scan.mjs";
+import { runPurge } from "./purge.mjs";
+import { runStatus } from "./status.mjs";
+
+const KNOWN_COMMANDS = new Set([
+  "login",
+  "login-import-profile",
+  "scan",
+  "purge",
+  "status",
+]);
+
+export async function main() {
+  const args = process.argv.slice(2);
+  const command = args[0] || "help";
+
+  // --help / -h is honored from any position, for any command.
+  if (hasHelpFlag(args) || command === "help") {
+    printHelp(KNOWN_COMMANDS.has(command) ? command : null);
+    return;
+  }
+
+  try {
+    if (command === "login") await runLogin(args);
+    else if (command === "login-import-profile")
+      await runLoginImportProfile(args);
+    else if (command === "scan") await runScan(args);
+    else if (command === "purge") await runPurge(args);
+    else if (command === "status") await runStatus(args);
+    else printHelp();
+  } catch (e) {
+    err(e && e.friendly ? e.message : e && e.stack ? e.stack : String(e));
+    process.exit(1);
+  }
+}
+
+function hasHelpFlag(args) {
+  return args.includes("--help") || args.includes("-h");
+}
+
+function printHelp(command) {
+  const focus = command ? `\nHelp for: ${command}\n` : "";
+  console.log(`linkedin-purge
+Purge your own LinkedIn comments and reactions (likes) via a real browser, with
+randomized pacing, and dry-run confirmation.
+${focus}
+Usage:
+  npm run <command> [--flags]        (inside the project)
+  npx linkedin-purge <command> [--flags]
+
+Commands:
+  login                    Open a headed browser to log in; uses the profile directory in place.
+  login-import-profile     Import a logged-in Chromium profile into .profile-chromium/.
+  scan                     Collect item counts for --type (dry-run, no deletion).
+  purge                    Scan, confirm, then delete with pacing.
+  status                   Show per-type purge statuses from the scan envelope.
+
+Parameters:
+  --type <comments|likes|all>     Item type to process                 (default: all)
+  --deep                          Walk the whole activity list, not the first page (default: false, scan only)
+  --profile-dir <dir>             Chromium profile directory
+  --data-dir <dir>                Directory for reports/checkpoints    (default: data)
+  --chromium-path <path>          Path to the Chromium binary
+  --cdp <endpoint>                Attach to a running Chromium (e.g. http://localhost:9222)
+  --limit <n>                     Stop after n deletions               (default: 0 = unlimited)
+  --action-min <ms>               Min per-action delay                 (default: 2000)
+  --action-max <ms>               Max per-action delay                 (default: 5000)
+  --batch-min <ms>                Min batch pause                      (default: 30000)
+  --batch-max <ms>                Max batch pause                      (default: 60000)
+  --input <file>                  Purge only the selection in this JSON file (purge only)
+  --headed                        Run the browser in a visible window (scan and purge are headless by default)
+  -h, --help                      Show this help (works with any command)
+
+Examples:
+  npm run scan -- --type comments              # dry-run: count your comments
+  npm run purge                                # delete comments + reactions
+  npm run purge -- --type likes --limit 25     # delete only 25 reactions
+  npm run scan -- --cdp http://localhost:9222  # attach to a running Chromium
+  npm run status                               # show checkpoint progress
+
+Config:
+  Defaults live in config.json (timing and paths). CLI parameters always override.
+`);
+}

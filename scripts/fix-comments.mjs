@@ -13,7 +13,6 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import * as espree from "espree";
 
 let tsParser = null;
@@ -128,7 +127,6 @@ function findRuns(text, comments) {
 }
 
 function mergeCommentRunsInText(text, comments) {
-  const eol = text.includes("\r\n") ? "\r\n" : "\n";
   const edits = [];
   let skipped = 0;
   for (const run of findRuns(text, comments)) {
@@ -185,7 +183,7 @@ function fixText(file, text) {
   return result;
 }
 
-function mergeCommentRuns(lines, file = "snippet.js") {
+function mergeCommentRuns(lines, file = "snippet.mjs") {
   const result = fixText(file, lines.join("\n"));
   return {
     lines: result.text.split("\n"),

@@ -15,7 +15,6 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import * as espree from "espree";
 
 // Lazily load the TypeScript parser so ordinary `npm run lint` doesn't pay
@@ -23,7 +22,8 @@ import * as espree from "espree";
 // missing optional dependency never breaks the module evaluation.
 let tsParser = null;
 try {
-  tsParser = (await import("@typescript-eslint/parser"))?.parse ||
+  tsParser =
+    (await import("@typescript-eslint/parser"))?.parse ||
     (await import("@typescript-eslint/parser")).default;
 } catch {
   /*
@@ -147,7 +147,9 @@ function processMarkdownFile(file) {
 function findJsFiles(dir) {
   const out = [];
   if (!fs.existsSync(dir)) return out;
-  const entries = fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+  const entries = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .sort((a, b) => a.name.localeCompare(b.name));
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -163,7 +165,9 @@ function findJsFiles(dir) {
 function findMdFiles(dir) {
   const out = [];
   if (!fs.existsSync(dir)) return out;
-  const entries = fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+  const entries = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .sort((a, b) => a.name.localeCompare(b.name));
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -185,9 +189,8 @@ function collectTargets(args) {
     // Remove every file under scripts/ so the fixer never touches its own
     // helpers (fix-comments.js, check-syntax.js, etc.).
     const scriptsDir = path.resolve(root, "scripts");
-    const scriptsFiles = findJsFiles(scriptsDir);
-    const scriptsDirSet = new Set(scriptsFiles);
-    const filtered = (f) => !f.startsWith(scriptsDir + path.sep) && f !== scriptsDir;
+    const filtered = (f) =>
+      !f.startsWith(scriptsDir + path.sep) && f !== scriptsDir;
     const files = [...codeFiles, ...mdFiles].filter(filtered);
     return files;
   }
