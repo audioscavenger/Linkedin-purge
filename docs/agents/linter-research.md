@@ -55,7 +55,7 @@ For this repository's specific needs (comment-run enforcement, pre-commit integr
 
 **Keep ESLint + Prettier** for now because:
 
-1. The existing `scripts/check-comments.js` and `scripts/fix-comments.js` already implement the required comment-run enforcement via custom ESLint rules
+1. The existing `scripts/check-comments.js` and `scripts/fix-comments.mjs` already implement the required comment-run enforcement via custom ESLint rules
 2. Migrating to Biome would require:
    - Converting ESLint config to `biome.json`
    - Potentially rewriting the comment-run enforcement logic (since Biome lacks a native rule)

@@ -17,7 +17,7 @@ import globals from "globals";
 
 /*
   Custom ESLint plugin: disallow en/em dashes in comments. Code files get their
-  comments fixed by scripts/fix-slop.js; this rule keeps the linter in sync
+  comments fixed by scripts/fix-slop.mjs; this rule keeps the linter in sync
   so a stray dash is caught before commit.
 */
 const dashPlugin = {
@@ -163,7 +163,7 @@ export default [
     },
     rules: {
       // Warn, never error: this is a house-style guard rail, not a correctness
-      // gate. `eslint --fix` and scripts/fix-slop.js both repair it, and a
+      // gate. `eslint --fix` and scripts/fix-slop.mjs both repair it, and a
       // warning never fails lint or a commit.
       "dash/no-unicode-dash": "warn",
     },

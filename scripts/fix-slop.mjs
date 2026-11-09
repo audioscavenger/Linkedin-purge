@@ -7,7 +7,7 @@
  * Hidden folders (anything starting with "."), node_modules, .git and the
  * other SKIP_DIRS are never touched.
  *
- * Usage: node scripts/fix-slop.js [--check] [file-or-dir ...]
+ * Usage: node scripts/fix-slop.mjs [--check] [file-or-dir ...]
  *   (no paths)  scan src, tests, scripts, tools and frontend dirs for code
  *               files; scan all .md files in the repo (excluding hidden dirs).
  *   --check     report only; exit 1 if any file would change
@@ -23,8 +23,7 @@ import * as espree from "espree";
 // missing optional dependency never breaks the module evaluation.
 let tsParser = null;
 try {
-  tsParser =
-    (await import("@typescript-eslint/parser"))?.parse ||
+  tsParser = (await import("@typescript-eslint/parser"))?.parse ||
     (await import("@typescript-eslint/parser")).default;
 } catch {
   /*
@@ -75,11 +74,14 @@ function parseComments(file, text) {
   try {
     return espree.parse(text, { ...base, sourceType }).comments;
   } catch {
-    try {
-      return espree.parse(text, { ...base, sourceType: "module" }).comments;
-    } catch {
-      return espree.parse(text, { ...base, sourceType: "script" }).comments;
+    if (sourceType === "commonjs") {
+      try {
+        return espree.parse(text, { ...base, sourceType: "module" }).comments;
+      } catch {
+        return espree.parse(text, { ...base, sourceType: "script" }).comments;
+      }
     }
+    return espree.parse(text, { ...base, sourceType: "script" }).comments;
   }
 }
 
@@ -145,9 +147,7 @@ function processMarkdownFile(file) {
 function findJsFiles(dir) {
   const out = [];
   if (!fs.existsSync(dir)) return out;
-  const entries = fs
-    .readdirSync(dir, { withFileTypes: true })
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const entries = fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -163,9 +163,7 @@ function findJsFiles(dir) {
 function findMdFiles(dir) {
   const out = [];
   if (!fs.existsSync(dir)) return out;
-  const entries = fs
-    .readdirSync(dir, { withFileTypes: true })
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const entries = fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -189,8 +187,7 @@ function collectTargets(args) {
     const scriptsDir = path.resolve(root, "scripts");
     const scriptsFiles = findJsFiles(scriptsDir);
     const scriptsDirSet = new Set(scriptsFiles);
-    const filtered = (f) =>
-      !f.startsWith(scriptsDir + path.sep) && f !== scriptsDir;
+    const filtered = (f) => !f.startsWith(scriptsDir + path.sep) && f !== scriptsDir;
     const files = [...codeFiles, ...mdFiles].filter(filtered);
     return files;
   }

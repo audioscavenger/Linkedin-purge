@@ -6,7 +6,7 @@
  * Hidden folders (anything starting with "."), node_modules, .git and the
  * other SKIP_DIRS are never touched.
  *
- * Usage: node scripts/fix-comments.js [--check] [file-or-dir ...]
+ * Usage: node scripts/fix-comments.mjs [--check] [file-or-dir ...]
  *   (no paths)  scan src, tests, scripts, tools and frontend dirs
  *   --check     report only; exit 1 if any file would change
  */

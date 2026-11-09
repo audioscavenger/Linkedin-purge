@@ -1,11 +1,11 @@
 {
   "*.{js,mjs,cjs,jsx,tsx,ts}": [
-    "node scripts/fix-slop.js",
-    "node scripts/fix-comments.js",
+    "node scripts/fix-slop.mjs",
+    "node scripts/fix-comments.mjs",
     "eslint --fix",
     "prettier --write"
   ],
   "*.md": [
-    "node scripts/fix-slop.js"
+    "node scripts/fix-slop.mjs"
   ]
 }

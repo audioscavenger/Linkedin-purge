@@ -5,7 +5,7 @@ import {
   fixText,
   mergeCommentRuns,
   parseComments,
-} from "../scripts/fix-comments.js";
+} from "../scripts/fix-comments.mjs";
 
 // Helper: the input must come back untouched and not be reported as changed.
 function assertUnchanged(label, input) {
