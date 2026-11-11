@@ -111,6 +111,45 @@ export function resolveHeadless(args) {
   return !headed; // true = headless, false = headed
 }
 
+export function getFlag(args, name, defaultVal) {
+  const idx = args.indexOf(`--${name}`);
+  if (idx === -1) return defaultVal;
+  const v = args[idx + 1];
+  if (v === undefined || v.startsWith("--")) return true;
+  return v;
+}
+
+export function resolveRunOptions(args) {
+  const profileDir = resolveFlag(
+    args,
+    "profile-dir",
+    "paths.profileDir",
+    ".profile-chromium"
+  );
+  const dataDir = path.resolve(
+    resolveFlag(args, "data-dir", "paths.dataDir", "data")
+  );
+  const typeArg = getFlag(args, "type", "all");
+  const chromiumPath = resolveFlag(
+    args,
+    "chromium-path",
+    "paths.chromiumPath",
+    null
+  );
+  const headless = resolveHeadless(args);
+  const cdpEndpoint = getFlag(args, "cdp", null);
+  const timing = loadConfig().timing || {};
+  return {
+    profileDir,
+    dataDir,
+    typeArg,
+    chromiumPath,
+    headless,
+    cdpEndpoint,
+    timing,
+  };
+}
+
 function isPlainObject(v) {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }

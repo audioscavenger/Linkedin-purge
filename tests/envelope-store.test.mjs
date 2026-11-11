@@ -30,7 +30,7 @@ async function testLoad() {
     path.join(dir, "scan-likes.json"),
     JSON.stringify(data, null, 2)
   );
-  const store = new EnvelopeStore(dir, "likes");
+  const store = new EnvelopeStore({ dataDir: dir, type: "likes" });
   const loaded = await store.load();
   assert.strictEqual(loaded.count, 2, "load returns the envelope");
   assert.strictEqual(
@@ -48,7 +48,7 @@ async function testMarkWritesDisk() {
   ]);
   const file = path.join(dir, "scan-likes.json");
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
-  const store = new EnvelopeStore(dir, "likes");
+  const store = new EnvelopeStore({ dataDir: dir, type: "likes" });
   await store.load();
   await store.mark("card-1", "deleted");
   // No separate save call: the file on disk must already reflect the mark.
@@ -69,11 +69,11 @@ async function testReloadAfterInterrupt() {
   ]);
   const file = path.join(dir, "scan-likes.json");
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
-  const store = new EnvelopeStore(dir, "likes");
+  const store = new EnvelopeStore({ dataDir: dir, type: "likes" });
   await store.load();
   await store.mark("card-1", "deleted");
   // Simulate an interrupt: discard the in-memory store, then reload from disk.
-  const store2 = new EnvelopeStore(dir, "likes");
+  const store2 = new EnvelopeStore({ dataDir: dir, type: "likes" });
   await store2.load();
   const counts = await store2.counts();
   assert.strictEqual(counts.deleted, 1, "reload sees the earned status");
@@ -88,7 +88,7 @@ async function testUnknownIdentity() {
   ]);
   const file = path.join(dir, "scan-likes.json");
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
-  const store = new EnvelopeStore(dir, "likes");
+  const store = new EnvelopeStore({ dataDir: dir, type: "likes" });
   await store.load();
   let threw = false;
   try {
@@ -115,7 +115,7 @@ async function testAtomicity() {
   ]);
   const file = path.join(dir, "scan-likes.json");
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
-  const store = new EnvelopeStore(dir, "likes");
+  const store = new EnvelopeStore({ dataDir: dir, type: "likes" });
   await store.load();
   await store.mark("card-1", "deleted");
   // After a successful mark there must be no leftover temp files.
@@ -144,7 +144,7 @@ async function testCounts() {
     path.join(dir, "scan-likes.json"),
     JSON.stringify(data, null, 2)
   );
-  const store = new EnvelopeStore(dir, "likes");
+  const store = new EnvelopeStore({ dataDir: dir, type: "likes" });
   await store.load();
   const counts = await store.counts();
   assert.deepStrictEqual(counts, {

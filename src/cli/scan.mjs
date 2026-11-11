@@ -2,7 +2,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { log, warn } from "../logger.mjs";
-import { resolveFlag, asBool, loadConfig, resolveHeadless } from "./config.mjs";
+import {
+  resolveFlag,
+  asBool,
+  loadConfig,
+  resolveRunOptions,
+} from "./config.mjs";
 import { ActivityLoader, createActivityPage } from "../activity-loader.mjs";
 import { buildScanEnvelope } from "../scan-envelope.mjs";
 import { buildScanSummary } from "../scan-summary.mjs";
@@ -24,42 +29,25 @@ export async function runScan(args) {
     process.exit(1);
   }
 
-  // CLI flag > config.json > built-in default.
-  const profileDir = resolveFlag(
-    args,
-    "profile-dir",
-    "paths.profileDir",
-    ".profile-chromium"
-  );
-  const dataDir = path.resolve(
-    resolveFlag(args, "data-dir", "paths.dataDir", "data")
-  );
-  const typeArg = getFlag(args, "type", "all");
-  const chromiumPath = resolveFlag(
-    args,
-    "chromium-path",
-    "paths.chromiumPath",
-    null
-  );
-  const cdpEndpoint = getFlag(args, "cdp", null);
-  // Deep is opt-in: the CLI flag, then behavior.deepScan, then false.
+  const {
+    profileDir,
+    dataDir,
+    typeArg,
+    chromiumPath,
+    headless,
+    cdpEndpoint,
+    timing,
+  } = resolveRunOptions(args);
+
   const deep = asBool(resolveFlag(args, "deep", "behavior.deepScan", false));
   /* Links are on by default: behavior.links in config (default true). Capturing
   a link opens each card's menu, so it costs about one second per item.
   No CLI flag - the option was removed; config is the only knob. */
   const links = asBool(loadConfig().behavior.links, true);
-  /*
-  The loader's stopping rules reuse the existing timing knobs: growthWait is
-  now the per-step growth deadline, maxEmptyScrolls the idle limit and
-  timeout the overall walk limit (0 = none).
-*/
-  const timing = loadConfig().timing || {};
 
   // One scan per concrete type, resolved before the browser launches so an
   // unknown type fails without a visit.
   const targets = activityTargets(typeArg);
-
-  const headless = resolveHeadless(args);
 
   /*
     One Activity Session for the invocation: it owns the launch (or --cdp
@@ -147,11 +135,3 @@ function stepLine(type, event) {
 }
 
 export * from "../scan-summary.mjs";
-
-function getFlag(args, name, defaultVal) {
-  const idx = args.indexOf(`--${name}`);
-  if (idx === -1) return defaultVal;
-  const v = args[idx + 1];
-  if (v === undefined || v.startsWith("--")) return true;
-  return v;
-}

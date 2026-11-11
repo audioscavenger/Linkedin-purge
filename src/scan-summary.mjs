@@ -10,75 +10,7 @@ function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
-function pickType(obj, fallback) {
-  if (typeof obj === "string") return obj;
-  if (obj && typeof obj === "object") {
-    if (typeof obj.type === "string") return obj.type;
-    if (typeof obj.scanType === "string") return obj.scanType;
-  }
-  return fallback;
-}
-
-function pickResult(input, rest) {
-  if (
-    input &&
-    typeof input === "object" &&
-    !Array.isArray(input) &&
-    (Array.isArray(input.items) || "steps" in input || "complete" in input)
-  ) {
-    return input;
-  }
-  if (
-    input &&
-    typeof input === "object" &&
-    !Array.isArray(input) &&
-    input.result &&
-    typeof input.result === "object"
-  ) {
-    return input.result;
-  }
-  for (const r of rest || []) {
-    if (
-      r &&
-      typeof r === "object" &&
-      !Array.isArray(r) &&
-      (Array.isArray(r.items) || "steps" in r || "complete" in r)
-    ) {
-      return r;
-    }
-    if (
-      r &&
-      typeof r === "object" &&
-      r.result &&
-      typeof r.result === "object"
-    ) {
-      return r.result;
-    }
-  }
-  return input && typeof input === "object" && !Array.isArray(input)
-    ? input
-    : {};
-}
-
-function pickOptions(input, rest) {
-  const opts = {};
-  if (input && typeof input === "object" && !Array.isArray(input)) {
-    Object.assign(opts, input);
-  }
-  for (const r of rest || []) {
-    if (r && typeof r === "object" && !Array.isArray(r)) Object.assign(opts, r);
-  }
-  return opts;
-}
-
-function firstRenderCountOf(result, opts) {
-  if (typeof opts.firstRender === "number") return opts.firstRender;
-  if (typeof opts.firstRenderCount === "number") return opts.firstRenderCount;
-  if (typeof opts.firstRenderItems === "number") return opts.firstRenderItems;
-  if (typeof opts.rendered === "number") return opts.rendered;
-  if (typeof result.firstRender === "number") return result.firstRender;
-  if (typeof result.firstRenderCount === "number")
-    return result.firstRenderCount;
+function firstRenderCountOf(result) {
   const items = asArray(result.items);
   return items.filter((it) => it && (it.step === 0 || it.step === "0")).length;
 }
@@ -97,114 +29,47 @@ function linkCountOf(result) {
   }).length;
 }
 
-function linksAsked(opts, result) {
-  if (typeof opts.links === "boolean") return opts.links;
-  if (typeof opts.linksAsked === "boolean") return opts.linksAsked;
-  if (typeof opts.captureLinks === "boolean") return opts.captureLinks;
-  if (typeof opts.withLinks === "boolean") return opts.withLinks;
-  if (typeof result.links === "boolean") return result.links;
+function linksAsked(links, result) {
+  if (typeof links === "boolean") return links;
   const items = asArray(result.items);
   return items.some((it) => it && (it.itemHref != null || it.postHref != null));
 }
 
-function elapsedMsOf(opts, result) {
-  const candidates = [
-    opts.elapsedMs,
-    opts.elapsed,
-    opts.duration,
-    opts.durationMs,
-    opts.ms,
-    opts.timeMs,
-    opts.tookMs,
-    opts.took,
-    result.elapsedMs,
-    result.elapsed,
-    result.duration,
-    result.durationMs,
-  ];
-  for (const c of candidates) {
-    if (typeof c === "number" && Number.isFinite(c)) return c;
-    if (typeof c === "string" && /^\d+(\.\d+)?$/.test(c.trim()))
-      return Number(c.trim());
-  }
+function elapsedMsOf(elapsedMs) {
+  if (typeof elapsedMs === "number" && Number.isFinite(elapsedMs))
+    return elapsedMs;
+  if (typeof elapsedMs === "string" && /^\d+(\.\d+)?$/.test(elapsedMs.trim()))
+    return Number(elapsedMs.trim());
   return 0;
 }
 
-export function buildScanSummary(...args) {
-  let type;
-  let result = {};
-  let opts = {};
+export function buildScanSummary({
+  type,
+  result = {},
+  links,
+  elapsedMs = 0,
+  pagePath,
+} = {}) {
+  const r =
+    result && typeof result === "object" && !Array.isArray(result)
+      ? result
+      : {};
 
-  if (args.length === 1) {
-    const a = args[0];
-    if (typeof a === "string") {
-      type = a;
-    } else if (a && typeof a === "object" && !Array.isArray(a)) {
-      opts = { ...a };
-      type = pickType(a, undefined);
-      result = pickResult(a, []);
-      if (a.result && typeof a.result === "object") result = a.result;
-    }
-  } else if (args.length === 2) {
-    const [a, b] = args;
-    if (typeof a === "string") {
-      type = a;
-      result = pickResult(b, []);
-      opts = pickOptions(b, []);
-    } else if (a && typeof a === "object" && b && typeof b === "object") {
-      if (Array.isArray(a.items) || "steps" in a || "complete" in a) {
-        result = a;
-        opts = pickOptions(b, []);
-        type = pickType(b, pickType(a, undefined));
-      } else if (Array.isArray(b.items) || "steps" in b || "complete" in b) {
-        result = b;
-        opts = pickOptions(a, []);
-        type = pickType(a, pickType(b, undefined));
-      } else {
-        opts = pickOptions(a, [b]);
-        result = pickResult(a, [b]);
-        type = pickType(a, pickType(b, undefined));
-      }
-    }
-  } else if (args.length >= 3) {
-    const [a, b, c] = args;
-    if (typeof a === "string") type = a;
-    result = pickResult(b, [c]);
-    opts = pickOptions(c, [a, b]);
-    if (!type) type = pickType(a, pickType(b, pickType(c, undefined)));
-  }
-
-  if (!result || typeof result !== "object" || Array.isArray(result))
-    result = {};
-  opts = opts || {};
-  if (type === undefined) type = pickType(result, pickType(opts, undefined));
-
-  const items = asArray(result.items);
-  const count = typeof result.count === "number" ? result.count : items.length;
-  const steps =
-    typeof result.steps === "number"
-      ? result.steps
-      : typeof opts.steps === "number"
-        ? opts.steps
-        : 0;
-  const complete =
-    typeof result.complete === "boolean"
-      ? result.complete
-      : typeof opts.complete === "boolean"
-        ? opts.complete
-        : true;
-  const firstRender = firstRenderCountOf(result, opts);
-  const asked = linksAsked(opts, result);
-  const links = linkCountOf(result);
-  const ms = elapsedMsOf(opts, result);
-  const pagePath = opts.pagePath || opts.page || opts.relativePath || opts.path;
+  const items = asArray(r.items);
+  const count = typeof r.count === "number" ? r.count : items.length;
+  const steps = typeof r.steps === "number" ? r.steps : 0;
+  const complete = typeof r.complete === "boolean" ? r.complete : true;
+  const firstRender = firstRenderCountOf(r);
+  const asked = linksAsked(links, r);
+  const linkCount = linkCountOf(r);
+  const ms = elapsedMsOf(elapsedMs);
 
   const parts = [];
   if (type) parts.push(`${type}:`);
   parts.push(`${count} items (${firstRender} first render)`);
   parts.push(`${steps} steps`);
   parts.push(complete ? "complete" : "INCOMPLETE");
-  if (asked) parts.push(`${links} with links`);
+  if (asked) parts.push(`${linkCount} with links`);
   parts.push(`${ms}ms`);
   if (pagePath) parts.push(`-> ${pagePath}`);
 
@@ -215,8 +80,8 @@ export function buildScanSummary(...args) {
     `firstRenderCount=${firstRender}`,
     `steps=${steps}`,
     `complete=${complete}`,
-    asked ? `links=${links}` : null,
-    asked ? `withLinks=${links}` : null,
+    asked ? `links=${linkCount}` : null,
+    asked ? `withLinks=${linkCount}` : null,
     `elapsedMs=${ms}`,
     `elapsed=${ms}`,
   ]
@@ -228,6 +93,3 @@ export function buildScanSummary(...args) {
 
   return text;
 }
-
-// Default export for callers that import the module as a namespace object.
-export default buildScanSummary;

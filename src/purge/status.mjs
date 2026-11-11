@@ -68,77 +68,54 @@ function mapOutcomeString(value) {
   return FAILED;
 }
 
-export function outcomeToStatus(input, ...rest) {
-  // Object form: read structured fields.
-  if (input !== null && typeof input === "object" && !Array.isArray(input)) {
-    const o = input;
-    if (typeof o.outcome === "string") return mapOutcomeString(o.outcome);
-    if (typeof o.result === "string") return mapOutcomeString(o.result);
-    if (
-      typeof o.status === "string" &&
-      (o.status === DELETED || o.status === FAILED || o.status === NOT_FOUND)
-    ) {
-      return o.status;
-    }
-    if (
-      o.notFound === true ||
-      o.found === false ||
-      o.exists === false ||
-      o.matched === false ||
-      o.missing === true
-    ) {
-      return NOT_FOUND;
-    }
-    if (
-      o.ok === true ||
-      o.success === true ||
-      o.deleted === true ||
-      o.acted === true ||
-      o.done === true
-    ) {
-      return DELETED;
-    }
-    if (
-      o.ok === false ||
-      o.success === false ||
-      o.refused === true ||
-      o.failed === true ||
-      o.error != null
-    ) {
-      return FAILED;
-    }
-    if (typeof o.reason === "string") return mapOutcomeString(o.reason);
-  }
-
-  // Two-or-more positional booleans: (success, found).
-  if (rest.length > 0 && typeof rest[0] === "boolean") {
-    const success = !!input;
-    const found = rest[0];
-    if (!found) return NOT_FOUND;
-    return success ? DELETED : FAILED;
-  }
-
-  if (typeof input === "string") return mapOutcomeString(input);
-  if (typeof input === "boolean") {
-    const foundArg = rest.find((v) => typeof v === "boolean");
-    if (input === true) {
-      if (foundArg === false) return NOT_FOUND;
-      return DELETED;
-    }
-    if (foundArg === false) return NOT_FOUND;
+export function outcomeToStatus(input) {
+  // Only the object form is accepted. Non-objects return FAILED.
+  if (input === null || typeof input !== "object" || Array.isArray(input)) {
     return FAILED;
   }
-  if (input == null) {
-    const foundArg = rest.find((v) => typeof v === "boolean");
-    if (foundArg === false) return NOT_FOUND;
+  const o = input;
+  if (typeof o.outcome === "string") return mapOutcomeString(o.outcome);
+  if (typeof o.result === "string") return mapOutcomeString(o.result);
+  if (
+    typeof o.status === "string" &&
+    (o.status === DELETED || o.status === FAILED || o.status === NOT_FOUND)
+  ) {
+    return o.status;
+  }
+  if (
+    o.notFound === true ||
+    o.found === false ||
+    o.exists === false ||
+    o.matched === false ||
+    o.missing === true
+  ) {
+    return NOT_FOUND;
+  }
+  if (
+    o.ok === true ||
+    o.success === true ||
+    o.deleted === true ||
+    o.acted === true ||
+    o.done === true
+  ) {
+    return DELETED;
+  }
+  if (
+    o.ok === false ||
+    o.success === false ||
+    o.refused === true ||
+    o.failed === true ||
+    o.error != null
+  ) {
     return FAILED;
   }
+  if (typeof o.reason === "string") return mapOutcomeString(o.reason);
   return FAILED;
 }
 
-export function transitionStatus(status, outcome, ...rest) {
+export function transitionStatus(status, outcome) {
   if (!isActionable(status)) return status;
-  return outcomeToStatus(outcome, ...rest);
+  return outcomeToStatus(outcome);
 }
 
 export function isLegalTransition(from, to) {

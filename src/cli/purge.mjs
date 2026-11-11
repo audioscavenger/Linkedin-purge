@@ -6,7 +6,7 @@ import { PurgeRunner, PageAdapter, ConfirmAdapter } from "../purge.mjs";
 import { EnvelopeStore } from "../envelope-store.mjs";
 import { loadSelection } from "./selection.mjs";
 import { activityTargets } from "../activity-targets.mjs";
-import { resolveFlag, asInt, loadConfig, resolveHeadless } from "./config.mjs";
+import { resolveFlag, asInt, getFlag, resolveRunOptions } from "./config.mjs";
 import { buildScanEnvelope } from "../scan-envelope.mjs";
 import { openPage } from "../browser-opener.mjs";
 import { generateSelectionPage } from "../selection-page.mjs";
@@ -37,25 +37,18 @@ export async function runPurge(args) {
     process.exit(1);
   }
 
-  // CLI flag > config.json > built-in default.
-  const profileDir = resolveFlag(
-    args,
-    "profile-dir",
-    "paths.profileDir",
-    ".profile-chromium"
-  );
-  const dataDir = path.resolve(
-    resolveFlag(args, "data-dir", "paths.dataDir", "data")
-  );
-  const typeArg = getFlag(args, "type", "all");
-  const chromiumPath = resolveFlag(
-    args,
-    "chromium-path",
-    "paths.chromiumPath",
-    null
-  );
+  const {
+    profileDir,
+    dataDir,
+    typeArg,
+    chromiumPath,
+    headless,
+    cdpEndpoint,
+    timing,
+  } = resolveRunOptions(args);
+
   const limitArg = asInt(resolveFlag(args, "limit", "behavior.limit", 0), 0);
-  const headless = resolveHeadless(args);
+
   /*
   Optional: restrict deletion to a selection from --input. This is the
   v0.5.0 review-first flow: scan writes data/selection-<type>.html from the
@@ -82,7 +75,6 @@ export async function runPurge(args) {
   }
 
   // Timing options, all overridable via CLI.
-  const timing = loadConfig().timing || {};
   const actionMin = asInt(
     resolveFlag(args, "action-min", "timing.actionMin", 2000),
     2000
@@ -117,7 +109,7 @@ export async function runPurge(args) {
     profileDir,
     headless,
     chromiumPath,
-    cdp: getFlag(args, "cdp", null),
+    cdp: cdpEndpoint,
   });
   try {
     // Load input keys if --input was specified
@@ -156,9 +148,9 @@ export async function runPurge(args) {
         confirmAdapter: new ConfirmAdapter(),
         // Statuses live in the scan envelope for both selection mode and
         // full-purge mode; the scan envelope is the only state (ticket 23/24).
-        envelopeStore: new EnvelopeStore(
-          path.resolve(dataDir, `scan-${target.type}.json`)
-        ),
+        envelopeStore: new EnvelopeStore({
+          file: path.resolve(dataDir, `scan-${target.type}.json`),
+        }),
       });
 
       // The runner asks its own confirmation prompt once per type.
@@ -234,10 +226,3 @@ function reportSummary(results) {
 }
 
 // Helper for flags that don't have a config.json source of truth (--type).
-function getFlag(args, name, defaultVal) {
-  const idx = args.indexOf(`--${name}`);
-  if (idx === -1) return defaultVal;
-  const v = args[idx + 1];
-  if (v === undefined || v.startsWith("--")) return true;
-  return v;
-}

@@ -18,7 +18,7 @@ export async function runStatus(args) {
 
   const results = [];
   for (const t of typesToRun(typeArg)) {
-    const store = new EnvelopeStore(dataDir, t);
+    const store = new EnvelopeStore({ dataDir, type: t });
     await store.load();
     if (!store.envelope || !Array.isArray(store.envelope.items)) {
       log(`${t}: no scan yet`);

@@ -272,7 +272,7 @@ async function testSelectionRetryRunSkipsPurgedRetriesRest() {
     refusals: new Set(["card-b"]),
   });
   const confirm = new FakeConfirmAdapter(true);
-  const store = new EnvelopeStore(file);
+  const store = new EnvelopeStore({ file });
 
   // First run: a purged, b failed
   const runner1 = new PurgeRunner({
@@ -342,7 +342,7 @@ async function testSelectionMarksEnvelopeAtomically() {
 
   const page = new FakePageAdapter({ keys: ["card-1"] });
   const confirm = new FakeConfirmAdapter(true);
-  const store = new EnvelopeStore(file);
+  const store = new EnvelopeStore({ file });
 
   const runner = new PurgeRunner({
     pageAdapter: page,

@@ -40,7 +40,9 @@ async function testPerTypeCountsLine() {
       step: 0,
     },
   ]);
-  const text = buildScanSummary("likes", result, {
+  const text = buildScanSummary({
+    type: "likes",
+    result,
     pagePath: "data/selection-likes.html",
   });
   assert.ok(text.startsWith("likes:"), "prints the type prefix");
@@ -70,7 +72,10 @@ async function testEmptyStateWhenNoPagePath() {
       step: 0,
     },
   ]);
-  const text = buildScanSummary("comments", result, {});
+  const text = buildScanSummary({
+    type: "comments",
+    result,
+  });
   assert.ok(text.startsWith("comments:"), "prints the type prefix");
   assert.ok(
     /1 items \(1 first render\)/.test(text),
@@ -111,10 +116,14 @@ async function testMultipleTypes() {
       step: 0,
     },
   ]);
-  const likesText = buildScanSummary("likes", likes, {
+  const likesText = buildScanSummary({
+    type: "likes",
+    result: likes,
     pagePath: "data/selection-likes.html",
   });
-  const commentsText = buildScanSummary("comments", comments, {
+  const commentsText = buildScanSummary({
+    type: "comments",
+    result: comments,
     pagePath: "data/selection-comments.html",
   });
   assert.ok(likesText.startsWith("likes:"), "likes line starts with likes");
