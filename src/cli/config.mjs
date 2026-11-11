@@ -111,6 +111,13 @@ export function resolveHeadless(args) {
   return !headed; // true = headless, false = headed
 }
 
+/**
+ * Extract a simple flag value from args (--name value or --name).
+ * @param {string[]} args - CLI arguments.
+ * @param {string} name - Flag name (without --).
+ * @param {*} defaultVal - Default value if flag is absent.
+ * @returns {*} The flag value or default.
+ */
 export function getFlag(args, name, defaultVal) {
   const idx = args.indexOf(`--${name}`);
   if (idx === -1) return defaultVal;
@@ -119,6 +126,11 @@ export function getFlag(args, name, defaultVal) {
   return v;
 }
 
+/**
+ * Resolve the common CLI flags shared by scan and purge commands.
+ * @param {string[]} args - CLI arguments.
+ * @returns {{ profileDir: string, dataDir: string, typeArg: string, chromiumPath: string|null, headless: boolean, cdpEndpoint: string|null, timing: object }}
+ */
 export function resolveRunOptions(args) {
   const profileDir = resolveFlag(
     args,

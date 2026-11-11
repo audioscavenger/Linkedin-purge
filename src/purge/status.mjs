@@ -68,6 +68,11 @@ function mapOutcomeString(value) {
   return FAILED;
 }
 
+/**
+ * Map an outcome object to a purge status.
+ * @param {{ ok?: boolean, found?: boolean, status?: string, outcome?: string, result?: string, reason?: string, error?: any }} input - Outcome object.
+ * @returns {string} A purge status (deleted, failed, or not-found).
+ */
 export function outcomeToStatus(input) {
   // Only the object form is accepted. Non-objects return FAILED.
   if (input === null || typeof input !== "object" || Array.isArray(input)) {

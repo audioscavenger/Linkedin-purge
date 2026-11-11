@@ -10,6 +10,11 @@ export class PurgeRunner {
     this.envelopeStore = envelopeStore || null;
   }
 
+  /**
+   * Thin dispatcher: routes to runSelection or runFull based on inputKeys.
+   * @param {object} [options] - Run options.
+   * @returns {Promise<object>} Run result.
+   */
   async run(options = {}) {
     const inputKeys = options.inputKeys ? new Set(options.inputKeys) : null;
     if (inputKeys) {
@@ -18,6 +23,12 @@ export class PurgeRunner {
     return this.runFull(options);
   }
 
+  /**
+   * Selection mode: walk the Activity List, match cards by Card Identity,
+   * act on selected items, stop when all are final.
+   * @param {object} [options] - Run options (must include inputKeys).
+   * @returns {Promise<object>} Run result with counts.
+   */
   async runSelection(options = {}) {
     const startTime = Date.now();
     const type = options.type || "comments";
@@ -130,6 +141,11 @@ export class PurgeRunner {
     };
   }
 
+  /**
+   * Full purge mode: walk the Activity List and act on every collected card.
+   * @param {object} [options] - Run options.
+   * @returns {Promise<object>} Run result with deleted count.
+   */
   async runFull(options = {}) {
     const startTime = Date.now();
     const type = options.type || "comments";
@@ -205,6 +221,11 @@ export class PurgeRunner {
     };
   }
 
+  /**
+   * Persist a status for a card identity. Best-effort: warns on failure.
+   * @param {string} cardId - Card identity.
+   * @param {string} status - Purge status to persist.
+   */
   async _persistStatus(cardId, status) {
     if (!this.envelopeStore) return;
     try {
