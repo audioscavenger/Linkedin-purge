@@ -3,15 +3,15 @@
   LinkedIn purge dashboard. Served by src/server.mjs at GET /.
 
   Features:
-  - Sidebar tabbed navigation between Comments, Likes, and sub-filter categories (e.g., Post, Article, Video likes).
-  - Rich metadata per item: author, headline, post excerpt, timestamp.
-  - Interactive row selection checkboxes for comments and likes.
-  - Inline comment editing with red-text highlighting.
-  - Column filter search boxes in the table header for Poster, Post, Comment/Text, and Headline.
-  - Top-level Action Toolbar: Scan (with deep and limit options), Push Updates (batch execution).
-  - Collapsible real-time execution log drawer at the bottom with SSE connection.
-  - "Shutdown App" button in the header.
-  - Full viewport-fitting CSS with border-box sizing and word-wrap.
+  - Sidebar tabbed navigation between Comments and Likes.
+  - Column filter search boxes in the table header for Poster, Headline, Post, and Comment/Like Type.
+  - Likes type selector supporting all 5 LinkedIn activity types (All Types, Post, Article, Comment, Reaction, Video).
+  - Post text: expand/collapse toggle option + full post on hover when collapsed.
+  - Headline: wrapped without truncation.
+  - Dates: unified normalization (relative strings like "4mo" normalized cleanly).
+  - Comments: click-to-edit inline section (becomes editable textarea/input on click, reverts when clicking outside without modifying, staged for push updates).
+  - Select-all checkbox respects current active filters.
+  - Clean activity log (no heartbeat noise).
 */
 
 // Escape HTML special characters to prevent injection.
@@ -24,17 +24,42 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-// Format a date string for display. Falls back to the raw string when the
-// value is not parseable (LinkedIn renders e.g. "Sep 16").
+// Normalize dates: keep relative time strings (e.g. "4mo", "2d") or parse dates cleanly.
 function formatDate(dateStr) {
   if (!dateStr) return "--";
   const s = String(dateStr).trim();
 
   if (!s) return "--";
 
+  // If it's already a relative LinkedIn string like "4mo", "2d", "1yr", "3w", keep it unified.
+  if (/^\d+\s*(mo|d|yr|w|h|m|s)$/i.test(s) || /^\d+[a-z]+$/i.test(s)) {
+    return escapeHtml(s);
+  }
+
   const d = new Date(s);
 
   if (!isNaN(d.getTime())) {
+    const now = new Date();
+    const diffMonths =
+      (now.getFullYear() - d.getFullYear()) * 12 +
+      (now.getMonth() - d.getMonth());
+
+    if (diffMonths >= 1 && diffMonths < 12) {
+      return diffMonths + "mo";
+    }
+
+    if (diffMonths >= 12) {
+      const years = (diffMonths / 12).toFixed(1);
+
+      return years.endsWith(".0")
+        ? Math.floor(diffMonths / 12) + "yr"
+        : years + "yr";
+    }
+
+    const diffDays = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 0 && diffDays < 30) return diffDays + "d";
+
     return d.toLocaleDateString();
   }
 
@@ -59,29 +84,51 @@ function buildTabContent(items, isLikes) {
     const key = escapeHtml(it.key || `${type}-${idx}`);
     const author = escapeHtml(it.author || "—");
     const headline = escapeHtml(it.headline || "—");
-
-    const postExcerpt =
+    const rawPost =
       it.postExcerpt !== undefined && it.postExcerpt !== null
-        ? escapeHtml(String(it.postExcerpt))
-        : "—";
+        ? String(it.postExcerpt)
+        : it.post || "—";
+    const postExcerpt = escapeHtml(rawPost);
+    const date = formatDate(it.dateTime || it.date);
 
-    const date = formatDate(it.dateTime);
-    const likeType = escapeHtml(it.likeType || "Post"); // e.g., Post, Article, Comment, Reaction
+    // Determine exact like type (Post, Article, Comment, Reaction, Video, etc.)
+    const likeType = escapeHtml(it.likeType || it.type || "Post");
 
-    // Comments have editable text field with red-text highlighting style; likes have text or likeType badge.
     let textCell = "";
 
     if (!isLikes) {
       const commentText = escapeHtml(it.text || "");
-      textCell =
-        '<td><input type="text" class="comment-edit-input" data-key="' +
-        key +
-        '" value="' +
-        commentText +
-        '" placeholder="Replacement text..." /></td>';
+      // Click-to-edit spec: normal display span that turns into input on click, reverts on blur if unchanged.
+      textCell = [
+        "<td>",
+        '<div class="editable-comment-wrap" data-key="' + key + '">',
+        '<span class="comment-display-text" title="Click to edit">' +
+          (commentText || '<em class="muted">Empty comment</em>') +
+          "</span>",
+        '<input type="text" class="comment-edit-input" data-key="' +
+          key +
+          '" value="' +
+          commentText +
+          '" style="display:none;" />',
+        "</div>",
+        "</td>",
+      ].join("\n");
     } else {
-      textCell =
-        '<td><span class="badge-like-type">' + likeType + "</span></td>";
+      const likeText = escapeHtml(it.text || "");
+      textCell = [
+        "<td>",
+        '<div class="like-info-cell">',
+        '<span class="badge-like-type">' + likeType + "</span>",
+        likeText
+          ? '<span class="like-text-snippet" title="' +
+            likeText +
+            '">' +
+            likeText +
+            "</span>"
+          : "",
+        "</div>",
+        "</td>",
+      ].join("\n");
     }
 
     return [
@@ -95,8 +142,10 @@ function buildTabContent(items, isLikes) {
         postExcerpt.toLowerCase() +
         '" data-text="' +
         (isLikes
-          ? likeType.toLowerCase()
+          ? likeType.toLowerCase() + " " + (it.text || "").toLowerCase()
           : escapeHtml(it.text || "").toLowerCase()) +
+        '" data-liketype="' +
+        likeType.toLowerCase() +
         '">',
       '<td><input type="checkbox" class="row-select" data-key="' +
         key +
@@ -106,40 +155,44 @@ function buildTabContent(items, isLikes) {
         '">' +
         author +
         "</span></td>",
-      '<td><span class="truncate" title="' +
-        headline +
-        '">' +
+      '<td class="headline-cell"><span class="headline-text">' +
         headline +
         "</span></td>",
       "<td>" + date + "</td>",
-      '<td><span class="truncate" title="' +
+      '<td class="post-cell"><div class="post-text-wrap collapsed-post" title="Hover for full post">' +
         postExcerpt +
-        '">' +
-        postExcerpt +
-        "</span></td>",
+        "</div></td>",
       textCell,
       "</tr>",
     ].join("\n");
   });
 
   const textHeader = isLikes
-    ? "<th>Like Type</th>"
-    : "<th>Replacement Comment (Red = Edit)</th>";
+    ? "<th>Like Type & Snippet</th>"
+    : "<th>Comment (Click to Edit)</th>";
+
+  const likeTypeFilterHtml = isLikes
+    ? [
+        "<label>Like Type: ",
+        '<select id="likeTypeFilter" class="filter-select">',
+        '<option value="">All Types (5)</option>',
+        '<option value="post">Post</option>',
+        '<option value="article">Article</option>',
+        '<option value="comment">Comment</option>',
+        '<option value="reaction">Reaction</option>',
+        '<option value="video">Video</option>',
+        "</select>",
+        "</label>",
+      ].join("")
+    : "";
 
   return [
     '<section class="items-box" id="items-' + type + '">',
     '<div class="section-header">',
     '<h2 class="items-title">' + title + " (" + items.length + ")</h2>",
     '<div class="selection-controls">',
-    isLikes
-      ? '<label>Filter Like Type: <select id="likeTypeFilter" class="filter-select"><option value="">All Types</option><option value="post">Post</option><option value="article">Article</option><option value="comment">Comment</option></select></label>'
-      : "",
-    '<button type="button" class="btn-sm select-all" data-target="' +
-      type +
-      '">Select All</button>',
-    '<button type="button" class="btn-sm deselect-all" data-target="' +
-      type +
-      '">Deselect All</button>',
+    likeTypeFilterHtml,
+    '<label><input type="checkbox" id="expandPostsCb"> Expand Posts</label>',
     "</div>",
     "</div>",
     '<div class="items-table-wrap">',
@@ -247,11 +300,6 @@ function generateDashboardPage(envComments, envLikes) {
     button.danger { background: var(--danger); }
     button.danger:hover { background: #b52b12; }
 
-    .btn-sm {
-      padding: 0.25rem 0.5rem;
-      font-size: 0.75rem;
-    }
-
     /* Top Action Toolbar */
     .toolbar {
       background: var(--card);
@@ -282,9 +330,7 @@ function generateDashboardPage(envComments, envLikes) {
       border: 1px solid var(--border);
       border-radius: 4px;
     }
-    .toolbar input[type="checkbox"] {
-      cursor: pointer;
-    }
+    .toolbar input[type="checkbox"] { cursor: pointer; }
 
     /* Layout Container */
     .main-layout {
@@ -345,7 +391,7 @@ function generateDashboardPage(envComments, envLikes) {
       gap: 0.5rem;
     }
     .items-title { margin: 0; font-size: 1rem; color: var(--fg); }
-    .selection-controls { display: flex; gap: 0.5rem; align-items: center; }
+    .selection-controls { display: flex; gap: 1rem; align-items: center; font-size: 0.85rem; color: var(--muted); }
 
     .items-table-wrap {
       width: 100%;
@@ -361,9 +407,7 @@ function generateDashboardPage(envComments, envLikes) {
       padding: 0.5rem;
       font-size: 0.8rem;
       text-align: left;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      vertical-align: top;
     }
     th { background: #f8f9fa; position: sticky; top: 0; z-index: 2; }
     .filter-row th { background: #f1f3f5; padding: 0.3rem 0.4rem; }
@@ -378,11 +422,43 @@ function generateDashboardPage(envComments, envLikes) {
     th:nth-child(1), td:nth-child(1) { width: 36px; text-align: center; }
     th:nth-child(2), td:nth-child(2) { width: 18%; }
     th:nth-child(3), td:nth-child(3) { width: 22%; }
-    th:nth-child(4), td:nth-child(4) { width: 12%; }
-    th:nth-child(5), td:nth-child(5) { width: 28%; }
-    th:nth-child(6), td:nth-child(6) { width: 20%; }
+    th:nth-child(4), td:nth-child(4) { width: 10%; }
+    th:nth-child(5), td:nth-child(5) { width: 26%; }
+    th:nth-child(6), td:nth-child(6) { width: 18%; }
 
     .truncate { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+    
+    /* Headline wrap spec: must not be cut */
+    .headline-cell { word-break: break-word; white-space: normal; }
+    .headline-text { display: block; word-wrap: break-word; }
+
+    /* Post wrap and expand spec */
+    .post-text-wrap {
+      word-break: break-word;
+      white-space: normal;
+      max-height: 3.2em;
+      overflow: hidden;
+      position: relative;
+    }
+    .post-text-wrap.expanded-post {
+      max-height: none;
+    }
+    .post-text-wrap.collapsed-post:hover::after {
+      content: attr(title);
+      position: absolute;
+      left: 0;
+      top: 100%;
+      z-index: 10;
+      background: #333;
+      color: #fff;
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      width: 300px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+      white-space: normal;
+    }
+
     .no-items { padding: 3rem; text-align: center; color: var(--muted); }
     .badge-like-type {
       display: inline-block;
@@ -391,23 +467,32 @@ function generateDashboardPage(envComments, envLikes) {
       background: #e9ecef;
       border-radius: 3px;
       color: #495057;
+      margin-bottom: 0.2rem;
     }
+    .like-info-cell { display: flex; flex-direction: column; gap: 0.2rem; }
+    .like-text-snippet { font-size: 0.75rem; color: var(--muted); word-break: break-word; white-space: normal; }
 
-    /* Inline comment editing red text highlight */
+    /* Click-to-edit comment spec */
+    .comment-display-text {
+      display: block;
+      cursor: pointer;
+      padding: 0.2rem;
+      border-radius: 3px;
+      word-break: break-word;
+      white-space: normal;
+    }
+    .comment-display-text:hover {
+      background: #f1f3f5;
+    }
     .comment-edit-input {
       width: 100%;
       padding: 0.25rem 0.4rem;
       font-size: 0.8rem;
-      border: 1px solid var(--border);
+      border: 1px solid var(--danger);
       border-radius: 3px;
       color: var(--danger);
       background: #fff8f8;
       font-family: inherit;
-    }
-    .comment-edit-input:focus {
-      outline: none;
-      border-color: var(--danger);
-      box-shadow: 0 0 0 2px rgba(217, 56, 30, 0.2);
     }
 
     /* Collapsible Activity Log Drawer */
@@ -492,8 +577,9 @@ function generateDashboardPage(envComments, envLikes) {
 </div>
 
 <script>
-  // Append message to log console
+  // Append message to log console (suppress heartbeat "purge stream alive" noise)
   function logMessage(msg) {
+    if (msg && msg.indexOf("purge stream alive") !== -1) return;
     var consoleEl = document.getElementById("logConsole");
     var ts = new Date().toLocaleTimeString();
     consoleEl.textContent += "[" + ts + "] " + msg + "\\n";
@@ -507,7 +593,7 @@ function generateDashboardPage(envComments, envLikes) {
       try { var data = JSON.parse(e.data); logMessage("Connected: " + data.message); } catch(_){ logMessage("Connected to SSE stream."); }
     });
     es.addEventListener("progress", function(e) {
-      try { var data = JSON.parse(e.data); logMessage("Progress: " + (data.message || JSON.stringify(data))); } catch(_){}
+      try { var data = JSON.parse(e.data); if (data.message && data.message.indexOf("purge stream alive") === -1) { logMessage("Progress: " + data.message); } } catch(_){}
     });
     es.onerror = function() {
       logMessage("SSE connection lost. Reconnecting...");
@@ -536,6 +622,71 @@ function generateDashboardPage(envComments, envLikes) {
     });
   });
 
+  // Expand Posts toggle option
+  document.addEventListener("change", function(e) {
+    if (e.target.id === "expandPostsCb") {
+      var checked = e.target.checked;
+      document.querySelectorAll(".post-text-wrap").forEach(function(el) {
+        if (checked) {
+          el.classList.add("expanded-post");
+          el.classList.remove("collapsed-post");
+        } else {
+          el.classList.remove("expanded-post");
+          el.classList.add("collapsed-post");
+        }
+      });
+    }
+  });
+
+  // Click-to-edit comment spec: click text -> show input; click outside without modifying -> revert
+  document.addEventListener("click", function(e) {
+    var displayText = e.target.closest(".comment-display-text");
+    if (displayText) {
+      var wrap = displayText.closest(".editable-comment-wrap");
+      var input = wrap.querySelector(".comment-edit-input");
+      displayText.style.display = "none";
+      input.style.display = "block";
+      input.focus();
+      input.dataset.originalValue = input.value;
+      return;
+    }
+
+    // Click outside comment editor: revert if unchanged or blur
+    if (!e.target.closest(".editable-comment-wrap")) {
+      document.querySelectorAll(".comment-edit-input").forEach(function(input) {
+        if (input.style.display !== "none") {
+          var wrap = input.closest(".editable-comment-wrap");
+          var displayText = wrap.querySelector(".comment-display-text");
+          if (input.value === input.dataset.originalValue) {
+            input.style.display = "none";
+            displayText.style.display = "block";
+          }
+        }
+      });
+    }
+  });
+
+  // Blur on input: update display text and revert visibility if value matches original
+  document.addEventListener("blur", function(e) {
+    if (e.target.classList.contains("comment-edit-input")) {
+      var input = e.target;
+      var wrap = input.closest(".editable-comment-wrap");
+      var displayText = wrap.querySelector(".comment-display-text");
+      setTimeout(function() {
+        if (!wrap.contains(document.activeElement)) {
+          if (input.value === input.dataset.originalValue) {
+            input.style.display = "none";
+            displayText.style.display = "block";
+          } else {
+            displayText.textContent = input.value || "Empty comment";
+            input.style.display = "none";
+            displayText.style.display = "block";
+          }
+        }
+      }, 150);
+    }
+  }, true);
+
   // Column filtering and like type filtering logic
   function applyFilters(section) {
     var filters = {};
@@ -552,6 +703,7 @@ function generateDashboardPage(envComments, envLikes) {
       var headline = row.getAttribute("data-headline") || "";
       var post = row.getAttribute("data-post") || "";
       var text = row.getAttribute("data-text") || "";
+      var liketype = row.getAttribute("data-liketype") || "";
 
       var match = true;
       if (filters.poster && author.indexOf(filters.poster) === -1) match = false;
@@ -559,9 +711,8 @@ function generateDashboardPage(envComments, envLikes) {
       if (filters.post && post.indexOf(filters.post) === -1) match = false;
       if (filters.text && text.indexOf(filters.text) === -1) match = false;
 
-      if (likeTypeVal && text !== likeTypeVal) {
-        // For likes, text data attribute stores the likeType
-        if (likeTypeVal !== "" && text.indexOf(likeTypeVal) === -1) match = false;
+      if (likeTypeVal && liketype.indexOf(likeTypeVal) === -1) {
+        match = false;
       }
 
       row.style.display = match ? "" : "none";
@@ -578,33 +729,19 @@ function generateDashboardPage(envComments, envLikes) {
     }
   });
 
-  // Select / Deselect All Handlers
-  document.addEventListener("click", function(e) {
-    if (e.target.classList.contains("select-all")) {
-      var targetType = e.target.getAttribute("data-target");
-      var container = document.getElementById("items-" + targetType);
-      container.querySelectorAll(".row-select").forEach(function(cb) { cb.checked = true; });
-      var selectAllCb = container.querySelector(".select-all-cb");
-      if (selectAllCb) selectAllCb.checked = true;
-      logMessage("Selected all " + targetType);
-    }
-    if (e.target.classList.contains("deselect-all")) {
-      var targetType = e.target.getAttribute("data-target");
-      var container = document.getElementById("items-" + targetType);
-      container.querySelectorAll(".row-select").forEach(function(cb) { cb.checked = false; });
-      var selectAllCb = container.querySelector(".select-all-cb");
-      if (selectAllCb) selectAllCb.checked = false;
-      logMessage("Deselected all " + targetType);
-    }
-  });
-
+  // Select-all checkbox respects current active filters
   document.addEventListener("change", function(e) {
     if (e.target.classList.contains("select-all-cb")) {
       var targetType = e.target.getAttribute("data-target");
       var container = document.getElementById("items-" + targetType);
       var checked = e.target.checked;
-      container.querySelectorAll(".row-select").forEach(function(cb) { cb.checked = checked; });
-      logMessage((checked ? "Selected" : "Deselected") + " all " + targetType);
+      container.querySelectorAll("tbody.filterable-tbody tr").forEach(function(row) {
+        if (row.style.display !== "none") {
+          var cb = row.querySelector(".row-select");
+          if (cb) cb.checked = checked;
+        }
+      });
+      logMessage((checked ? "Selected" : "Deselected") + " visible filtered " + targetType);
     }
   });
 
