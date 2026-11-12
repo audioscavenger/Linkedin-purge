@@ -2,7 +2,7 @@
   "*.{js,mjs,cjs,jsx,tsx,ts}": [
     "node scripts/fix-slop.mjs",
     "node scripts/fix-comments.mjs",
-    "eslint --fix",
+    "npx oxlint --no-error-on-unmatched-pattern",
     "prettier --write"
   ],
   "*.md": [
