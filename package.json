@@ -1,6 +1,6 @@
 {
   "name": "linkedin-purge",
-  "version": "0.5.10",
+  "version": "0.6.0",
   "description": "Purge your own LinkedIn comments and likes via Playwright with randomized pacing.",
   "license": "MIT",
   "private": true,
@@ -13,6 +13,7 @@
     "scan": "node src/cli.mjs scan",
     "purge": "node src/cli.mjs purge",
     "status": "node src/cli.mjs status",
+    "dashboard": "node src/cli.mjs dashboard",
     "help": "node src/cli.mjs --help",
     "verify:page": "node scripts/verify-page.mjs",
     "verify:selection-page": "node scripts/selection-page-browser-check.mjs",

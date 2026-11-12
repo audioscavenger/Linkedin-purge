@@ -16,7 +16,9 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 
 | Module | Purpose |
 |--------|---------|
-| `src/cli/login.mjs` | `runLogin()` - opens headed browser for LinkedIn login |
+| `src/cli/dashboard.mjs` | `runDashboard()` - starts the dashboard HTTP server | `runDashboard()` |
+| `src/server.mjs` | Local HTTP server (`createServer()`) for the live dashboard API, REST endpoints, and SSE stream | `createServer()`, `stopServer()`, `resolveDashboardPort()` |
+| `src/dashboard-page.mjs` | HTML generator for the live dashboard single-page UI | `generateDashboardPage()` |
 | `src/cli/scan.mjs` | `runScan()` - shallow by default: collects the first render of rich items (key, cardId, state, author, postHref, dateTime, text, postExcerpt, cardId) per type, written as the scan envelope `data/scan-<type>.json`; `--deep` walks the whole Activity List through the Activity Loader instead, then writes and opens `data/selection-<type>.html` |
 | `src/cli/input-keys.mjs` | `loadInputKeys()` - loads the `--input` file, validates it is the scan JSON envelope (items[].key, falling back to keys[]), and returns its key list; anything else rejected with a named-shape error |
 | `src/cli/selection.mjs` | `loadSelection()` - loads a `selection-<type>.json` export envelope and answers which items are actionable (anything not final and not a no-op), keyed by Card Identity |

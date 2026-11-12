@@ -55,6 +55,11 @@ npm run purge -- --cdp http://localhost:9222
 ## Usage
 
 ```sh
+# Start the live dashboard server (default port 3333)
+npm run dashboard
+```
+
+```sh
 # Count items without deleting (first render only)
 npm run scan -- --type comments
 npm run scan -- --type likes
@@ -88,15 +93,6 @@ what you left alone.
 # Full purge (legacy): act on every item on the page
 npm run purge -- --type likes
 ```
-
-## Progress
-
-npm run status
-
-````
-
-reports per-type status counts (deleted, failed, not-found, todo, no-op)
-from the scan envelope, and says "no scan yet" when a type has no envelope.
 
 ## What a scan covers
 
