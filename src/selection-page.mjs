@@ -440,6 +440,7 @@ function renderRow(item, hasLinks, hasState, itemIdx, isComment) {
     item && (item.constructor === Object || item.constructor === Array)
       ? item
       : {};
+
   const state = escapeHtml(it.state != null ? it.state : "");
   const stateRaw = escapeAttr(it.state != null ? String(it.state) : "");
   const author = escapeHtml(it.author != null ? it.author : "");
