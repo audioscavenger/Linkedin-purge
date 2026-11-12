@@ -6,14 +6,21 @@
 
 ## Unreleased
 
+- [x] v0.6.0 - Live Dashboard, port 3333 config, inline comment editing, and browser shutdown
+  - Added a live web dashboard (`npm run dashboard`) served at port 3333 (configurable via `dashboardPort` in `config.json`).
+  - Added REST scan envelope endpoints and an SSE progress stream (`/api/purge/stream`).
+  - Added a "Shutdown App" button on the dashboard UI and a `/api/shutdown` endpoint to gracefully stop the local server process.
+  - Added inline comment editing with red-text highlighting to stage replacement text injections alongside batch item deletions via "Push Updates".
+  - Updated `NAVIGATION.md` with dashboard server and CLI modules.
+
+## Released
+
 - [x] v0.5.10 - Fix selection purge input validation, command line parsing, and reaction index key resolution
   - Fixed selection purge (`purge --input`) so it updates the target JSON envelope in place and skips re-opening browser windows when running with a custom input file.
   - Added strict input validation to `purge --input` to reject `.html` views and require valid JSON scan envelopes.
   - Fixed `LIpurge.cmd` wrapper script argument forwarding by including the `--` separator to prevent npm from interpreting custom flags as npm options.
   - Removed confirmation prompts from selection-based purges (`purge --input`) since items were already interactively selected by the user.
   - Fixed reaction index key (`reaction:N`) resolution during selection purges so items exported from reaction scans are successfully matched and purged.
-
-## Released
 
 - [x] v0.5.9 - Oxlint migration and accumulated improvements
   - Migrated linting from ESLint to Oxlint: added `.oxlintrc.json` with the anti-slop plugin (18 rules) and the dash (unicode dash) plugin, wired `oxlint` into `lint-staged` pre-commit and `npm run lint`/`lint:fix`; removed ESLint and its config, plugins, and `eslint.config.mjs`. Cleaned up the lint baseline: auto-fixed 1,309 `require-readable-spacing` errors and manually resolved the remaining 50 errors (`no-runtime-typeof`, `no-array-filter-map`, `no-eval`, `no-useless-spread`, `no-useless-fallback-in-spread`) and all 25 warnings. `npm run lint` is now clean.

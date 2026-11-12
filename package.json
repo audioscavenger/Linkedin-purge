@@ -1,6 +1,6 @@
 {
   "name": "linkedin-purge",
-  "version": "0.5.10",
+  "version": "0.6.0",
   "description": "Purge your own LinkedIn comments and likes via Playwright with randomized pacing.",
   "license": "MIT",
   "private": true,
