@@ -6,33 +6,34 @@
 
 ## Unreleased
 
-- [ ] Migrated linting from ESLint to Oxlint: added `.oxlintrc.json` with the anti-slop plugin (18 rules) and the dash (unicode dash) plugin, wired `oxlint` into `lint-staged` pre-commit and `npm run lint`/`lint:fix`; removed ESLint and its config, plugins, and `eslint.config.mjs`. Cleaned up the lint baseline: auto-fixed 1,309 `require-readable-spacing` errors and manually resolved the remaining 50 errors (`no-runtime-typeof`, `no-array-filter-map`, `no-eval`, `no-useless-spread`, `no-useless-fallback-in-spread`) and all 25 warnings. `npm run lint` is now clean.
-
-- [ ] Added comment-run enforcement for the house two-line `//` comment rule: `npm run check` now fails when three or more consecutive comment lines are found, `npm run fix:comments` merges such runs into block comments, and unit tests cover both.
-
-- [ ] Activity Session owns the browser bootstrap for scan and purge: one module launches (or attaches over `--cdp`), opens the page, injects the helpers, guards the session, derives the profile base URL and parks on each Activity target tab, so the two commands no longer carry their own copy.
-  - Removed about 70 duplicated lines from `scan` and `purge`: the launch, page, helper injection, login guards, `/in/me` round trip and tab navigation now live in `src/activity-session.mjs`.
-  - One pair of settle waits (3s after the profile page, 8s after a tab) replaces scan's 8s and purge's 5s.
-  - `--cdp` now works for purge as the help screen already documented; scan read it and dropped it, purge never read it.
-  - Deliberate behavior change: a lapsed session throws a friendly error, so a not-logged-in scan or purge exits 1 instead of 0. The message is unchanged: `Not logged in. Run \`npm run login\` first.`
-  - Unit tests drive the session through injected launch, attach, inject and wait fakes; no browser is launched and nothing sleeps.
-
-- [ ] itemHref is mandatory on every Purge Item; targeted and automated purge without a prior scan (ADR 0005).
-  - The scan now captures itemHref for every item (likes and comments), so each Purge Item carries a direct link to itself and purge can target individual items without crawling the page first. The per-item menu capture for links is no longer an opt-in step.
-  - Comments link capture fixed: comments now open their own comment menu button so itemHref is populated instead of always null.
-  - `--limit` is now automation-only: used when purging without `--input` (crawl and purge up to `limit` items, no scan needed). With `--input`, `--input` always wins and `--limit` only caps how many marked-todo items are purged; `--deep` is dropped with `--input`. `--limit` applies per Activity type, not as a sum across both.
-  - not-found is recorded once and never retried within a run (ADR 0005); only failed outcomes are retried.
-  - Deliberate behaviour changes documented in ADR 0005 and the README parameter list.
-
-- [ ] Scan item metadata fixed for comments and likes (spec #12).
-  - Author: the first `/in/` link on both tabs is the viewer ("me") and is now skipped; the poster name is taken from a non-viewer `/in/` or `/company/` link, with the LinkedIn connection-degree suffix stripped ("Brad Bassham  • 1st" → "Brad Bassham"). Reaction-count garbage ("187 reactions") and headline text ("Implementation Consultant @ ...") are rejected so they can no longer leak into the Author column.
-  - DateTime: relative dates ("1mo", "1w", "3d") are now captured as a fallback when `<time datetime>` and month/day text are absent.
-  - Headline: selectors broadened; also carved from the combined author+degree+headline+date text block when no selector matches. Still blank when LinkedIn's DOM exposes no headline.
-  - Text (comments): comment body now extracted via an extended fallback that scans all text-bearing elements (not just `span[dir='ltr']`, which LinkedIn does not emit) and rejects UI strings, impression counts, and viewer-badge garbage. Reactions correctly stay `null`.
-  - `tests/linkedin-metadata.test.mjs`: 18 tests, fake DOM, no browser.
-  - `scripts/probe-dom.mjs` and `scripts/dump-card.mjs`: diagnostic tools for future DOM discovery, each with a `LAST VERIFIED WORKING` date (Fri Nov 06 2026).
-
 ## Released
+
+- [x] v0.5.9 - Oxlint migration and accumulated improvements
+  - Migrated linting from ESLint to Oxlint: added `.oxlintrc.json` with the anti-slop plugin (18 rules) and the dash (unicode dash) plugin, wired `oxlint` into `lint-staged` pre-commit and `npm run lint`/`lint:fix`; removed ESLint and its config, plugins, and `eslint.config.mjs`. Cleaned up the lint baseline: auto-fixed 1,309 `require-readable-spacing` errors and manually resolved the remaining 50 errors (`no-runtime-typeof`, `no-array-filter-map`, `no-eval`, `no-useless-spread`, `no-useless-fallback-in-spread`) and all 25 warnings. `npm run lint` is now clean.
+
+  - Added comment-run enforcement for the house two-line `//` comment rule: `npm run check` now fails when three or more consecutive comment lines are found, `npm run fix:comments` merges such runs into block comments, and unit tests cover both.
+
+  - Activity Session owns the browser bootstrap for scan and purge: one module launches (or attaches over `--cdp`), opens the page, injects the helpers, guards the session, derives the profile base URL and parks on each Activity target tab, so the two commands no longer carry their own copy.
+    - Removed about 70 duplicated lines from `scan` and `purge`: the launch, page, helper injection, login guards, `/in/me` round trip and tab navigation now live in `src/activity-session.mjs`.
+    - One pair of settle waits (3s after the profile page, 8s after a tab) replaces scan's 8s and purge's 5s.
+    - `--cdp` now works for purge as the help screen already documented; scan read it and dropped it, purge never read it.
+    - Deliberate behavior change: a lapsed session throws a friendly error, so a not-logged-in scan or purge exits 1 instead of 0. The message is unchanged: `Not logged in. Run \`npm run login\` first.`
+    - Unit tests drive the session through injected launch, attach, inject and wait fakes; no browser is launched and nothing sleeps.
+
+  - itemHref is mandatory on every Purge Item; targeted and automated purge without a prior scan (ADR 0005).
+    - The scan now captures itemHref for every item (likes and comments), so each Purge Item carries a direct link to itself and purge can target individual items without crawling the page first. The per-item menu capture for links is no longer an opt-in step.
+    - Comments link capture fixed: comments now open their own comment menu button so itemHref is populated instead of always null.
+    - `--limit` is now automation-only: used when purging without `--input` (crawl and purge up to `limit` items, no scan needed). With `--input`, `--input` always wins and `--limit` only caps how many marked-todo items are purged; `--deep` is dropped with `--input`. `--limit` applies per Activity type, not as a sum across both.
+    - not-found is recorded once and never retried within a run (ADR 0005); only failed outcomes are retried.
+    - Deliberate behaviour changes documented in ADR 0005 and the README parameter list.
+
+  - Scan item metadata fixed for comments and likes (spec #12).
+    - Author: the first `/in/` link on both tabs is the viewer ("me") and is now skipped; the poster name is taken from a non-viewer `/in/` or `/company/` link, with the LinkedIn connection-degree suffix stripped ("Brad Bassham  • 1st" → "Brad Bassham"). Reaction-count garbage ("187 reactions") and headline text ("Implementation Consultant @ ...") are rejected so they can no longer leak into the Author column.
+    - DateTime: relative dates ("1mo", "1w", "3d") are now captured as a fallback when `<time datetime>` and month/day text are absent.
+    - Headline: selectors broadened; also carved from the combined author+degree+headline+date text block when no selector matches. Still blank when LinkedIn's DOM exposes no headline.
+    - Text (comments): comment body now extracted via an extended fallback that scans all text-bearing elements (not just `span[dir='ltr']`, which LinkedIn does not emit) and rejects UI strings, impression counts, and viewer-badge garbage. Reactions correctly stay `null`.
+    - `tests/linkedin-metadata.test.mjs`: 18 tests, fake DOM, no browser.
+    - `scripts/probe-dom.mjs` and `scripts/dump-card.mjs`: diagnostic tools for future DOM discovery, each with a `LAST VERIFIED WORKING` date (Fri Nov 06 2026).
 
 - [x] v0.5.8 - ESM extension clarity: renamed all .js source files to .mjs, fixed lint errors
   - Renamed all ESM `.js` files under `src/`, `scripts/`, `tests/`, `data/` to `.mjs` so the module system is explicit per file. `package.json` no longer needs `"type": "module"`.
