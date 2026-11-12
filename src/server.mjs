@@ -28,12 +28,34 @@ import http from "node:http";
 import { URL } from "node:url";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { log } from "./logger.mjs";
 import { generateDashboardPage } from "./dashboard-page.mjs";
 
 const DEFAULT_PORT = 3333;
 const KNOWN_TYPES = new Set(["comments", "likes", "reactions"]);
 const EVENT_STREAM_INTERVAL_MS = 2000;
+
+/*
+  Static assets (the reaction icons) resolve from the repo's assets/ folder
+  next to src/, not from the current working directory, so the dashboard works
+  when the server is started from anywhere.
+*/
+const ASSETS_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "assets"
+);
+
+// Only these extensions are served; anything else is refused.
+const ASSET_CONTENT_TYPES = new Map([
+  [".png", "image/png"],
+  [".svg", "image/svg+xml"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".gif", "image/gif"],
+  [".webp", "image/webp"],
+]);
 
 const SSE_HEADERS = {
   "Content-Type": "text/event-stream",
@@ -128,6 +150,44 @@ function sendJson(res, status, body) {
   });
 
   res.end(payload);
+}
+
+/**
+ * Serve one file from the repo's assets/ folder.
+ *
+ * The request name is reduced to its basename before joining, so a traversal
+ * attempt such as `/assets/../config.json` can never escape the folder. Only
+ * extensions listed in ASSET_CONTENT_TYPES are served.
+ *
+ * @param {http.ServerResponse} res - Response object.
+ * @param {string} assetName - File name taken from the request path.
+ * @returns {boolean} True when a file was served, false when it was refused.
+ */
+function serveAsset(res, assetName) {
+  const safeName = path.basename(assetName);
+
+  const contentType = ASSET_CONTENT_TYPES.get(
+    path.extname(safeName).toLowerCase()
+  );
+
+  if (!contentType) return false;
+
+  let bytes;
+
+  try {
+    bytes = fs.readFileSync(path.join(ASSETS_DIR, safeName));
+  } catch {
+    return false;
+  }
+
+  res.writeHead(200, {
+    "Content-Type": contentType,
+    "Content-Length": bytes.length,
+    "Cache-Control": "no-cache",
+  });
+  res.end(bytes);
+
+  return true;
 }
 
 /**
@@ -351,6 +411,17 @@ function createRequestHandler(dataDir) {
       res.end(html);
 
       return;
+    }
+
+    // --- GET /assets/:name: reaction icons and other static assets.
+    if (req.method === "GET" && pathname.startsWith("/assets/")) {
+      const assetName = pathname.slice("/assets/".length);
+
+      if (assetName && serveAsset(res, assetName)) return;
+
+      return sendJson(res, 404, {
+        error: `Asset not found: ${pathname}`,
+      });
     }
 
     // --- 404 catch-all.

@@ -2,11 +2,23 @@
 
 ## Bugs
 
+- Dashboard `Limit` input does nothing: `scan` never reads a `--limit` flag, so the value is sent and ignored. Either wire the option through `resolveRunOptions` and the Activity Loader, or remove the control.
+- `postExcerpt` is null on every reaction in `data/scan-likes.json`. `extractPostExcerpt` in `src/linkedin-dom.mjs` still guesses the obfuscated `p.gvyles` class and `isPlausiblePostText` rejects any candidate containing `|` or `@`, so the post body never survives extraction. Needs a live `scripts/probe-dom.mjs` run to read the current markup before the selector can be rewritten.
+- Fixture expectations (`data/parser-comments-202611.json`, `data/parser-reactions-202611.json`) live under the gitignored `data/`, so the two fixture tests cannot verify anything on a fresh clone. They now skip loudly instead of passing on an empty comparison; the expectations need committing under `tests/`.
+
 ## Ideas
 
 ## Unreleased
 
 ## Released
+
+- [x] v0.6.1 - Restore the glossary and actually serve the reaction icons
+  - Restored `GLOSSARY.md` to its 16 domain terms. A previous change had replaced the whole file with a four-line note; the only edit the Reaction term needed was its flavour count.
+  - Corrected the Reaction term: six flavours, not five (Like, Celebrate, Support, Love, Insightful, Funny).
+  - Added a `GET /assets/:name` route to `src/server.mjs`. The dashboard has referenced `/assets/reaction-*.png` since v0.6.0 but the server had no route for it, so every reaction icon returned 404. The route reduces the request name to its basename (so `/assets/../config.json` cannot escape) and serves only png, svg, jpg, jpeg, gif and webp.
+  - Reaction icons resolve from the repo's `assets/` folder next to `src/`, so the dashboard works regardless of the directory the server is started from.
+  - A reaction state outside the six glossary flavours now renders its label instead of a broken image.
+  - Both fixture tests resolve the repo root from the test file's own location instead of the hardcoded `E:/Gitea/Linkedin-purge`, skip loudly when the expectation file is absent, and fail when the file holds no expectations.
 
 - [x] v0.6.0 - Live Dashboard Control Center and comprehensive UI polishing
   - Added a live web dashboard (`npm run dashboard`) served at port 3333 (configurable via `dashboardPort` in `config.json`), automatically opening in the OS default browser on startup.

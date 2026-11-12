@@ -18,6 +18,19 @@
   - Clean activity log.
 */
 
+/*
+  The six glossary reaction flavors that ship an icon in assets/. Kept here so
+  an unexpected `state` from a scan renders as text instead of a broken image.
+*/
+const REACTION_ICON_NAMES = new Set([
+  "like",
+  "celebrate",
+  "support",
+  "love",
+  "insightful",
+  "funny",
+]);
+
 // Escape HTML special characters to prevent injection.
 function escapeHtml(value) {
   return String(value)
@@ -126,10 +139,11 @@ function buildTabContent(items, isReactions) {
         "</div>",
         "</td>",
       ].join("\n");
-    } else {
+    } else if (REACTION_ICON_NAMES.has(reactionType.toLowerCase())) {
       // Use graphical assets/reaction-*.png in lieu of text badges, limited to row size
       const reactionIcon =
         "/assets/reaction-" + reactionType.toLowerCase() + ".png";
+
       textCell = [
         "<td>",
         '<div class="reaction-info-cell">',
@@ -140,6 +154,16 @@ function buildTabContent(items, isReactions) {
           '" title="' +
           reactionType +
           '" />',
+        "</div>",
+        "</td>",
+      ].join("\n");
+    } else {
+      // A state outside the six glossary flavors has no icon; show the label
+      // rather than a broken image.
+      textCell = [
+        "<td>",
+        '<div class="reaction-info-cell">',
+        '<span class="badge-reaction-type">' + reactionType + "</span>",
         "</div>",
         "</td>",
       ].join("\n");

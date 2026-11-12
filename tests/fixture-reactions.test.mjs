@@ -1,24 +1,40 @@
 /*
   End-to-end fixture test: run the in-page extractor against the saved
   anonymized reactions page and compare to the expected output.
+
+  The expectation file lives under data/, which is gitignored, so a fresh
+  clone does not carry it. When it is absent the test SKIPS loudly instead
+  of passing vacuously: a fixture run that compares nothing proves nothing.
 */
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
 
-const root = "E:/Gitea/Linkedin-purge";
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const html = fs.readFileSync(
   path.join(root, "tests", "reactions-input-test-202611.html"),
   "utf8"
 );
 
-const expected = JSON.parse(
-  fs.readFileSync(
-    path.join(root, "data", "parser-reactions-202611.json"),
-    "utf8"
-  )
-);
+const expectedPath = path.join(root, "data", "parser-reactions-202611.json");
+
+if (!fs.existsSync(expectedPath)) {
+  console.log(
+    `SKIP: reactions fixture not verified, missing ${path.relative(root, expectedPath)}`
+  );
+  process.exit(0);
+}
+
+const expected = JSON.parse(fs.readFileSync(expectedPath, "utf8"));
+
+if (!Array.isArray(expected) || expected.length === 0) {
+  console.error(
+    `FAIL: ${path.relative(root, expectedPath)} holds no expectations`
+  );
+  process.exit(1);
+}
 
 const dom = new JSDOM(html, {
   url: "https://www.linkedin.com/in/firstname-lastname/recent-activity/reactions/",
