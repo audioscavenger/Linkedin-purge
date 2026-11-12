@@ -15,7 +15,13 @@ import { chromium as baseChromium } from "playwright-extra";
 import stealth from "puppeteer-extra-plugin-stealth";
 import { chromium as coreChromium } from "playwright";
 
-baseChromium.use(stealth());
+const stealthPlugin = stealth();
+
+if (stealthPlugin.enabledEvasions) {
+  stealthPlugin.enabledEvasions.delete("user-agent-override");
+}
+
+baseChromium.use(stealthPlugin);
 
 export function findChromiumBinary() {
   const candidates = [

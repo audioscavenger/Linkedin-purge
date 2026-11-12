@@ -1146,9 +1146,44 @@ async function collectCommentItems(seenKeys, links) {
 // --- Shared ---
 
 function collectCardIds() {
-  return activityCards()
-    .map((card) => card.id)
-    .filter(Boolean);
+  const commentCards = document.querySelectorAll(
+    '[componentkey^="replaceableComment_"]'
+  );
+
+  if (commentCards.length > 0) {
+    const res = [];
+
+    for (const card of commentCards) {
+      const val = card.getAttribute("componentkey");
+
+      if (val) res.push(val);
+    }
+
+    return res;
+  }
+
+  const reactionBtns = reactionButtons();
+
+  if (reactionBtns.length > 0) {
+    const res = [];
+
+    for (let idx = 0; idx < reactionBtns.length; idx++) {
+      const val = reactionKeyForIndex(idx);
+
+      if (val) res.push(val);
+    }
+
+    return res;
+  }
+
+  const cards = activityCards();
+  const res = [];
+
+  for (const card of cards) {
+    if (card.id) res.push(card.id);
+  }
+
+  return res;
 }
 
 function collectKeys() {
@@ -1374,7 +1409,15 @@ async function deleteOneCard(cardId) {
     };
   }
 
-  const card = document.getElementById(cardId);
+  let card = document.getElementById(cardId);
+
+  if (!card && /^reaction:\d+$/.test(cardId)) {
+    const idx = parseInt(cardId.split(":")[1], 10);
+    const all = reactionButtons();
+    const btn = all[idx];
+
+    if (btn) card = findCard(btn);
+  }
 
   if (!card) {
     return { ok: false, skip: false, cardId, error: "card not found" };

@@ -65,6 +65,13 @@ export async function runPurge(args) {
   let selection = null;
 
   if (inputFile) {
+    if (path.extname(inputFile).toLowerCase() === ".html") {
+      console.error(
+        `Error: --input expects a JSON scan envelope file (e.g. data/selection-likes.json or data/scan-likes.json), not an HTML file (${inputFile}).`
+      );
+      process.exit(1);
+    }
+
     selection = loadSelection(inputFile);
     log(
       `Selection: ${selection.total} items in ${inputFile} (${selection.actionable} actionable).`
@@ -151,62 +158,63 @@ export async function runPurge(args) {
   statuses straight into the selection envelope through the store; a
   full purge run wires the envelopeStore to persist statuses.
 */
+      const envelopeStore = inputFile
+        ? new EnvelopeStore({ file: path.resolve(inputFile) })
+        : new EnvelopeStore({
+            file: path.resolve(dataDir, `scan-${target.type}.json`),
+          });
+
       const runner = new PurgeRunner({
         pageAdapter: new PageAdapter(page),
         confirmAdapter: new ConfirmAdapter(),
-        // Statuses live in the scan envelope for both selection mode and
-        // full-purge mode; the scan envelope is the only state (ticket 23/24).
-        envelopeStore: new EnvelopeStore({
-          file: path.resolve(dataDir, `scan-${target.type}.json`),
-        }),
+        envelopeStore,
       });
 
       // The runner asks its own confirmation prompt once per type.
       results.push(await runner.run({ type: target.type, ...runOptions }));
 
-      /*
-  Regenerate the selection page from the UPDATED envelope (the runner
-  wrote statuses through envelopeStore.mark, which does atomic writes).
-  Best effort: never fail the scan.
-*/
-      try {
-        const envelopeFile = inputFile
-          ? path.resolve(inputFile)
-          : path.resolve(dataDir, `scan-${target.type}.json`);
-
-        let envelope = null;
-
+      // Regenerate selection page / JSON only when not running with a custom input file
+      if (!inputFile) {
         try {
-          envelope = JSON.parse(fs.readFileSync(envelopeFile, "utf8"));
-        } catch (readErr) {
-          warn(
-            `Could not read updated envelope from ${envelopeFile}: ${readErr.message}`
+          const envelopeFile = path.resolve(
+            dataDir,
+            `scan-${target.type}.json`
           );
+
+          let envelope = null;
+
+          try {
+            envelope = JSON.parse(fs.readFileSync(envelopeFile, "utf8"));
+          } catch (readErr) {
+            warn(
+              `Could not read updated envelope from ${envelopeFile}: ${readErr.message}`
+            );
+          }
+
+          if (!envelope) {
+            envelope = buildScanEnvelope({
+              type: target.type,
+              items: [],
+              steps: 1,
+              complete: true,
+            });
+          }
+
+          const selectionHtml = generateSelectionPage(envelope);
+
+          const selectionPagePath = path.join(
+            dataDir,
+            `selection-${target.type}.html`
+          );
+
+          fs.writeFileSync(selectionPagePath, selectionHtml);
+          log(
+            `Selection page written to: ${path.relative(process.cwd(), selectionPagePath)}`
+          );
+          await openPage(selectionPagePath);
+        } catch (err) {
+          warn(`Failed to generate selection page: ${err.message}`);
         }
-
-        if (!envelope) {
-          envelope = buildScanEnvelope({
-            type: target.type,
-            items: [],
-            steps: 1,
-            complete: true,
-          });
-        }
-
-        const selectionHtml = generateSelectionPage(envelope);
-
-        const selectionPagePath = path.join(
-          dataDir,
-          `selection-${target.type}.html`
-        );
-
-        fs.writeFileSync(selectionPagePath, selectionHtml);
-        log(
-          `Selection page written to: ${path.relative(process.cwd(), selectionPagePath)}`
-        );
-        await openPage(selectionPagePath);
-      } catch (err) {
-        warn(`Failed to generate selection page: ${err.message}`);
       }
     }
 

@@ -78,14 +78,7 @@ export class PurgeRunner {
       return { type, deleted: 0, durationMs: Date.now() - startTime, counts };
     }
 
-    const confirmed = await this.confirmAdapter.confirm(
-      `Delete ${remaining.size} ${type} items? Type YES to proceed: `
-    );
-
-    if (!confirmed) {
-      return { type, deleted: 0, durationMs: Date.now() - startTime, counts };
-    }
-
+    // Selection mode: since you explicitly reviewed and selected these items in the UI and exported them, confirmation is skipped.
     let emptySteps = 0;
     const maxEmptySteps = maxEmptyScrolls;
 

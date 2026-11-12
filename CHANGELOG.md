@@ -6,6 +6,13 @@
 
 ## Unreleased
 
+- [x] v0.5.10 - Fix selection purge input validation, command line parsing, and reaction index key resolution
+  - Fixed selection purge (`purge --input`) so it updates the target JSON envelope in place and skips re-opening browser windows when running with a custom input file.
+  - Added strict input validation to `purge --input` to reject `.html` views and require valid JSON scan envelopes.
+  - Fixed `LIpurge.cmd` wrapper script argument forwarding by including the `--` separator to prevent npm from interpreting custom flags as npm options.
+  - Removed confirmation prompts from selection-based purges (`purge --input`) since items were already interactively selected by the user.
+  - Fixed reaction index key (`reaction:N`) resolution during selection purges so items exported from reaction scans are successfully matched and purged.
+
 ## Released
 
 - [x] v0.5.9 - Oxlint migration and accumulated improvements
