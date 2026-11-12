@@ -9,7 +9,8 @@
   - Post text: expand/collapse toggle option + full post on hover when collapsed.
   - Headline: wrapped without truncation.
   - Dates: unified normalization (relative strings like "4mo" normalized cleanly).
-  - Comments: click-to-edit inline section (becomes editable textarea/input on click, reverts when clicking outside without modifying, staged for push updates).
+  - Comments: click-to-edit inline section with fixed-size textarea staying consistent in dimensions.
+  - Checkboxes: both sections start UNCHECKED by default.
   - Select-all checkbox respects current active filters.
   - Clean activity log (no heartbeat noise).
 */
@@ -83,10 +84,13 @@ function buildTabContent(items, isReactions) {
     const key = escapeHtml(it.key || `${type}-${idx}`);
     const author = escapeHtml(it.author || "—");
     const headline = escapeHtml(it.headline || "—");
+
+    // Fix: extract post text properly for both comments and reactions across all property aliases
     const rawPost =
       it.postExcerpt !== undefined && it.postExcerpt !== null
         ? String(it.postExcerpt)
-        : it.post || it.postText || "—";
+        : it.post || it.postText || it.textSnippet || it.body || "—";
+
     const postExcerpt = escapeHtml(rawPost);
     const date = formatDate(it.dateTime || it.date);
 
@@ -98,7 +102,6 @@ function buildTabContent(items, isReactions) {
     let textCell = "";
 
     if (!isReactions) {
-      // Fix: ensure comment text is read from it.text or it.comment or it.body
       const commentText = escapeHtml(it.text || it.comment || it.body || "");
       textCell = [
         "<td>",
@@ -106,11 +109,11 @@ function buildTabContent(items, isReactions) {
         '<span class="comment-display-text" title="Click to edit">' +
           (commentText || '<em class="muted">Empty comment</em>') +
           "</span>",
-        '<input type="text" class="comment-edit-input" data-key="' +
+        '<textarea class="comment-edit-input" data-key="' +
           key +
-          '" value="' +
+          '" style="display:none;" rows="2">' +
           commentText +
-          '" style="display:none;" />',
+          "</textarea>",
         "</div>",
         "</td>",
       ].join("\n");
@@ -152,7 +155,7 @@ function buildTabContent(items, isReactions) {
         '">',
       '<td><input type="checkbox" class="row-select" data-key="' +
         key +
-        '" checked /></td>',
+        '" /></td>',
       '<td><span class="truncate" title="' +
         author +
         '">' +
@@ -162,7 +165,9 @@ function buildTabContent(items, isReactions) {
         headline +
         "</span></td>",
       "<td>" + date + "</td>",
-      '<td class="post-cell"><div class="post-text-wrap collapsed-post">' +
+      '<td class="post-cell"><div class="post-text-wrap collapsed-post" title="' +
+        postExcerpt +
+        '">' +
         postExcerpt +
         '<div class="post-full-tooltip">' +
         postExcerpt +
@@ -207,7 +212,7 @@ function buildTabContent(items, isReactions) {
     "<tr>",
     '<th style="width:30px;"><input type="checkbox" class="select-all-cb" data-target="' +
       type +
-      '" checked /></th>',
+      '" /></th>',
     "<th>Poster</th><th>Headline</th><th>Date</th><th>Post</th>" + textHeader,
     "</tr>",
     '<tr class="filter-row">',
@@ -482,27 +487,30 @@ function generateDashboardPage(envComments, envReactions) {
     .reaction-info-cell { display: flex; flex-direction: column; gap: 0.2rem; }
     .reaction-text-snippet { font-size: 0.75rem; color: var(--muted); word-break: break-word; white-space: normal; }
 
-    /* Click-to-edit comment spec with blur/outside click revert */
+    /* Click-to-edit comment spec with fixed-size textarea staying consistent in dimensions */
     .comment-display-text {
       display: block;
       cursor: pointer;
-      padding: 0.2rem;
+      padding: 0.3rem;
       border-radius: 3px;
       word-break: break-word;
       white-space: normal;
+      min-height: 40px;
     }
     .comment-display-text:hover {
       background: #f1f3f5;
     }
     .comment-edit-input {
       width: 100%;
-      padding: 0.25rem 0.4rem;
+      min-height: 50px;
+      padding: 0.3rem 0.5rem;
       font-size: 0.8rem;
       border: 1px solid var(--danger);
       border-radius: 3px;
       color: var(--danger);
       background: #fff8f8;
       font-family: inherit;
+      resize: vertical;
     }
 
     /* Collapsible Activity Log Drawer */
@@ -656,27 +664,27 @@ function generateDashboardPage(envComments, envReactions) {
     }
   });
 
-  // Click-to-edit comment spec: click text -> show input; click outside without modifying -> revert
+  // Click-to-edit comment spec: click text -> show textarea; click outside without modifying -> revert
   document.addEventListener("click", function(e) {
     var displayText = e.target.closest(".comment-display-text");
     if (displayText) {
       var wrap = displayText.closest(".editable-comment-wrap");
-      var input = wrap.querySelector(".comment-edit-input");
+      var textarea = wrap.querySelector(".comment-edit-input");
       displayText.style.display = "none";
-      input.style.display = "block";
-      input.focus();
-      input.dataset.originalValue = input.value;
+      textarea.style.display = "block";
+      textarea.focus();
+      textarea.dataset.originalValue = textarea.value;
       return;
     }
 
-    // Click outside comment editor: revert if unchanged or blur
+    // Click outside comment editor: revert if unchanged
     if (!e.target.closest(".editable-comment-wrap")) {
-      document.querySelectorAll(".comment-edit-input").forEach(function(input) {
-        if (input.style.display !== "none") {
-          var wrap = input.closest(".editable-comment-wrap");
+      document.querySelectorAll(".comment-edit-input").forEach(function(textarea) {
+        if (textarea.style.display !== "none") {
+          var wrap = textarea.closest(".editable-comment-wrap");
           var displayText = wrap.querySelector(".comment-display-text");
-          if (input.value === input.dataset.originalValue) {
-            input.style.display = "none";
+          if (textarea.value === textarea.dataset.originalValue) {
+            textarea.style.display = "none";
             displayText.style.display = "block";
           }
         }
@@ -686,17 +694,17 @@ function generateDashboardPage(envComments, envReactions) {
 
   document.addEventListener("blur", function(e) {
     if (e.target.classList.contains("comment-edit-input")) {
-      var input = e.target;
-      var wrap = input.closest(".editable-comment-wrap");
+      var textarea = e.target;
+      var wrap = textarea.closest(".editable-comment-wrap");
       var displayText = wrap.querySelector(".comment-display-text");
       setTimeout(function() {
         if (!wrap.contains(document.activeElement)) {
-          if (input.value === input.dataset.originalValue) {
-            input.style.display = "none";
+          if (textarea.value === textarea.dataset.originalValue) {
+            textarea.style.display = "none";
             displayText.style.display = "block";
           } else {
-            displayText.textContent = input.value || "Empty comment";
-            input.style.display = "none";
+            displayText.textContent = textarea.value || "Empty comment";
+            textarea.style.display = "none";
             displayText.style.display = "block";
           }
         }
@@ -803,9 +811,9 @@ function generateDashboardPage(envComments, envReactions) {
     });
 
     var commentEdits = {};
-    document.querySelectorAll(".comment-edit-input").forEach(function(input) {
-      var key = input.getAttribute("data-key");
-      var text = input.value;
+    document.querySelectorAll(".comment-edit-input").forEach(function(textarea) {
+      var key = textarea.getAttribute("data-key");
+      var text = textarea.value;
       commentEdits[key] = text;
     });
 
