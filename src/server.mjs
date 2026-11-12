@@ -32,7 +32,7 @@ import { log } from "./logger.mjs";
 import { generateDashboardPage } from "./dashboard-page.mjs";
 
 const DEFAULT_PORT = 3333;
-const KNOWN_TYPES = new Set(["comments", "likes"]);
+const KNOWN_TYPES = new Set(["comments", "likes", "reactions"]);
 const EVENT_STREAM_INTERVAL_MS = 2000;
 
 const SSE_HEADERS = {
@@ -213,7 +213,9 @@ function createRequestHandler(dataDir) {
 
     // --- POST /api/scan/:type: trigger scan via CLI wrapper logic or headless scan runner.
     if (req.method === "POST" && /^\/api\/scan\/([^/]+)$/.test(pathname)) {
-      const type = pathname.split("/").pop();
+      let type = pathname.split("/").pop();
+
+      if (type === "reactions") type = "likes";
 
       if (!KNOWN_TYPES.has(type)) {
         return sendJson(res, 400, {
@@ -245,12 +247,19 @@ function createRequestHandler(dataDir) {
 
       try {
         const { runScan } = await import("./cli/scan.mjs");
-        await runScan({
-          type: type,
-          deep: !!opts.deep,
-          limit: parseInt(opts.limit, 10) || 50,
-          headless: true,
-        });
+        const scanArgs = [];
+
+        if (opts.deep) scanArgs.push("--deep");
+
+        if (opts.limit) {
+          scanArgs.push("--limit");
+          scanArgs.push(String(opts.limit));
+        }
+
+        scanArgs.push("--type");
+        scanArgs.push(type);
+
+        await runScan(scanArgs);
         broadcast("progress", {
           ts: new Date().toISOString(),
           message: `Scan completed for ${type}`,
