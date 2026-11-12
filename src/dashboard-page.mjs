@@ -10,10 +10,11 @@
   - Reaction type selector dynamically listing only scanned reaction types.
   - Post text: expand/collapse toggle option + full post on hover when collapsed.
   - Headline: wrapped without truncation.
-  - Dates: unified normalization.
-  - Comments: click-to-edit inline section with textarea sized generously.
+  - Dates: unified normalization (avoids fractional years like "25.1yr", cleans up relative time and dates).
+  - Comments: click-to-edit inline section with textarea sized generously and fixed dimensions.
   - Checkboxes: both sections start UNCHECKED by default.
-  - Clean activity log with Cancel Scan button during active scans.
+  - Scan Buttons: convert to Green with spinner and text "Scanning Comments/Reactions", fixed width, and clicking again stops the scan.
+  - Clean activity log.
 */
 
 // Escape HTML special characters to prevent injection.
@@ -26,7 +27,7 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-// Normalize dates: keep relative time strings (e.g. "4mo", "2d") or parse dates cleanly.
+// Normalize dates cleanly, avoiding weird float year outputs like "25.1yr".
 function formatDate(dateStr) {
   if (!dateStr) return "--";
   const s = String(dateStr).trim();
@@ -46,23 +47,19 @@ function formatDate(dateStr) {
       (now.getFullYear() - d.getFullYear()) * 12 +
       (now.getMonth() - d.getMonth());
 
-    if (diffMonths >= 1 && diffMonths < 12) {
+    if (diffMonths < 1) {
+      const diffDays = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+
+      return diffDays <= 0 ? "Today" : diffDays + "d";
+    }
+
+    if (diffMonths < 12) {
       return diffMonths + "mo";
     }
 
-    if (diffMonths >= 12) {
-      const years = (diffMonths / 12).toFixed(1);
+    const years = Math.floor(diffMonths / 12);
 
-      return years.endsWith(".0")
-        ? Math.floor(diffMonths / 12) + "yr"
-        : years + "yr";
-    }
-
-    const diffDays = Math.floor((now - d) / (1000 * 60 * 60 * 24));
-
-    if (diffDays > 0 && diffDays < 30) return diffDays + "d";
-
-    return d.toLocaleDateString();
+    return years + "yr";
   }
 
   return escapeHtml(s);
@@ -82,7 +79,6 @@ function buildTabContent(items, isReactions) {
   const type = isReactions ? "reactions" : "comments";
   const title = isReactions ? "Reactions" : "Comments";
 
-  // Collect unique reaction types present in scanned items if reactions tab
   const uniqueReactionTypes = new Set();
 
   const rows = items.map((it, idx) => {
@@ -90,7 +86,6 @@ function buildTabContent(items, isReactions) {
     const author = escapeHtml(it.author || "—");
     const headline = escapeHtml(it.headline || "—");
 
-    // Fix: extract post text properly across all possible aliases for both comments and reactions
     const rawPost =
       it.postExcerpt !== undefined && it.postExcerpt !== null
         ? String(it.postExcerpt)
@@ -104,9 +99,9 @@ function buildTabContent(items, isReactions) {
     const postExcerpt = escapeHtml(rawPost);
     const date = formatDate(it.dateTime || it.date);
 
-    // Glossary Reaction types: Like, Celebrate, Support, Love, Insightful, Funny
+    // Glossary Reaction types and scan-likes.json state property support
     const reactionType = escapeHtml(
-      it.reactionType || it.likeType || it.type || "Like"
+      it.state || it.reactionType || it.likeType || it.type || "Like"
     );
 
     uniqueReactionTypes.add(reactionType);
@@ -331,6 +326,31 @@ function generateDashboardPage(envComments, envReactions) {
     button.secondary:hover { background: #5a6268; }
     button.danger { background: var(--danger); }
     button.danger:hover { background: #b52b12; }
+    button.success { background: var(--success); }
+    button.success:hover { background: #0b5a0b; }
+
+    /* Fixed-width scan buttons to account for max text length + spinner without resizing */
+    .scan-btn {
+      width: 175px;
+      text-align: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      flex-shrink: 0;
+    }
+    .spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
 
     /* Top Action Toolbar */
     .toolbar {
@@ -532,8 +552,8 @@ function generateDashboardPage(envComments, envReactions) {
     }
     .comment-edit-input {
       width: 100%;
-      min-height: 60px;
-      padding: 0.3rem 0.5rem;
+      min-height: 70px;
+      padding: 0.4rem 0.5rem;
       font-size: 0.75rem;
       border: 1px solid var(--danger);
       border-radius: 3px;
@@ -591,9 +611,8 @@ function generateDashboardPage(envComments, envReactions) {
 
 <div class="toolbar">
   <div class="toolbar-group">
-    <button id="scanCommentsBtn" class="btn">Scan Comments</button>
-    <button id="scanReactionsBtn" class="btn">Scan Reactions</button>
-    <button id="cancelScanBtn" class="btn secondary" style="display:none;">Cancel Current Scan</button>
+    <button id="scanCommentsBtn" class="scan-btn btn">Scan Comments</button>
+    <button id="scanReactionsBtn" class="scan-btn btn">Scan Reactions</button>
     <label><input type="checkbox" id="deepScanCb"> Deep Scan</label>
     <label>Limit: <input type="number" id="limitInput" value="50" min="1" max="1000"></label>
   </div>
@@ -627,7 +646,7 @@ function generateDashboardPage(envComments, envReactions) {
 </div>
 
 <script>
-  var scanActive = false;
+  var activeScanType = null;
 
   // Append message to log console (suppress heartbeat "purge stream alive" noise)
   function logMessage(msg) {
@@ -803,60 +822,89 @@ function generateDashboardPage(envComments, envReactions) {
     }
   });
 
-  // Scan triggers (no temporary browser window opening)
-  function triggerScan(type) {
-    if (scanActive) return;
-    scanActive = true;
-    document.getElementById("cancelScanBtn").style.display = "inline-block";
+  // Update scan buttons state (Green + spinner + fixed width)
+  function setScanButtonState(type, scanning) {
+    var btnComments = document.getElementById("scanCommentsBtn");
+    var btnReactions = document.getElementById("scanReactionsBtn");
+
+    if (type === "comments") {
+      if (scanning) {
+        btnComments.textContent = "";
+        btnComments.innerHTML = '<span class="spinner"></span> Scanning Comments';
+        btnComments.style.background = "var(--success)";
+      } else {
+        btnComments.textContent = "Scan Comments";
+        btnComments.style.background = "";
+      }
+    } else if (type === "reactions") {
+      if (scanning) {
+        btnReactions.textContent = "";
+        btnReactions.innerHTML = '<span class="spinner"></span> Scanning Reactions';
+        btnReactions.style.background = "var(--success)";
+      } else {
+        btnReactions.textContent = "Scan Reactions";
+        btnReactions.style.background = "";
+      }
+    }
+  }
+
+  // Scan triggers with toggle-to-cancel on the same button
+  function handleScanClick(type) {
+    if (activeScanType === type) {
+      logMessage("Cancelling scan for " + type + "...");
+      fetch("/api/scan/cancel", { method: "POST" })
+        .then(function() {
+          activeScanType = null;
+          setScanButtonState(type, false);
+          logMessage("Scan cancelled.");
+        });
+      return;
+    }
+
+    if (activeScanType !== null) {
+      alert("A scan is already in progress.");
+      return;
+    }
+
+    activeScanType = type;
+    setScanButtonState(type, true);
+
     var deep = document.getElementById("deepScanCb").checked;
     var limit = document.getElementById("limitInput").value;
     logMessage("Starting scan for " + type + " (deep: " + deep + ", limit: " + limit + ")...");
-    
-    fetch("/api/scan/" + type, {
+
+    var backendType = type === "reactions" ? "likes" : type;
+
+    fetch("/api/scan/" + backendType, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ deep: deep, limit: parseInt(limit, 10) || 50 })
     })
     .then(function(res) { return res.json(); })
     .then(function(data) {
-      scanActive = false;
-      document.getElementById("cancelScanBtn").style.display = "none";
+      var finishedType = activeScanType;
+      activeScanType = null;
+      if (finishedType) setScanButtonState(finishedType, false);
+
       if (data.ok) {
-        logMessage("Scan completed for " + type + ". Refreshing dashboard data...");
-        // Fetch updated envelope via API and refresh table dynamically without full reload
-        fetch("/api/envelope/" + type)
-          .then(function(r) { return r.json(); })
-          .then(function(env) {
-            logMessage("Loaded updated envelope for " + type + " (" + (env.items ? env.items.length : 0) + " items). Reloading page to render.");
-            window.location.reload();
-          })
-          .catch(function() {
-            window.location.reload();
-          });
+        logMessage("Scan completed for " + type + ". Refreshing dashboard...");
+        window.location.reload();
       } else {
         logMessage("Scan failed: " + (data.error || "unknown error"));
         alert("Scan failed: " + (data.error || "unknown error"));
       }
     })
     .catch(function(err) {
-      scanActive = false;
-      document.getElementById("cancelScanBtn").style.display = "none";
+      var finishedType = activeScanType;
+      activeScanType = null;
+      if (finishedType) setScanButtonState(finishedType, false);
       logMessage("Scan request error: " + err.message);
       alert("Scan request failed.");
     });
   }
 
-  document.getElementById("scanCommentsBtn").addEventListener("click", function() { triggerScan("comments"); });
-  document.getElementById("scanReactionsBtn").addEventListener("click", function() { triggerScan("reactions"); });
-
-  document.getElementById("cancelScanBtn").addEventListener("click", function() {
-    fetch("/api/scan/cancel", { method: "POST" })
-      .then(function() {
-        scanActive = false;
-        document.getElementById("cancelScanBtn").style.display = "none";
-        logMessage("Scan cancellation requested.");
-      });
-  });
+  document.getElementById("scanCommentsBtn").addEventListener("click", function() { handleScanClick("comments"); });
+  document.getElementById("scanReactionsBtn").addEventListener("click", function() { handleScanClick("reactions"); });
 
   // Push Updates (Batch Deletions & Comment Edits)
   document.getElementById("pushUpdatesBtn").addEventListener("click", function() {
