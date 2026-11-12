@@ -6,6 +6,7 @@ import { runLoginImportProfile } from "./login-import-profile.mjs";
 import { runScan } from "./scan.mjs";
 import { runPurge } from "./purge.mjs";
 import { runStatus } from "./status.mjs";
+import { runDashboard } from "./dashboard.mjs";
 
 const KNOWN_COMMANDS = new Set([
   "login",
@@ -13,6 +14,7 @@ const KNOWN_COMMANDS = new Set([
   "scan",
   "purge",
   "status",
+  "dashboard",
 ]);
 
 export async function main() {
@@ -33,6 +35,7 @@ export async function main() {
     else if (command === "scan") await runScan(args);
     else if (command === "purge") await runPurge(args);
     else if (command === "status") await runStatus(args);
+    else if (command === "dashboard") await runDashboard(args);
     else printHelp();
   } catch (e) {
     err(e && e.friendly ? e.message : e && e.stack ? e.stack : String(e));
@@ -60,6 +63,7 @@ Commands:
   scan                     Collect item counts for --type (dry-run, no deletion).
   purge                    Scan, confirm, then delete with pacing.
   status                   Show per-type purge statuses from the scan envelope.
+  dashboard                Start the live dashboard server (port 3333 by default).
 
 Parameters:
   --type <comments|likes|all>     Item type to process                 (default: all)
