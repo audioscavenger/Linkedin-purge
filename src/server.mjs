@@ -211,7 +211,113 @@ function createRequestHandler(dataDir) {
       return;
     }
 
-    // --- POST /api/shutdown: gracefully stop the server process.
+    // --- POST /api/scan/:type: trigger scan via CLI wrapper logic or headless scan runner.
+    if (req.method === "POST" && /^\/api\/scan\/([^/]+)$/.test(pathname)) {
+      const type = pathname.split("/").pop();
+
+      if (!KNOWN_TYPES.has(type)) {
+        return sendJson(res, 400, {
+          error: `Unknown type "${type}". Expected one of: ${[...KNOWN_TYPES].join(", ")}.`,
+        });
+      }
+
+      let body = "";
+
+      for await (const chunk of req) {
+        body += chunk;
+      }
+
+      let opts = {};
+
+      try {
+        opts = JSON.parse(body || "{}");
+      } catch {
+        // ignore parse error
+      }
+
+      log(
+        `Dashboard triggered scan for "${type}" (deep: ${!!opts.deep}, limit: ${opts.limit || 50})...`
+      );
+      broadcast("progress", {
+        ts: new Date().toISOString(),
+        message: `Starting scan for ${type}...`,
+      });
+
+      try {
+        const { runScan } = await import("./cli/scan.mjs");
+        await runScan({
+          type: type,
+          deep: !!opts.deep,
+          limit: parseInt(opts.limit, 10) || 50,
+          headless: true,
+        });
+        broadcast("progress", {
+          ts: new Date().toISOString(),
+          message: `Scan completed for ${type}`,
+        });
+
+        return sendJson(res, 200, { ok: true, type });
+      } catch (err) {
+        log(
+          `Scan execution error for ${type}: ${err && err.message ? err.message : err}`
+        );
+
+        return sendJson(res, 500, {
+          ok: false,
+          error: String(err && err.message ? err.message : err),
+        });
+      }
+    }
+
+    // --- POST /api/purge/execute: trigger batch purge and comment edits.
+    if (req.method === "POST" && pathname === "/api/purge/execute") {
+      let body = "";
+
+      for await (const chunk of req) {
+        body += chunk;
+      }
+
+      let payload = {};
+
+      try {
+        payload = JSON.parse(body || "{}");
+      } catch {
+        // ignore
+      }
+
+      const deletions = payload.deletions || [];
+      const commentEdits = payload.commentEdits || {};
+
+      log(
+        `Dashboard requested purge execution: ${deletions.length} items to delete, ${Object.keys(commentEdits).length} comment edits.`
+      );
+      broadcast("progress", {
+        ts: new Date().toISOString(),
+        message: `Executing batch purge: ${deletions.length} deletions, ${Object.keys(commentEdits).length} edits...`,
+      });
+
+      try {
+        const { PurgeRunner } = await import("./purge.mjs");
+        // Run PurgeRunner with headless mode and provided deletions/edits
+        const runner = new PurgeRunner({ headless: true });
+        // Execute batch purge
+        await runner.executeBatch({ deletions, commentEdits });
+        broadcast("progress", {
+          ts: new Date().toISOString(),
+          message: "Batch purge execution completed successfully.",
+        });
+
+        return sendJson(res, 200, { ok: true });
+      } catch (err) {
+        log(`Purge execution error: ${err && err.message ? err.message : err}`);
+
+        return sendJson(res, 500, {
+          ok: false,
+          error: String(err && err.message ? err.message : err),
+        });
+      }
+    }
+
     if (req.method === "POST" && pathname === "/api/shutdown") {
       log("Shutdown endpoint called; stopping server.");
 
