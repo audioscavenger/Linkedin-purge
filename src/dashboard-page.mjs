@@ -3,10 +3,11 @@
   LinkedIn purge dashboard. Served by src/server.mjs at GET /.
 
   Features:
-  - Sidebar tabbed navigation between Comments and Likes (client-side toggle).
+  - Sidebar tabbed navigation between Comments, Likes, and sub-filter categories (e.g., Post, Article, Video likes).
   - Rich metadata per item: author, headline, post excerpt, timestamp.
   - Interactive row selection checkboxes for comments and likes.
   - Inline comment editing with red-text highlighting.
+  - Column filter search boxes in the table header for Poster, Post, Comment/Text, and Headline.
   - Top-level Action Toolbar: Scan (with deep and limit options), Push Updates (batch execution).
   - Collapsible real-time execution log drawer at the bottom with SSE connection.
   - "Shutdown App" button in the header.
@@ -61,12 +62,13 @@ function buildTabContent(items, isLikes) {
 
     const postExcerpt =
       it.postExcerpt !== undefined && it.postExcerpt !== null
-        ? escapeHtml(String(it.postExcerpt).substring(0, 180))
+        ? escapeHtml(String(it.postExcerpt))
         : "—";
 
     const date = formatDate(it.dateTime);
+    const likeType = escapeHtml(it.likeType || "Post"); // e.g., Post, Article, Comment, Reaction
 
-    // Comments have editable text field with red-text highlighting style; likes do not have text editing.
+    // Comments have editable text field with red-text highlighting style; likes have text or likeType badge.
     let textCell = "";
 
     if (!isLikes) {
@@ -78,11 +80,24 @@ function buildTabContent(items, isLikes) {
         commentText +
         '" placeholder="Replacement text..." /></td>';
     } else {
-      textCell = '<td><span class="muted">—</span></td>';
+      textCell =
+        '<td><span class="badge-like-type">' + likeType + "</span></td>";
     }
 
     return [
-      '<tr data-key="' + key + '">',
+      '<tr data-key="' +
+        key +
+        '" data-author="' +
+        author.toLowerCase() +
+        '" data-headline="' +
+        headline.toLowerCase() +
+        '" data-post="' +
+        postExcerpt.toLowerCase() +
+        '" data-text="' +
+        (isLikes
+          ? likeType.toLowerCase()
+          : escapeHtml(it.text || "").toLowerCase()) +
+        '">',
       '<td><input type="checkbox" class="row-select" data-key="' +
         key +
         '" checked /></td>',
@@ -107,13 +122,18 @@ function buildTabContent(items, isLikes) {
     ].join("\n");
   });
 
-  const textHeader = isLikes ? "" : "<th>Replacement Comment (Red = Edit)</th>";
+  const textHeader = isLikes
+    ? "<th>Like Type</th>"
+    : "<th>Replacement Comment (Red = Edit)</th>";
 
   return [
     '<section class="items-box" id="items-' + type + '">',
     '<div class="section-header">',
     '<h2 class="items-title">' + title + " (" + items.length + ")</h2>",
     '<div class="selection-controls">',
+    isLikes
+      ? '<label>Filter Like Type: <select id="likeTypeFilter" class="filter-select"><option value="">All Types</option><option value="post">Post</option><option value="article">Article</option><option value="comment">Comment</option></select></label>'
+      : "",
     '<button type="button" class="btn-sm select-all" data-target="' +
       type +
       '">Select All</button>',
@@ -129,11 +149,18 @@ function buildTabContent(items, isLikes) {
     '<th style="width:30px;"><input type="checkbox" class="select-all-cb" data-target="' +
       type +
       '" checked /></th>',
-    "<th>Author</th><th>Headline</th><th>Date</th><th>Post excerpt</th>" +
-      textHeader,
+    "<th>Poster</th><th>Headline</th><th>Date</th><th>Post</th>" + textHeader,
+    "</tr>",
+    '<tr class="filter-row">',
+    "<th></th>",
+    '<th><input type="text" class="col-filter" data-col="poster" placeholder="Filter poster..."></th>',
+    '<th><input type="text" class="col-filter" data-col="headline" placeholder="Filter headline..."></th>',
+    "<th></th>",
+    '<th><input type="text" class="col-filter" data-col="post" placeholder="Filter post..."></th>',
+    '<th><input type="text" class="col-filter" data-col="text" placeholder="Filter comment/type..."></th>',
     "</tr>",
     "</thead>",
-    "<tbody>",
+    '<tbody class="filterable-tbody">',
     rows.join("\n"),
     "</tbody>",
     "</table>",
@@ -249,12 +276,11 @@ function generateDashboardPage(envComments, envLikes) {
       align-items: center;
       gap: 0.35rem;
     }
-    .toolbar input[type="number"], .toolbar select {
+    .toolbar input[type="number"], .toolbar select, .filter-select {
       padding: 0.3rem 0.5rem;
       font-size: 0.85rem;
       border: 1px solid var(--border);
       border-radius: 4px;
-      width: 80px;
     }
     .toolbar input[type="checkbox"] {
       cursor: pointer;
@@ -315,9 +341,11 @@ function generateDashboardPage(envComments, envLikes) {
       justify-content: space-between;
       align-items: center;
       margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
     }
     .items-title { margin: 0; font-size: 1rem; color: var(--fg); }
-    .selection-controls { display: flex; gap: 0.5rem; }
+    .selection-controls { display: flex; gap: 0.5rem; align-items: center; }
 
     .items-table-wrap {
       width: 100%;
@@ -338,6 +366,15 @@ function generateDashboardPage(envComments, envLikes) {
       white-space: nowrap;
     }
     th { background: #f8f9fa; position: sticky; top: 0; z-index: 2; }
+    .filter-row th { background: #f1f3f5; padding: 0.3rem 0.4rem; }
+    .col-filter {
+      width: 100%;
+      padding: 0.2rem 0.4rem;
+      font-size: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+    }
+
     th:nth-child(1), td:nth-child(1) { width: 36px; text-align: center; }
     th:nth-child(2), td:nth-child(2) { width: 18%; }
     th:nth-child(3), td:nth-child(3) { width: 22%; }
@@ -347,6 +384,14 @@ function generateDashboardPage(envComments, envLikes) {
 
     .truncate { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
     .no-items { padding: 3rem; text-align: center; color: var(--muted); }
+    .badge-like-type {
+      display: inline-block;
+      padding: 0.15rem 0.4rem;
+      font-size: 0.75rem;
+      background: #e9ecef;
+      border-radius: 3px;
+      color: #495057;
+    }
 
     /* Inline comment editing red text highlight */
     .comment-edit-input {
@@ -491,6 +536,48 @@ function generateDashboardPage(envComments, envLikes) {
     });
   });
 
+  // Column filtering and like type filtering logic
+  function applyFilters(section) {
+    var filters = {};
+    section.querySelectorAll(".col-filter").forEach(function(input) {
+      filters[input.getAttribute("data-col")] = input.value.toLowerCase().trim();
+    });
+
+    var likeTypeFilterEl = section.querySelector("#likeTypeFilter");
+    var likeTypeVal = likeTypeFilterEl ? likeTypeFilterEl.value.toLowerCase().trim() : "";
+
+    var rows = section.querySelectorAll("tbody.filterable-tbody tr");
+    rows.forEach(function(row) {
+      var author = row.getAttribute("data-author") || "";
+      var headline = row.getAttribute("data-headline") || "";
+      var post = row.getAttribute("data-post") || "";
+      var text = row.getAttribute("data-text") || "";
+
+      var match = true;
+      if (filters.poster && author.indexOf(filters.poster) === -1) match = false;
+      if (filters.headline && headline.indexOf(filters.headline) === -1) match = false;
+      if (filters.post && post.indexOf(filters.post) === -1) match = false;
+      if (filters.text && text.indexOf(filters.text) === -1) match = false;
+
+      if (likeTypeVal && text !== likeTypeVal) {
+        // For likes, text data attribute stores the likeType
+        if (likeTypeVal !== "" && text.indexOf(likeTypeVal) === -1) match = false;
+      }
+
+      row.style.display = match ? "" : "none";
+    });
+  }
+
+  document.querySelectorAll(".items-box").forEach(function(section) {
+    section.querySelectorAll(".col-filter").forEach(function(input) {
+      input.addEventListener("input", function() { applyFilters(section); });
+    });
+    var likeTypeSel = section.querySelector("#likeTypeFilter");
+    if (likeTypeSel) {
+      likeTypeSel.addEventListener("change", function() { applyFilters(section); });
+    }
+  });
+
   // Select / Deselect All Handlers
   document.addEventListener("click", function(e) {
     if (e.target.classList.contains("select-all")) {
@@ -556,7 +643,6 @@ function generateDashboardPage(envComments, envLikes) {
       return;
     }
 
-    // Collect selected items and comment edits
     var deletions = [];
     document.querySelectorAll(".row-select:checked").forEach(function(cb) {
       deletions.push(cb.getAttribute("data-key"));
