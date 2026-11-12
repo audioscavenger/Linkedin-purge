@@ -13,25 +13,31 @@ import { activityTargets } from "../src/activity-targets.mjs";
 */
 async function testLikesResolvesToReactionsTab() {
   const targets = activityTargets("likes");
+
   if (targets.length !== 1)
     throw new Error(`Expected 1 target for likes, got ${targets.length}`);
+
   if (targets[0].type !== "likes" || targets[0].tab !== "reactions/") {
     throw new Error(
       `Expected likes on reactions/, got ${JSON.stringify(targets[0])}`
     );
   }
+
   console.log("PASS: likes resolves to the reactions tab");
 }
 
 async function testCommentsResolvesToCommentsTab() {
   const targets = activityTargets("comments");
+
   if (targets.length !== 1)
     throw new Error(`Expected 1 target for comments, got ${targets.length}`);
+
   if (targets[0].type !== "comments" || targets[0].tab !== "comments/") {
     throw new Error(
       `Expected comments on comments/, got ${JSON.stringify(targets[0])}`
     );
   }
+
   console.log("PASS: comments resolves to the comments tab");
 }
 
@@ -44,16 +50,19 @@ async function testCommentsResolvesToCommentsTab() {
 async function testAllExpandsToConcreteTypes() {
   const targets = activityTargets("all");
   const summary = targets.map((t) => `${t.type}@${t.tab}`).join(",");
+
   if (summary !== "comments@comments/,likes@reactions/") {
     throw new Error(
       `Expected comments@comments/,likes@reactions/, got ${summary}`
     );
   }
+
   if (targets.some((t) => t.type === "all")) {
     throw new Error(
       "The aggregate type leaked into a target; per-type adapters need a concrete type"
     );
   }
+
   console.log(
     "PASS: all expands to one concrete target per type, in run order"
   );
@@ -64,17 +73,20 @@ async function testAllExpandsToConcreteTypes() {
 async function testUnknownTypeRejected() {
   for (const type of ["videos", "reactions", "likes,comments"]) {
     let message = null;
+
     try {
       activityTargets(type);
     } catch (e) {
       message = e.message;
     }
+
     if (message !== `Unknown type: ${type}`) {
       throw new Error(
         `Expected "Unknown type: ${type}", got ${JSON.stringify(message)}`
       );
     }
   }
+
   console.log("PASS: unknown type rejected with the same named error");
 }
 
@@ -87,6 +99,7 @@ const tests = [
 
 async function main() {
   let failed = 0;
+
   for (const fn of tests) {
     try {
       await fn();
@@ -95,6 +108,7 @@ async function main() {
       failed++;
     }
   }
+
   const passed = tests.length - failed;
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

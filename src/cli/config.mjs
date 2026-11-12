@@ -36,14 +36,18 @@ const DEFAULT_CONFIG = {
 // Load config.json (creating it with defaults if missing) and merge with built-ins.
 export function loadConfig() {
   const configPath = path.resolve(process.cwd(), "config.json");
+
   if (!fs.existsSync(configPath)) {
     fs.writeFileSync(
       configPath,
       JSON.stringify(DEFAULT_CONFIG, null, 2) + "\n"
     );
+
     return DEFAULT_CONFIG;
   }
+
   let fileConfig;
+
   try {
     fileConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
   } catch (error) {
@@ -51,8 +55,10 @@ export function loadConfig() {
       "config.json is invalid; using built-in defaults:",
       error.message
     );
+
     return DEFAULT_CONFIG;
   }
+
   return deepMerge(DEFAULT_CONFIG, fileConfig);
 }
 
@@ -60,34 +66,47 @@ export function loadConfig() {
 // `configPath` is dotted, e.g. "paths.profileDir" or "behavior.headless".
 export function resolveFlag(args, cliName, configPath, fallback) {
   const idx = args.indexOf(`--${cliName}`);
+
   if (idx !== -1) {
     const v = args[idx + 1];
+
     if (v === undefined || v.startsWith("--")) return true; // bool flag with no value
+
     return v;
   }
+
   const config = loadConfig();
   let value = config;
+
   for (const part of configPath.split(".")) {
     if (value == null) return fallback;
     value = value[part];
   }
+
   return value === undefined ? fallback : value;
 }
 
 // Coerce a flag value into a boolean.
 export function asBool(v, fallback = false) {
   if (v === true) return true;
+
   if (v === false) return false;
+
   if (v === "true") return true;
+
   if (v === "false") return false;
+
   if (v === 1) return true;
+
   if (v === 0) return false;
+
   return fallback;
 }
 
 // Coerce a flag value into an integer.
 export function asInt(v, fallback = 0) {
-  const n = typeof v === "string" ? parseInt(v, 10) : v;
+  const n = v?.constructor === String ? parseInt(v, 10) : v;
+
   return Number.isFinite(n) ? n : fallback;
 }
 
@@ -99,15 +118,18 @@ export function asInt(v, fallback = 0) {
  */
 export function resolveHeadless(args) {
   const config = loadConfig();
+
   if (config.behavior && config.behavior.headless !== undefined) {
     console.error(
       "config.json: 'behavior.headless' is deprecated and ignored; use 'behavior.headed' instead."
     );
   }
+
   const headed = asBool(
     resolveFlag(args, "headed", "behavior.headed", false),
     false
   );
+
   return !headed; // true = headless, false = headed
 }
 
@@ -120,9 +142,12 @@ export function resolveHeadless(args) {
  */
 export function getFlag(args, name, defaultVal) {
   const idx = args.indexOf(`--${name}`);
+
   if (idx === -1) return defaultVal;
   const v = args[idx + 1];
+
   if (v === undefined || v.startsWith("--")) return true;
+
   return v;
 }
 
@@ -138,19 +163,24 @@ export function resolveRunOptions(args) {
     "paths.profileDir",
     ".profile-chromium"
   );
+
   const dataDir = path.resolve(
     resolveFlag(args, "data-dir", "paths.dataDir", "data")
   );
+
   const typeArg = getFlag(args, "type", "all");
+
   const chromiumPath = resolveFlag(
     args,
     "chromium-path",
     "paths.chromiumPath",
     null
   );
+
   const headless = resolveHeadless(args);
   const cdpEndpoint = getFlag(args, "cdp", null);
   const timing = loadConfig().timing || {};
+
   return {
     profileDir,
     dataDir,
@@ -163,11 +193,12 @@ export function resolveRunOptions(args) {
 }
 
 function isPlainObject(v) {
-  return v !== null && typeof v === "object" && !Array.isArray(v);
+  return v !== null && v.constructor === Object && !Array.isArray(v);
 }
 
 function deepMerge(target, source) {
   const output = { ...target };
+
   for (const key of Object.keys(source)) {
     if (isPlainObject(source[key]) && isPlainObject(target[key])) {
       output[key] = deepMerge(target[key], source[key]);
@@ -175,5 +206,6 @@ function deepMerge(target, source) {
       output[key] = source[key];
     }
   }
+
   return output;
 }

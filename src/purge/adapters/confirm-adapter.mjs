@@ -8,6 +8,7 @@ export class ConfirmAdapter {
       input: process.stdin,
       output: process.stdout,
     });
+
     return new Promise((resolve) => {
       rl.question(`${message} `, (answer) => {
         rl.close();

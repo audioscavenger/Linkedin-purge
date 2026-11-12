@@ -27,6 +27,7 @@ class FakeActivityPage {
 
   signal() {
     const items = this.pages[this.pageIndex];
+
     return {
       count: items.length,
       scrollHeight: 1000 + this.pageIndex * 500,
@@ -38,6 +39,7 @@ class FakeActivityPage {
     this.readItemsCalls.push([...seenKeys]);
     const seen = new Set(seenKeys);
     const items = this.pages[this.pageIndex];
+
     return this.ignoreSeen
       ? items.map((it) => ({ ...it }))
       : items.filter((it) => !seen.has(it.key));
@@ -45,21 +47,25 @@ class FakeActivityPage {
 
   async readGrowth() {
     this.readGrowthCalls++;
+
     if (!this.pendingGrowth) return this.signal();
     this.pendingGrowth = false;
     const step = this.scrolls; // 1-based load step
+
     if (
       this.growsOnSteps.includes(step) &&
       this.pageIndex + 1 < this.pages.length
     ) {
       this.pageIndex++;
     }
+
     return this.signal();
   }
 
   async scrollToBottom() {
     this.scrolls++;
     this.pendingGrowth = true;
+
     return { tag: "MAIN", id: "workspace" };
   }
 }
@@ -84,6 +90,7 @@ class LateBatchActivityPage {
 
   signal() {
     const items = this.pages[this.pageIndex];
+
     return {
       count: items.length,
       scrollHeight: 1000 + this.pageIndex * 500,
@@ -93,6 +100,7 @@ class LateBatchActivityPage {
 
   async readGrowth() {
     const signal = this.signal();
+
     if (!this.stepOpen) {
       this.stepOpen = true;
       this.stepSignal = signal;
@@ -103,11 +111,13 @@ class LateBatchActivityPage {
     ) {
       this.growthSeen = true;
     }
+
     return signal;
   }
 
   async scrollToBottom() {
     this.scrolls++;
+
     return { tag: "MAIN", id: "workspace" };
   }
 
@@ -118,11 +128,13 @@ class LateBatchActivityPage {
     const items = this.pages[this.pageIndex].filter((it) => !seen.has(it.key));
     this.reads++;
     this.stepOpen = false;
+
     if (
       this.reads === this.batchLandsAfterRead &&
       this.pageIndex + 1 < this.pages.length
     )
       this.pageIndex++;
+
     return items;
   }
 }
@@ -131,6 +143,7 @@ class LateBatchActivityPage {
 // deadline are exercised, but no wall clock time is spent.
 function fakeClock() {
   let t = 0;
+
   return {
     now: () => t,
     sleep: async (ms) => {
@@ -153,6 +166,7 @@ function page(keys) {
 function loaderFor(fakePage, timing) {
   const clock = fakeClock();
   const events = [];
+
   const loader = new ActivityLoader({
     page: fakePage,
     timing,
@@ -160,6 +174,7 @@ function loaderFor(fakePage, timing) {
     now: clock.now,
     sleep: clock.sleep,
   });
+
   return { loader, clock, events };
 }
 
@@ -176,6 +191,7 @@ async function testGrowsThenIdles() {
     ],
     growsOnSteps: [1, 2],
   });
+
   const { loader, events } = loaderFor(fake, {
     ...FAST_TIMING,
     maxEmptyScrolls: 3,
@@ -184,25 +200,31 @@ async function testGrowsThenIdles() {
   const result = await loader.collectAll();
 
   if (!result.complete) throw new Error("Expected a complete walk");
+
   if (result.items.length !== 6)
     throw new Error(`Expected 6 items, got ${result.items.length}`);
+
   if (fake.scrolls !== 5)
     throw new Error(
       `Expected 2 productive + 3 idle load steps, got ${fake.scrolls} scrolls`
     );
+
   if (result.steps !== 6)
     throw new Error(
       `Expected steps=6 (first render + 5 load steps), got ${result.steps}`
     );
 
   const seenOrder = result.items.map((it) => it.key).join(",");
+
   if (seenOrder !== "a,b,c,d,e,f")
     throw new Error(`First-seen order broken: ${seenOrder}`);
 
   const stepByKey = Object.fromEntries(
     result.items.map((it) => [it.key, it.step])
   );
+
   const expected = { a: 0, b: 0, c: 0, d: 1, e: 1, f: 2 };
+
   for (const [key, step] of Object.entries(expected)) {
     if (stepByKey[key] !== step)
       throw new Error(
@@ -214,6 +236,7 @@ async function testGrowsThenIdles() {
   // progress line is built from.
   if (events.length !== 6)
     throw new Error(`Expected 6 step events, got ${events.length}`);
+
   if (
     events[0].step !== 0 ||
     events[0].total !== 3 ||
@@ -222,6 +245,7 @@ async function testGrowsThenIdles() {
   ) {
     throw new Error(`Bad first step event: ${JSON.stringify(events[0])}`);
   }
+
   if (
     events[1].added !== 2 ||
     events[1].total !== 5 ||
@@ -229,9 +253,11 @@ async function testGrowsThenIdles() {
   ) {
     throw new Error(`Bad productive step event: ${JSON.stringify(events[1])}`);
   }
+
   if (events[5].added !== 0 || events[5].total !== 6) {
     throw new Error(`Bad idle step event: ${JSON.stringify(events[5])}`);
   }
+
   if (!events[1].target || events[1].target.id !== "workspace") {
     throw new Error(
       `Step event does not name the scroll target: ${JSON.stringify(events[1])}`
@@ -250,6 +276,7 @@ async function testTimeoutCutoff() {
     pages: [page(["a", "b"]), page(["a", "b", "c", "d"])],
     growsOnSteps: [1],
   });
+
   const { loader } = loaderFor(fake, {
     growthWait: 3000,
     maxEmptyScrolls: 8,
@@ -260,13 +287,16 @@ async function testTimeoutCutoff() {
 
   if (result.complete)
     throw new Error("Expected an incomplete walk after the timeout");
+
   if (result.steps !== 3)
     throw new Error(
       `Expected steps=3 before the 1000 ms cutoff, got ${result.steps}`
     );
   const keys = result.items.map((it) => it.key).join(",");
+
   if (keys !== "a,b,c,d")
     throw new Error(`Collected items were not kept: ${keys}`);
+
   if (fake.scrolls !== 2)
     throw new Error(
       `Expected 2 load steps within the timeout, got ${fake.scrolls}`
@@ -285,26 +315,32 @@ async function testNeverGrows() {
     pages: [page(["a", "b"])],
     growsOnSteps: [],
   });
+
   const { loader } = loaderFor(fake, FAST_TIMING);
 
   const result = await loader.collectAll();
 
   if (!result.complete)
     throw new Error("Expected a complete walk for an exhausted list");
+
   if (result.steps !== 9)
     throw new Error(`Expected 1 + 8 idle steps, got ${result.steps}`);
+
   if (fake.scrolls !== 8)
     throw new Error(`Expected exactly 8 idle scrolls, got ${fake.scrolls}`);
+
   if (result.items.length !== 2)
     throw new Error(
       `Expected the first render only, got ${result.items.length}`
     );
+
   // One read for the first render plus one reconciliation read per load step.
   if (fake.readItemsCalls.length !== 1 + 8) {
     throw new Error(
       `Expected 1 + 8 card reads (one per step), got ${fake.readItemsCalls.length}`
     );
   }
+
   for (const call of fake.readItemsCalls.slice(1)) {
     if (call.join(",") !== "a,b") {
       throw new Error(
@@ -326,22 +362,28 @@ async function testMergeDedupeAndStepNumbering() {
     growsOnSteps: [1, 2],
     ignoreSeen: true, // a page that ignores the incremental contract
   });
+
   const { loader } = loaderFor(fake, { ...FAST_TIMING, maxEmptyScrolls: 1 });
 
   const result = await loader.collectAll();
 
   const keys = result.items.map((it) => it.key).join(",");
+
   if (keys !== "a,b,c,d") throw new Error(`Expected [a,b,c,d], got [${keys}]`);
+
   const stepByKey = Object.fromEntries(
     result.items.map((it) => [it.key, it.step])
   );
+
   const expected = { a: 0, b: 0, c: 1, d: 2 };
+
   for (const [key, step] of Object.entries(expected)) {
     if (stepByKey[key] !== step)
       throw new Error(
         `Item ${key} expected step ${step}, got ${stepByKey[key]}`
       );
   }
+
   if (result.items.length !== 4)
     throw new Error(
       `Expected 4 de-duplicated items, got ${result.items.length}`
@@ -363,6 +405,7 @@ async function testSeenKeysHandOff() {
     ],
     growsOnSteps: [1, 2],
   });
+
   const { loader } = loaderFor(fake, { ...FAST_TIMING, maxEmptyScrolls: 1 });
 
   const result = await loader.collectAll();
@@ -372,24 +415,30 @@ async function testSeenKeysHandOff() {
       `First render must be read with no seen keys, got [${fake.readItemsCalls[0]}]`
     );
   }
+
   if (fake.readItemsCalls[1].join(",") !== "a,b") {
     throw new Error(`Step 1 saw the wrong keys: [${fake.readItemsCalls[1]}]`);
   }
+
   if (fake.readItemsCalls[2].join(",") !== "a,b,c") {
     throw new Error(`Step 2 saw the wrong keys: [${fake.readItemsCalls[2]}]`);
   }
+
   // Two productive steps plus the one idle step that ends the walk.
   if (fake.readItemsCalls.length !== 4) {
     throw new Error(
       `Expected one card read per step after the render, got ${fake.readItemsCalls.length}`
     );
   }
+
   if (fake.readItemsCalls[3].join(",") !== "a,b,c,d") {
     throw new Error(
       `The idle step saw the wrong keys: [${fake.readItemsCalls[3]}]`
     );
   }
+
   const keys = result.items.map((it) => it.key).join(",");
+
   if (keys !== "a,b,c,d") throw new Error(`Expected [a,b,c,d], got [${keys}]`);
 
   console.log(
@@ -404,6 +453,7 @@ async function testZeroTimeoutWalksToEnd() {
     pages: [page(["a"]), page(["a", "b"]), page(["a", "b", "c"])],
     growsOnSteps: [1, 2],
   });
+
   const { loader } = loaderFor(fake, {
     growthWait: 3000,
     maxEmptyScrolls: 2,
@@ -414,12 +464,15 @@ async function testZeroTimeoutWalksToEnd() {
 
   if (!result.complete)
     throw new Error("timeout 0 must not cut the walk short");
+
   if (result.items.length !== 3)
     throw new Error(`Expected all 3 items, got ${result.items.length}`);
+
   if (result.steps !== 5)
     throw new Error(
       `Expected 1 + 2 productive + 2 idle steps = 5, got ${result.steps}`
     );
+
   if (fake.scrolls !== 4)
     throw new Error(
       `Expected the walk to reach the idle limit, got ${fake.scrolls} scrolls`
@@ -434,6 +487,7 @@ async function testZeroTimeoutWalksToEnd() {
 // one hour, which is what the shipped timing defaults and README describe.
 async function testAbsentTimeoutUsesDefault() {
   const fake = new FakeActivityPage({ pages: [page(["a"])], growsOnSteps: [] });
+
   // 600000 ms per step: the sixth step reaches the 3600000 ms default.
   const { loader } = loaderFor(fake, {
     growthWait: 600000,
@@ -446,10 +500,12 @@ async function testAbsentTimeoutUsesDefault() {
     throw new Error(
       "An absent timeout must fall back to the 3600000 ms default"
     );
+
   if (result.steps !== 7)
     throw new Error(
       `Expected the cutoff on the 6th load step (steps=7), got ${result.steps}`
     );
+
   if (fake.scrolls !== 6)
     throw new Error(
       `Expected 6 load steps before the default cutoff, got ${fake.scrolls}`
@@ -469,6 +525,7 @@ async function testLateBatchIsReconciled() {
     pages: [page(["a", "b"]), page(["a", "b", "c", "d"])],
     batchLandsAfterRead: 1,
   });
+
   const { loader } = loaderFor(fake, {
     growthWait: 3000,
     maxEmptyScrolls: 2,
@@ -482,10 +539,13 @@ async function testLateBatchIsReconciled() {
       "Expected the walk to stay complete after reconciling the late batch"
     );
   const keys = result.items.map((it) => it.key).join(",");
+
   if (keys !== "a,b,c,d")
     throw new Error(`The late batch was never collected: [${keys}]`);
+
   if (fake.growthSeen)
     throw new Error("The fake page must not report growth for this case");
+
   if (result.steps !== 4)
     throw new Error(
       `Expected 1 + 3 load steps (1 reconciled, 2 idle) = 4, got ${result.steps}`
@@ -494,6 +554,7 @@ async function testLateBatchIsReconciled() {
   const stepByKey = Object.fromEntries(
     result.items.map((it) => [it.key, it.step])
   );
+
   if (stepByKey.c !== 1 || stepByKey.d !== 1) {
     throw new Error(
       `The reconciled batch must carry the step that read it: ${JSON.stringify(stepByKey)}`
@@ -512,27 +573,35 @@ async function testFirstRenderOperation() {
     pages: [page(["a", "b"])],
     growsOnSteps: [],
   });
+
   const { loader, events } = loaderFor(fake, FAST_TIMING);
 
   const result = await loader.readFirstRender();
 
   if (result.steps !== 1)
     throw new Error(`A first render is one step, got ${result.steps}`);
+
   if (result.complete !== true) throw new Error("A first render is complete");
+
   if (result.items.length !== 2)
     throw new Error(`Expected 2 items, got ${result.items.length}`);
+
   if (events.length !== 1)
     throw new Error(`Expected exactly one step event, got ${events.length}`);
   const event = events[0];
+
   if (event.step !== 0)
     throw new Error(`The first-render event must be step 0, got ${event.step}`);
+
   if (event.total !== 2 || event.added !== 2)
     throw new Error(`Bad first-render totals: ${JSON.stringify(event)}`);
+
   if (event.waitedMs !== 0 || event.target !== null) {
     throw new Error(
       `A first render waits for nothing and has no target: ${JSON.stringify(event)}`
     );
   }
+
   if (fake.scrolls !== 0) throw new Error("The first render must not scroll");
 
   console.log(
@@ -554,6 +623,7 @@ const tests = [
 
 async function main() {
   let failed = 0;
+
   for (const fn of tests) {
     try {
       await fn();
@@ -562,6 +632,7 @@ async function main() {
       failed++;
     }
   }
+
   const passed = tests.length - failed;
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

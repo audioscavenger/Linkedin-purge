@@ -21,6 +21,7 @@ import * as espree from "espree";
 // the cost when no .ts/.tsx file exists. Top-level await is avoided so a
 // missing optional dependency never breaks the module evaluation.
 let tsParser = null;
+
 try {
   tsParser =
     (await import("@typescript-eslint/parser"))?.parse ||
@@ -33,6 +34,7 @@ try {
 }
 
 const root = path.resolve(import.meta.dirname, "..");
+
 const SCAN_DIRS = [
   "src",
   "tests",
@@ -43,6 +45,7 @@ const SCAN_DIRS = [
   "web",
   "app",
 ];
+
 const SKIP_DIRS = new Set([
   "node_modules",
   ".git",
@@ -53,6 +56,7 @@ const SKIP_DIRS = new Set([
   "build",
   "coverage",
 ]);
+
 const FILE_RE = /\.[cm]?[jt]sx?$/;
 
 function isHiddenDir(name) {
@@ -61,16 +65,21 @@ function isHiddenDir(name) {
 
 function parseComments(file, text) {
   const opts = { comment: true, range: true, loc: true };
+
   if (/\.[cm]?tsx?$/.test(file)) {
     if (!tsParser) throw new Error("TypeScript parser not available");
+
     return tsParser.parse(text, { ...opts, jsx: file.endsWith("x") }).comments;
   }
+
   const base = { ...opts, ecmaVersion: "latest", ecmaFeatures: { jsx: true } };
+
   const sourceType = file.endsWith(".cjs")
     ? "commonjs"
     : file.endsWith(".mjs")
       ? "module"
       : "commonjs";
+
   try {
     return espree.parse(text, { ...base, sourceType }).comments;
   } catch {
@@ -81,6 +90,7 @@ function parseComments(file, text) {
         return espree.parse(text, { ...base, sourceType: "script" }).comments;
       }
     }
+
     return espree.parse(text, { ...base, sourceType: "script" }).comments;
   }
 }
@@ -111,16 +121,19 @@ function replaceEllipsisInComments(text, comments) {
   const ranges = comments
     .filter((c) => c.type === "Line" || c.type === "Block")
     .map((c) => [c.range[0], c.range[1]])
-    .sort((a, b) => a[0] - b[0]);
+    .toSorted((a, b) => a[0] - b[0]);
 
   let out = "";
   let pos = 0;
+
   for (const [start, end] of ranges) {
     out += text.slice(pos, start);
     out += text.slice(start, end).replace(ELLIPSIS_RE, ELLIPSIS_WITH);
     pos = end;
   }
+
   out += text.slice(pos);
+
   return out;
 }
 
@@ -141,17 +154,22 @@ function processMarkdownFile(file) {
   const raw = fs.readFileSync(file, "utf8");
   let out = replaceDashesEverywhere(raw);
   out = out.replace(ELLIPSIS_RE, ELLIPSIS_WITH);
+
   return { text: out, changed: out !== raw };
 }
 
 function findJsFiles(dir) {
   const out = [];
+
   if (!fs.existsSync(dir)) return out;
+
   const entries = fs
     .readdirSync(dir, { withFileTypes: true })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .toSorted((a, b) => a.name.localeCompare(b.name));
+
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
+
     if (entry.isDirectory()) {
       if (isHiddenDir(entry.name) || SKIP_DIRS.has(entry.name)) continue;
       out.push(...findJsFiles(full));
@@ -159,17 +177,22 @@ function findJsFiles(dir) {
       out.push(full);
     }
   }
+
   return out;
 }
 
 function findMdFiles(dir) {
   const out = [];
+
   if (!fs.existsSync(dir)) return out;
+
   const entries = fs
     .readdirSync(dir, { withFileTypes: true })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .toSorted((a, b) => a.name.localeCompare(b.name));
+
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
+
     if (entry.isDirectory()) {
       if (isHiddenDir(entry.name) || SKIP_DIRS.has(entry.name)) continue;
       out.push(...findMdFiles(full));
@@ -177,6 +200,7 @@ function findMdFiles(dir) {
       out.push(full);
     }
   }
+
   return out;
 }
 
@@ -185,25 +209,34 @@ function collectTargets(args) {
     const codeFiles = SCAN_DIRS.flatMap((d) =>
       findJsFiles(path.resolve(root, d))
     );
+
     const mdFiles = findMdFiles(root);
     // Remove every file under scripts/ so the fixer never touches its own
     // helpers (fix-comments.js, check-syntax.js, etc.).
     const scriptsDir = path.resolve(root, "scripts");
+
     const filtered = (f) =>
       !f.startsWith(scriptsDir + path.sep) && f !== scriptsDir;
+
     const files = [...codeFiles, ...mdFiles].filter(filtered);
+
     return files;
   }
+
   const files = [];
+
   for (const arg of args) {
     const full = path.resolve(process.cwd(), arg);
+
     if (!fs.existsSync(full)) continue;
+
     if (fs.statSync(full).isDirectory()) {
       files.push(...findJsFiles(full), ...findMdFiles(full));
     } else if (FILE_RE.test(full) || full.toLowerCase().endsWith(".md")) {
       files.push(full);
     }
   }
+
   return files;
 }
 
@@ -218,14 +251,17 @@ function main(argv) {
   for (const file of files) {
     try {
       const ext = path.extname(file).toLowerCase();
+
       if (FILE_RE.test(file)) {
         const result = processCodeFile(file);
+
         if (result.changed) {
           if (!check) fs.writeFileSync(file, result.bom + result.text);
           changedFiles.push(file);
         }
       } else if (ext === ".md") {
         const result = processMarkdownFile(file);
+
         if (result.changed) {
           if (!check) fs.writeFileSync(file, result.text);
           changedFiles.push(file);
@@ -240,6 +276,7 @@ function main(argv) {
     console.log(
       `${check ? "Would replace" : "Replaced"} slop in ${changedFiles.length} file(s):`
     );
+
     for (const f of changedFiles) console.log(`  - ${path.relative(root, f)}`);
   }
 
@@ -251,8 +288,11 @@ function main(argv) {
   // hook) report and carry on. Only an explicit --check run fails, so CI or a
   // manual audit can still catch slop.
   if (!check) return 0;
+
   if (errors.length > 0) return 1;
+
   if (changedFiles.length > 0) return 1;
+
   return 0;
 }
 

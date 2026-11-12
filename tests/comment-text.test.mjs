@@ -17,6 +17,7 @@ function itemsFor(tab) {
       },
     ];
   }
+
   return [
     {
       key: "reaction:0",
@@ -36,6 +37,7 @@ function fakePage(options = {}) {
   const tab = options.tab || "reactions";
   const items = options.items || itemsFor(tab);
   let scrolled = false;
+
   return {
     isReactionsPage: () => tab === "reactions",
     isCommentsPage: () => tab === "comments",
@@ -46,6 +48,7 @@ function fakePage(options = {}) {
     }),
     scrollActivityListToBottom: () => {
       scrolled = true;
+
       return { tag: "MAIN", id: "workspace" };
     },
     collectItems: () => items.map((it) => ({ ...it })),
@@ -60,6 +63,7 @@ async function main() {
       now: () => 0,
       sleep: async () => {},
     });
+
     assert(
       res.ok,
       `${tab} check failed: ${res.results
@@ -68,6 +72,7 @@ async function main() {
         .join(", ")}`
     );
   }
+
   console.log("PASS: text and postExcerpt verified successfully across tabs");
 }
 

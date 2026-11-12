@@ -23,6 +23,7 @@ export function buildScanEnvelope({
     step: Number.isInteger(item.step) ? item.step : 0,
     status: PURGE_STATUSES.NO_OP,
   }));
+
   return {
     type,
     count: withSteps.length,

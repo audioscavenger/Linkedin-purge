@@ -7,10 +7,12 @@ import path from "node:path";
 import { JSDOM } from "jsdom";
 
 const root = "E:/Gitea/Linkedin-purge";
+
 const html = fs.readFileSync(
   path.join(root, "tests", "comments-input-test-202611.html"),
   "utf8"
 );
+
 const expected = JSON.parse(
   fs.readFileSync(
     path.join(root, "data", "parser-comments-202611.json"),
@@ -21,16 +23,21 @@ const expected = JSON.parse(
 const dom = new JSDOM(html, {
   url: "https://www.linkedin.com/in/firstname-lastname/recent-activity/comments/",
 });
+
 const { window } = dom;
+
 globalThis.window = window;
+
 globalThis.document = window.document;
 
 const src = fs.readFileSync(path.join(root, "src", "linkedin-dom.mjs"), "utf8");
+
 window.eval(src);
 
 const items = await window.LP.collectItems(null, false);
 
 let failed = 0;
+
 function check(idx, field, actual, exp) {
   if (JSON.stringify(actual) !== JSON.stringify(exp)) {
     console.error(
@@ -43,11 +50,13 @@ function check(idx, field, actual, exp) {
 for (let i = 0; i < expected.length; i++) {
   const exp = expected[i];
   const got = items[i];
+
   if (!got) {
     console.error(`MISSING item ${i}`);
     failed++;
     continue;
   }
+
   check(i, "key", got.key, exp.key);
   check(i, "comment", got.comment, exp.comment);
   check(i, "postExcerpt", got.postExcerpt, exp.postExcerpt);
@@ -66,7 +75,9 @@ for (let i = 0; i < items.length; i++) {
 }
 
 const passed = expected.length - failed;
+
 console.log(
   `\n${passed}/${expected.length} items matched (${failed} mismatches)`
 );
+
 process.exit(failed > 0 ? 1 : 0);

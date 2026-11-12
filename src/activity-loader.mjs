@@ -26,7 +26,7 @@ const DEFAULT_IDLE_LIMIT = 8;
 const DEFAULT_TIMEOUT_MS = 3600000;
 
 function numberOr(value, fallback) {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0
+  return value?.constructor === Number && Number.isFinite(value) && value >= 0
     ? value
     : fallback;
 }
@@ -42,8 +42,11 @@ function defaultSleep(ms) {
 */
 function grewBetween(before, after) {
   if (!before || !after) return false;
+
   if (after.count > before.count) return true;
+
   if (after.scrollHeight > before.scrollHeight) return true;
+
   return after.lastKey != null && after.lastKey !== before.lastKey;
 }
 
@@ -80,6 +83,7 @@ export class ActivityLoader {
 */
   get timeoutMs() {
     const value = numberOr(this.timing.timeout, DEFAULT_TIMEOUT_MS);
+
     return value === 0 ? Number.POSITIVE_INFINITY : value;
   }
 
@@ -100,11 +104,14 @@ export class ActivityLoader {
     const startedAt = this.now();
 
     let grew = false;
+
     while (true) {
       const elapsed = this.now() - startedAt;
+
       if (elapsed >= maxWaitMs) break;
       await this.sleep(Math.min(POLL_INTERVAL_MS, maxWaitMs - elapsed));
       const after = await this.page.readGrowth();
+
       if (grewBetween(before, after)) {
         grew = true;
         break;
@@ -129,6 +136,7 @@ export class ActivityLoader {
       waitedMs: 0,
       target: null,
     });
+
     return { items, steps: 1, complete: true };
   }
 
@@ -150,12 +158,15 @@ export class ActivityLoader {
 
     while (idle < this.idleLimit) {
       const remaining = this.timeoutMs - (this.now() - startedAt);
+
       if (remaining <= 0) return { items, steps, complete: false };
 
       const step = steps; // zero-based: the first load step after the render is 1
+
       const result = await this.loadStep(
         Math.min(this.growthDeadlineMs, remaining)
       );
+
       /*
   Read the unseen cards once per step, whether or not the polling loop saw
   growth. Cards can land between one step's last poll and the next step's
@@ -177,6 +188,7 @@ export class ActivityLoader {
 
       if (this.now() - startedAt >= this.timeoutMs)
         return { items, steps, complete: false };
+
       if (idle >= this.idleLimit) return { items, steps, complete: true };
     }
 
@@ -192,12 +204,14 @@ export class ActivityLoader {
 // each new item with the step it first appeared in. Returns how many were added.
 function mergeItems(items, seenKeys, incoming, step) {
   let added = 0;
+
   for (const item of incoming || []) {
     if (!item || item.key == null || seenKeys.has(item.key)) continue;
     seenKeys.add(item.key);
     items.push({ ...item, step });
     added++;
   }
+
   return added;
 }
 
@@ -209,7 +223,10 @@ function mergeItems(items, seenKeys, incoming, step) {
 */
 export function createActivityPage(page, options = {}) {
   const links =
-    typeof options === "boolean" ? options : !!(options && options.links);
+    options === true || options === false
+      ? options
+      : !!(options && options.links);
+
   return {
     links,
     readItems: (seenKeys) => {
@@ -219,6 +236,7 @@ export function createActivityPage(page, options = {}) {
           seenKeys
         );
       }
+
       return page.evaluate((keys) => window.LP.collectItems(keys), seenKeys);
     },
     readGrowth: () => page.evaluate(() => window.LP.readGrowthSignal()),

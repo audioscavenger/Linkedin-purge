@@ -10,20 +10,26 @@ export async function runLoginImportProfile(args) {
     "source",
     "E:/wintools/PortableApps/chromium-win64/profile"
   );
+
   const dest = path.resolve(
     resolveFlag(args, "profile-dir", "paths.profileDir", ".profile-chromium")
   );
+
   log(`Source profile: ${src}`);
   log(`Destination: ${dest}`);
+
   if (!fs.existsSync(src)) {
     err("Source profile not found: " + src);
     process.exit(1);
   }
+
   if (fs.existsSync(dest)) {
     log("Removing existing destination...");
     fs.rmSync(dest, { recursive: true, force: true });
   }
+
   fs.mkdirSync(path.dirname(dest), { recursive: true });
+
   try {
     fs.cpSync(src, dest, { recursive: true, force: true });
   } finally {
@@ -43,13 +49,17 @@ export async function runLoginImportProfile(args) {
       void e;
     }
   }
+
   log("Copied. Run with --profile-dir " + dest);
 }
 
 function getFlag(args, name, defaultVal) {
   const idx = args.indexOf(`--${name}`);
+
   if (idx === -1) return defaultVal;
   const v = args[idx + 1];
+
   if (v === undefined || v.startsWith("--")) return true;
+
   return v;
 }

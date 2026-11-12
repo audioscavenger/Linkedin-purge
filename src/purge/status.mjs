@@ -59,12 +59,17 @@ const OUTCOME_ALIASES = {
 
 function mapOutcomeString(value) {
   const key = String(value).trim().toLowerCase();
+
   if (Object.prototype.hasOwnProperty.call(OUTCOME_ALIASES, key)) {
     return OUTCOME_ALIASES[key];
   }
+
   if (/not.?found|missing|unmatched/.test(key)) return NOT_FOUND;
+
   if (/refus|fail|error/.test(key)) return FAILED;
+
   if (/success|deleted|ok|done|acted/.test(key)) return DELETED;
+
   return FAILED;
 }
 
@@ -75,18 +80,27 @@ function mapOutcomeString(value) {
  */
 export function outcomeToStatus(input) {
   // Only the object form is accepted. Non-objects return FAILED.
-  if (input === null || typeof input !== "object" || Array.isArray(input)) {
+  if (
+    input === null ||
+    (input.constructor !== Object && input.constructor !== Array) ||
+    Array.isArray(input)
+  ) {
     return FAILED;
   }
+
   const o = input;
-  if (typeof o.outcome === "string") return mapOutcomeString(o.outcome);
-  if (typeof o.result === "string") return mapOutcomeString(o.result);
+
+  if (o.outcome?.constructor === String) return mapOutcomeString(o.outcome);
+
+  if (o.result?.constructor === String) return mapOutcomeString(o.result);
+
   if (
-    typeof o.status === "string" &&
+    o.status?.constructor === String &&
     (o.status === DELETED || o.status === FAILED || o.status === NOT_FOUND)
   ) {
     return o.status;
   }
+
   if (
     o.notFound === true ||
     o.found === false ||
@@ -96,6 +110,7 @@ export function outcomeToStatus(input) {
   ) {
     return NOT_FOUND;
   }
+
   if (
     o.ok === true ||
     o.success === true ||
@@ -105,6 +120,7 @@ export function outcomeToStatus(input) {
   ) {
     return DELETED;
   }
+
   if (
     o.ok === false ||
     o.success === false ||
@@ -114,21 +130,27 @@ export function outcomeToStatus(input) {
   ) {
     return FAILED;
   }
-  if (typeof o.reason === "string") return mapOutcomeString(o.reason);
+
+  if (o.reason?.constructor === String) return mapOutcomeString(o.reason);
+
   return FAILED;
 }
 
 export function transitionStatus(status, outcome) {
   if (!isActionable(status)) return status;
+
   return outcomeToStatus(outcome);
 }
 
 export function isLegalTransition(from, to) {
   if (from === DELETED) return to === DELETED;
+
   if (from === NO_OP) return to === NO_OP || to === TODO;
+
   if (from === TODO || from === FAILED || from === NOT_FOUND) {
     return to === DELETED || to === FAILED || to === NOT_FOUND;
   }
+
   return false;
 }
 

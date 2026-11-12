@@ -27,6 +27,7 @@ function itemsFor(tab) {
       },
     ];
   }
+
   return [
     {
       key: "reaction:0",
@@ -71,20 +72,24 @@ function fakePage(options = {}) {
     }),
     scrollActivityListToBottom: () => {
       scrolled = true;
+
       return options.target || { tag: "MAIN", id: "workspace" };
     },
     collectItems: (seenKeys = []) => {
       const seen = new Set(options.ignoreSeen ? [] : seenKeys);
+
       return items
         .filter((item) => !seen.has(item.key))
         .map((item) => ({ ...item }));
     },
   };
-  return { ...page, ...(options.overrides || {}) };
+
+  return { ...page, ...options.overrides };
 }
 
 function fakeClock() {
   let t = 0;
+
   return {
     now: () => t,
     sleep: async (ms) => {
@@ -96,6 +101,7 @@ function fakeClock() {
 
 async function check(page, options = {}) {
   const clock = fakeClock();
+
   return checkActivityTab({
     tab: options.tab || "reactions",
     page,
@@ -125,6 +131,7 @@ async function testCardIdPresentAndValid() {
       `${tab}: expected check to pass with valid cardId; ${failureText(result)}`
     );
   }
+
   console.log("PASS: cardId present and valid on both tabs");
 }
 
@@ -133,10 +140,13 @@ async function testMissingCardIdFailsCheck() {
     const badItems = itemsFor(tab).map((it, idx) =>
       idx === 0 ? { ...it, cardId: null } : it
     );
+
     const result = await check(fakePage({ tab, items: badItems }), { tab });
+
     const metaFailure = failures(result).find(
       (r) => r.step === "item metadata"
     );
+
     assert(
       metaFailure,
       `${tab}: expected item metadata failure when cardId is missing`
@@ -146,6 +156,7 @@ async function testMissingCardIdFailsCheck() {
       `${tab}: expected failure message to name missing cardId on item 0, got ${metaFailure.observed}`
     );
   }
+
   console.log("PASS: missing cardId fails live page check item metadata step");
 }
 

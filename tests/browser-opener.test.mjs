@@ -15,14 +15,17 @@ import {
 // No logging noise from the test: silence log/warn by intercepting console.
 const originalLog = console.log;
 const originalWarn = console.warn;
+
 function silenceConsole() {
   console.log = (...args) => {
     originalLog.call(console, "[opener-test-muted]", ...args);
   };
+
   console.warn = (...args) => {
     originalWarn.call(console, "[opener-test-muted]", ...args);
   };
 }
+
 function restoreConsole() {
   console.log = originalLog;
   console.warn = originalWarn;
@@ -35,15 +38,19 @@ async function testOpenSuccess() {
   setOpenPage(async (p) => {
     calledWith = p;
   });
+
   try {
     const ok = await openPage("data/selection-likes.html");
+
     if (ok !== true) throw new Error(`expected true on success, got ${ok}`);
+
     if (calledWith !== "data/selection-likes.html")
       throw new Error(`opener was called with ${calledWith}`);
   } finally {
     resetOpenPage();
     restoreConsole();
   }
+
   console.log(
     "PASS: injectable opener success returns true and receives the path"
   );
@@ -56,13 +63,16 @@ async function testOpenFailureDoesNotThrow() {
   setOpenPage(async () => {
     throw new Error("browser refused to open");
   });
+
   try {
     const ok = await openPage("data/selection-likes.html");
+
     if (ok !== false) throw new Error(`expected false on failure, got ${ok}`);
   } finally {
     resetOpenPage();
     restoreConsole();
   }
+
   console.log(
     "PASS: injectable opener failure returns false instead of throwing"
   );
@@ -72,6 +82,7 @@ const tests = [testOpenSuccess, testOpenFailureDoesNotThrow];
 
 async function main() {
   let failed = 0;
+
   for (const fn of tests) {
     try {
       await fn();
@@ -80,6 +91,7 @@ async function main() {
       failed++;
     }
   }
+
   const passed = tests.length - failed;
   originalLog(`\n${passed} passed, ${failed} failed`);
   process.exitCode = failed > 0 ? 1 : 0;

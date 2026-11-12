@@ -15,6 +15,7 @@ let tmp;
 function fixture(name, text) {
   const file = path.join(tmp, name);
   fs.writeFileSync(file, text);
+
   return file;
 }
 
@@ -22,12 +23,15 @@ function fixture(name, text) {
 // substrings; throws (test failure) if fn does not throw.
 function expectRejection(fn, ...expectedFragments) {
   let error = null;
+
   try {
     fn();
   } catch (e) {
     error = e;
   }
+
   if (!error) throw new Error("Expected the loader to throw, but it did not");
+
   for (const fragment of expectedFragments) {
     if (!error.message.includes(fragment)) {
       throw new Error(
@@ -49,10 +53,13 @@ function testItemsEnvelope() {
       scannedAt: "2026-01-01T00:00:00.000Z",
     })
   );
+
   const keys = loadInputKeys(file);
+
   if (keys.length !== 2 || keys[0] !== "a" || keys[1] !== "b") {
     throw new Error(`Expected [a, b], got ${JSON.stringify(keys)}`);
   }
+
   console.log("PASS: items envelope (keys from items[].key)");
 }
 
@@ -62,10 +69,13 @@ function testKeysFallback() {
     "keys-fallback.json",
     JSON.stringify({ keys: ["x", "y"] })
   );
+
   const keys = loadInputKeys(file);
+
   if (keys.length !== 2 || keys[0] !== "x" || keys[1] !== "y") {
     throw new Error(`Expected [x, y], got ${JSON.stringify(keys)}`);
   }
+
   console.log("PASS: keys fallback (keys[] when items absent)");
 }
 
@@ -95,6 +105,7 @@ function testStringItemsRejection() {
     "string-items.json",
     JSON.stringify({ items: ["a", "b"] })
   );
+
   expectRejection(
     () => loadInputKeys(file),
     "Invalid purge input",
@@ -111,6 +122,7 @@ function testItemWithoutKeyRejection() {
     "item-without-key.json",
     JSON.stringify({ items: [{ state: "no reaction" }] })
   );
+
   expectRejection(
     () => loadInputKeys(file),
     "Invalid purge input",
@@ -127,6 +139,7 @@ function testEmptyItemsRejection() {
     "empty-items.json",
     JSON.stringify({ type: "likes", count: 0, items: [], keys: [] })
   );
+
   expectRejection(
     () => loadInputKeys(file),
     "Empty purge input",
@@ -142,6 +155,7 @@ function testNonStringKeysRejection() {
     "non-string-keys.json",
     JSON.stringify({ keys: ["a", 42] })
   );
+
   expectRejection(
     () => loadInputKeys(file),
     "Invalid purge input",
@@ -165,6 +179,7 @@ const tests = [
 async function main() {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "lp-input-keys-"));
   let failed = 0;
+
   try {
     for (const fn of tests) {
       try {
@@ -177,6 +192,7 @@ async function main() {
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+
   const passed = tests.length - failed;
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

@@ -19,15 +19,18 @@ function makeReactionWorld({ toggleWorks = true } = {}) {
     getAttribute: (name) => (name === "role" ? "listitem" : null),
     querySelectorAll(sel) {
       if (sel === "button") return [reactionBtn];
+
       return [];
     },
     querySelector(sel) {
       if (sel.includes("feed/update")) {
         return { getAttribute: () => "/feed/update/1" };
       }
+
       return null;
     },
   };
+
   const reactionBtn = {
     parentElement: card,
     _state: "LIKE",
@@ -40,13 +43,17 @@ function makeReactionWorld({ toggleWorks = true } = {}) {
       if (toggleWorks) this._state = "NO REACTION";
     },
   };
+
   card.parentElement = null;
+
   const document = {
     getElementById: (id) => (id === "card-42" ? card : null),
     querySelectorAll: (sel) => (sel === "button" ? [reactionBtn] : []),
     querySelector: () => null,
   };
+
   const window = { location: { pathname: "/recent-activity/reactions/" } };
+
   const ctx = {
     window,
     document,
@@ -57,8 +64,10 @@ function makeReactionWorld({ toggleWorks = true } = {}) {
     Promise,
     navigator: undefined,
   };
+
   vm.createContext(ctx);
   vm.runInContext(src, ctx);
+
   return { window, card, reactionBtn };
 }
 
@@ -128,13 +137,18 @@ tests.push({
   name: "window.LP exposes deleteOneCard and not deleteFirstEligible",
   fn: async () => {
     const w = makeReactionWorld();
-    assert.equal(typeof w.window.LP.deleteOneCard, "function");
+    assert.ok(
+      Object.prototype.toString
+        .call(w.window.LP.deleteOneCard)
+        .endsWith("Function]")
+    );
     assert.equal(w.window.LP.deleteFirstEligible, undefined);
   },
 });
 
 async function main() {
   let failed = 0;
+
   for (const t of tests) {
     try {
       await t.fn();
@@ -144,6 +158,7 @@ async function main() {
       failed++;
     }
   }
+
   console.log(`\n${tests.length - failed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;
 }

@@ -15,14 +15,18 @@ async function captureConsole(fn) {
   console.warn = (...a) => lines.push(a.join(" "));
   let result;
   let error;
+
   try {
     result = await fn();
   } catch (e) {
     error = e;
   }
+
   console.log = origLog;
   console.warn = origWarn;
+
   if (error) throw error;
+
   return { lines, output: lines.join("\n"), result };
 }
 
@@ -40,6 +44,7 @@ function envelope(items) {
 
 async function testCounts() {
   const dir = fs.mkdtempSync(path.join(tmp, "status-counts-"));
+
   const data = envelope([
     { key: "reaction:1", cardId: "card-1", status: "deleted" },
     { key: "reaction:2", cardId: "card-2", status: "failed" },
@@ -47,6 +52,7 @@ async function testCounts() {
     { key: "reaction:4", cardId: "card-4", status: "todo" },
     { key: "reaction:5", cardId: "card-5", status: "no-op" },
   ]);
+
   fs.writeFileSync(
     path.join(dir, "scan-likes.json"),
     JSON.stringify(data, null, 2)
@@ -55,6 +61,7 @@ async function testCounts() {
   const { output } = await captureConsole(() =>
     runStatus(["--data-dir", dir, "--type", "likes"])
   );
+
   assert.ok(output.includes("likes"), "prints the type");
   assert.ok(/deleted\D*1/.test(output), "prints deleted count");
   assert.ok(/failed\D*1/.test(output), "prints failed count");
@@ -66,9 +73,11 @@ async function testCounts() {
 
 async function testMissingEnvelope() {
   const dir = fs.mkdtempSync(path.join(tmp, "status-missing-"));
+
   const { output } = await captureConsole(() =>
     runStatus(["--data-dir", dir, "--type", "likes"])
   );
+
   assert.ok(
     output.includes("no scan yet"),
     "missing envelope reported as no scan yet"
@@ -82,16 +91,20 @@ async function testNoCheckpointRead() {
     path.join(dir, "checkpoint-likes.json"),
     "{ this is not valid json"
   );
+
   const data = envelope([
     { key: "reaction:1", cardId: "card-1", status: "deleted" },
   ]);
+
   fs.writeFileSync(
     path.join(dir, "scan-likes.json"),
     JSON.stringify(data, null, 2)
   );
+
   const { output } = await captureConsole(() =>
     runStatus(["--data-dir", dir, "--type", "likes"])
   );
+
   assert.ok(
     output.includes("deleted"),
     "status reads envelope, not checkpoint"
@@ -104,6 +117,7 @@ const tests = [testCounts, testMissingEnvelope, testNoCheckpointRead];
 async function main() {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "lp-status-"));
   let failed = 0;
+
   try {
     for (const fn of tests) {
       try {
@@ -121,6 +135,7 @@ async function main() {
       void e;
     }
   }
+
   const passed = tests.length - failed;
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

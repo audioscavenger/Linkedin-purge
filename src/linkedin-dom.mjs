@@ -34,30 +34,40 @@ function commentMenuButtons() {
 */
 function commentKeyIn(node) {
   if (!node) return null;
+
   const rc = node.querySelector
     ? node.querySelector("[id^='replaceableComment_']")
     : null;
+
   if (rc) return rc.id;
+
   if (node.id && node.id.startsWith("replaceableComment_")) return node.id;
+
   return null;
 }
 
 function commentKeyForButton(btn) {
   let node = btn;
+
   for (let i = 0; i < 25 && node; i++) {
     const key = commentKeyIn(node);
+
     if (key) return key;
     node = node.parentElement;
   }
+
   return null;
 }
 
 function collectCommentKeys() {
   const keys = new Set();
+
   for (const btn of commentMenuButtons()) {
     const k = commentKeyForButton(btn);
+
     if (k) keys.add(k);
   }
+
   return [...keys];
 }
 
@@ -92,6 +102,7 @@ function reactionKeyForButton(btn) {
   reachable per item in this UI).
 */
   const all = reactionButtons();
+
   return reactionKeyForIndex(all.indexOf(btn));
 }
 
@@ -100,8 +111,10 @@ function collectReactionKeys() {
   reactionButtons().forEach((btn, idx) => {
     if (reactionState(btn).toLowerCase() === "no reaction") return;
     const k = reactionKeyForIndex(idx);
+
     if (k) keys.add(k);
   });
+
   return [...keys];
 }
 
@@ -161,15 +174,19 @@ function extractAuthorAndDate(container) {
 */
   const viewerName = viewerNameFromPageUrl();
   let author = null;
+
   const authorLinks = container.querySelectorAll(
     "a[href*='/in/'], a[href*='/company/']"
   );
+
   for (const link of authorLinks) {
     const text = (link.textContent || "").trim();
+
     if (!isPlausibleAuthorName(text, viewerName)) continue;
     author = text;
     break;
   }
+
   /*
   2. Fallback: the "Open control menu for post by X" button has the poster
   name in its aria-label. For company posts this can be the person who
@@ -180,14 +197,17 @@ function extractAuthorAndDate(container) {
     const menuBtn = container.querySelector(
       "button[aria-label*='Open control menu for post by']"
     );
+
     if (menuBtn) {
       const al = menuBtn.getAttribute("aria-label") || "";
       const m = al.match(/post by (.+)$/i);
+
       if (m) {
         const name = m[1]
           .trim()
           .replace(/["'’]+$/g, "")
           .trim();
+
         if (isPlausibleAuthorName(name, viewerName)) author = name;
       }
     }
@@ -199,9 +219,11 @@ function extractAuthorAndDate(container) {
   Normalized to "Oct 5, 2026" when a year is present, else "Oct 5".
 */
   let dateTime = null;
+
   // Match month name + valid day (01-31), optional year. Reject garbage like "Oct 81".
   const dateRe =
     /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+((?:0?[1-9]|[12]\d|3[01]))(?:\s*,\s*(\d{4}))?/;
+
   const MONTHS = [
     "Jan",
     "Feb",
@@ -216,62 +238,78 @@ function extractAuthorAndDate(container) {
     "Nov",
     "Dec",
   ];
+
   const toDisplayDate = (monthIdx, dayNum, year) =>
     MONTHS[monthIdx] + " " + dayNum + (year ? ", " + year : "");
+
   const monthIndex = (token) => MONTHS.indexOf(token.slice(0, 3));
   // Prefer the <time> element's ISO datetime (gives the year, so the display
   // can carry it), then fall back to the visible month/day text.
   const timeEl = container.querySelector("time[datetime]");
+
   if (timeEl && timeEl.dateTime) {
     const iso = String(timeEl.dateTime).match(/^(\d{4})-(\d{2})-(\d{2})/);
+
     if (iso)
       dateTime = toDisplayDate(Number(iso[2]) - 1, Number(iso[3]), iso[1]);
   }
+
   if (!dateTime) {
     const candidates = [
       ...container.querySelectorAll("span, p, div, a, time, li"),
     ];
+
     for (const el of candidates) {
       const t = (el.textContent || "").trim();
       const m = t.match(dateRe);
+
       if (m) {
         dateTime = toDisplayDate(monthIndex(m[1]), Number(m[2]), m[3] || null);
         break;
       }
     }
   }
+
   // If still no date, try any <time> without datetime (text content).
   if (!dateTime) {
     const timeText = container.querySelector("time");
+
     if (timeText && timeText.textContent) {
       const t = timeText.textContent.trim();
       const m = t.match(dateRe);
+
       if (m)
         dateTime = toDisplayDate(monthIndex(m[1]), Number(m[2]), m[3] || null);
     }
   }
+
   // Relative dates: "1mo", "1w", "3d", "5h". These can't be converted to a
   // calendar date without knowing when the scan ran, so report them verbatim.
   if (!dateTime) {
     const relRe = /(\d+)\s*(mo|w|d|h)\b/i;
+
     const candidates = [
       ...container.querySelectorAll("span, p, div, a, time, li"),
     ];
+
     for (const el of candidates) {
       const t = (el.textContent || "").trim();
       const m = t.match(relRe);
+
       if (m) {
         dateTime = m[0];
         break;
       }
     }
   }
+
   /*
   Headline: the small job-title line under the header actor's name.
   Company posts have no personal headline, so this stays null (blank
   column) for them - exactly what the user asked for.
 */
   let headline = null;
+
   const headlineSelectors = [
     ".feed-shared-update-v2__actor--headline",
     ".feed-shared-actor__sub-description",
@@ -281,10 +319,13 @@ function extractAuthorAndDate(container) {
     ".artdeco-entity-lockup__subtitle",
     "[class*='sub-description']",
   ];
+
   for (const sel of headlineSelectors) {
     const el = container.querySelector(sel);
+
     if (!el) continue;
     const t = (el.textContent || "").trim();
+
     if (
       t &&
       t.length > 1 &&
@@ -295,6 +336,7 @@ function extractAuthorAndDate(container) {
       break;
     }
   }
+
   /*
   Carve the headline out of a text block that pairs the author name with
   the degree suffix and relative date, e.g.
@@ -302,9 +344,11 @@ function extractAuthorAndDate(container) {
 */
   if (!headline && author) {
     const strippedAuthor = stripDegreeSuffix(author);
+
     const blocks = [
       ...container.querySelectorAll("span, p, div, a, time, li"),
     ].map((el) => (el.textContent || "").trim());
+
     for (const block of blocks) {
       if (!block.startsWith(strippedAuthor)) continue;
       let rest = block.slice(strippedAuthor.length);
@@ -313,6 +357,7 @@ function extractAuthorAndDate(container) {
       const mDate = rest.match(/\d+\s*(mo|w|d|h)\b/i);
       const candidate = mDate ? rest.slice(0, mDate.index) : rest;
       const clean = candidate.replace(/\s+/g, " ").trim();
+
       if (
         clean &&
         clean.length > 1 &&
@@ -325,6 +370,7 @@ function extractAuthorAndDate(container) {
       }
     }
   }
+
   return { author, dateTime, headline };
 }
 
@@ -348,6 +394,7 @@ function viewerNameFromPageUrl() {
   try {
     if (typeof window === "undefined" || !window.location) return null;
     const m = String(window.location.pathname || "").match(/\/in\/([^/]+)/);
+
     return m ? m[1] : null;
   } catch {
     return null;
@@ -370,30 +417,42 @@ function normalizeName(text) {
 
 function isPlausibleAuthorName(text, viewerName) {
   if (!text || text.length < 2) return false;
+
   if (viewerName && normalizeName(text) === normalizeName(viewerName))
     return false; // never "me"
+
   if (/^\.\.\.$/.test(text)) return false; // ellipsis placeholder
+
   if (/^\d+\s+(reactions?|likes?|comments?|mentions?|reposts?)$/i.test(text))
     return false; // "187 reactions"
+
   if (/^(likes?|reposted|commented on)\s+this$/i.test(text)) return false;
+
   if (/finds? this (?:funny|love|inspire|celebrate)s?$/i.test(text))
     return false;
+
   if (/@/.test(text)) return false; // email-ish or "name @ company" headline
+
   if (/\|\s*\w/.test(text)) return false; // "name | company" headline
+
   if (
     /\b(consultant|engineer|manager|director|founder|ceo|cto|lead|specialist|analyst|recruiter|owner)\b/i.test(
       text
     )
   )
     return false; // job-title words, not a name
+
   return true;
 }
 
 function cleanText(str, maxLen) {
   if (!str) return null;
   const cleaned = str.replace(/\s+/g, " ").trim();
+
   if (!cleaned) return null;
+
   if (cleaned.length <= maxLen) return cleaned;
+
   return cleaned.slice(0, maxLen - 3).trim() + "...";
 }
 
@@ -408,6 +467,7 @@ function squash(str) {
 
 const EXCERPT_MAX = 280;
 const HEADLINE_MAX = 120;
+
 /**
  * Truncate a string to EXCERPT_MAX chars, appending "..." when truncated.
  * Headlines are hard-cut at HEADLINE_MAX (no ellipsis).
@@ -416,7 +476,9 @@ const HEADLINE_MAX = 120;
  */
 function excerpt(str) {
   const s = squash(str);
+
   if (s.length <= EXCERPT_MAX) return s;
+
   return s.slice(0, EXCERPT_MAX - 3).trimEnd() + "...";
 }
 
@@ -429,16 +491,20 @@ function excerpt(str) {
 function realHref(a) {
   if (!a) return "";
   const label = a.getAttribute ? a.getAttribute("aria-label") || "" : "";
+
   if (/^Open https?:\/\//.test(label)) return label.slice(5).trim();
   const href = a.getAttribute ? a.getAttribute("href") || "" : "";
+
   try {
     const u = new URL(href, "https://www.linkedin.com");
+
     if (u.pathname.startsWith("/safety/go")) {
       return u.searchParams.get("url") || href;
     }
   } catch {
     /* ignore */
   }
+
   return href;
 }
 
@@ -468,17 +534,21 @@ function isExternal(href) {
 function boxText(box, opts) {
   opts = opts || {};
   const keepNewlines = !!opts.keepNewlines;
+
   if (!box) return "";
   const clone = box.cloneNode(true);
+
   const buttons = clone.querySelectorAll
     ? clone.querySelectorAll("button")
     : [];
+
   buttons.forEach((b) => {
     if (b.parentNode) b.parentNode.removeChild(b);
   });
   const links = clone.querySelectorAll ? clone.querySelectorAll("a") : [];
   links.forEach((a) => {
     const href = realHref(a);
+
     if (href && isExternal(href)) a.textContent = href;
   });
   const brs = clone.querySelectorAll ? clone.querySelectorAll("br") : [];
@@ -487,7 +557,9 @@ function boxText(box, opts) {
       br.parentNode.replaceChild(document.createTextNode("\n"), br);
   });
   const raw = clone.textContent || "";
+
   if (!keepNewlines) return squash(raw);
+
   return raw
     .split("\n")
     .map(squash)
@@ -502,8 +574,10 @@ function extractCommentText(card, author) {
   const boxes = [
     ...card.querySelectorAll('[data-testid="expandable-text-box"]'),
   ];
+
   if (boxes.length === 1) {
     const text = cleanText(boxes[0].textContent, 280);
+
     if (text) return stripAuthorPrefixesFromText(text, author);
   }
 
@@ -517,13 +591,17 @@ function extractCommentText(card, author) {
     "[class*='comment-content']",
     ".break-words",
   ];
+
   for (const sel of selectors) {
     const el = card.querySelector(sel);
+
     if (el) {
       const text = cleanText(el.textContent, 280);
+
       if (text) return stripAuthorPrefixesFromText(text, author);
     }
   }
+
   /*
   Fallback: scan all text-bearing elements for the comment body.
   Comment bodies are longer than author/date metadata or UI chrome, and
@@ -533,50 +611,73 @@ function extractCommentText(card, author) {
   concatenate everything into one long string.
 */
   const viewer = viewerNameFromPageUrl() || "";
+
   const viewerDisplayName = viewer
     ? viewer
         .split("-")
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(" ")
     : "";
+
   const isGarbageText = (text) => {
     if (!text || text.length <= 2) return true;
+
     if (/^(liked|commented|reposted|reacted)$/i.test(text)) return true;
+
     if (
       /^(feed post|new comment in your group|load more comments)$/i.test(text)
     )
       return true;
+
     if (/^\d+(,\d+)*\s*impressions?\b/i.test(text)) return true; // "111,124 impressions"
+
     if (/@/.test(text) || /\|\s*\w/.test(text)) return true;
+
     if (text.includes("Verified Profile")) return true;
+
     if (text.startsWith("Feed post") || text.startsWith(viewer)) return true;
+
     if (viewerDisplayName && text.startsWith(viewerDisplayName)) return true;
+
     if (/ commented\s*$/i.test(text)) return true;
+
     if (author && text.startsWith(author)) return true;
+
     return false;
   };
+
   const pEls = card.querySelectorAll("p");
   let bestP = null;
+
   for (const el of pEls) {
     const text = cleanText(el.textContent, 280);
+
     if (text && text.length > 5 && !isGarbageText(text)) {
       if (!bestP || text.length > bestP.length) bestP = text;
     }
   }
+
   if (bestP) {
     return stripAuthorPrefixesFromText(bestP, author);
   }
+
   const els = [...card.querySelectorAll("span, div, a, time, li")];
   let best = null;
+
   for (const el of els) {
     const text = cleanText(el.textContent, 280);
+
     if (!text || text.length <= 10) continue;
+
     if (isGarbageText(text)) continue;
+
     if (!best || text.length > best.length) best = text;
   }
+
   if (best) {
     best = stripAuthorPrefixesFromText(best, author);
   }
+
   return best;
 }
 
@@ -593,6 +694,7 @@ function extractPostExcerpt(card, isComment = false) {
     ".break-words",
     "span[dir='ltr']",
   ];
+
   if (!isComment) {
     /*
     LinkedIn obfuscates class names per deploy. In the current DOM the like
@@ -602,14 +704,18 @@ function extractPostExcerpt(card, isComment = false) {
 */
     selectors.push("p.gvyles", "[class*='gvyles']");
   }
+
   for (const sel of selectors) {
     const els = card.querySelectorAll(sel);
+
     for (const el of els) {
       const text = cleanText(el.textContent, 280);
+
       if (text && isPlausiblePostText(text, viewerNameFromPageUrl()))
         return text;
     }
   }
+
   return null;
 }
 
@@ -620,17 +726,23 @@ function extractPostExcerpt(card, isComment = false) {
 */
 function isPlausiblePostText(text, viewerName) {
   if (!text || text.length < 5) return false;
+
   if (/^(liked|commented|reposted|reacted)$/i.test(text)) return false;
+
   if (/^(feed post|new comment in your group|load more comments)$/i.test(text))
     return false;
+
   if (
     /^\d+(,\d+)*\s*(reactions?|likes?|comments?|mentions?|reposts?|impressions?)\b/i.test(
       text
     )
   )
     return false;
+
   if (viewerName && text.startsWith(viewerName)) return false;
+
   if (/@/.test(text) || /\|\s*\w/.test(text)) return false;
+
   return true;
 }
 
@@ -642,8 +754,10 @@ function isPlausiblePostText(text, viewerName) {
 function stripAuthorPrefixesFromText(text, author) {
   if (!author) return text;
   let changed = true;
+
   while (changed) {
     changed = false;
+
     // Strip author name from start and end
     if (text.startsWith(author)) {
       text = text
@@ -652,6 +766,7 @@ function stripAuthorPrefixesFromText(text, author) {
         .trim();
       changed = true;
     }
+
     if (text.endsWith(author)) {
       text = text
         .slice(0, -author.length)
@@ -659,35 +774,44 @@ function stripAuthorPrefixesFromText(text, author) {
         .trim();
       changed = true;
     }
+
     // Strip degree suffix from start (" • 1st", "1st", "3rd+")
     const mDeg = text.match(/^\s*(•\s*)?\d+(st|nd|rd|th)?\+?\s*/);
+
     if (mDeg) {
       text = text.slice(mDeg[0].length).trim();
       changed = true;
     }
+
     // Strip relative date from start ("1mo", "1w", "3d")
     const mRelStart = text.match(/^\s*(\d+)\s*(mo|w|d|h)\s*/i);
+
     if (mRelStart) {
       text = text.slice(mRelStart[0].length).trim();
       changed = true;
     }
+
     // Strip relative date from end ("1mo", "1w", "3d")
     const mRelEnd = text.match(/\s*(\d+)\s*(mo|w|d|h)\s*$/i);
+
     if (mRelEnd) {
       text = text.slice(0, -mRelEnd[0].length).trim();
       changed = true;
     }
   }
+
   return text;
 }
 
 // Find the nearest role="listitem" ancestor (the card) from a button.
 function findCard(btn) {
   let el = btn;
+
   for (let i = 0; i < 30 && el; i++) {
     if (el.getAttribute && el.getAttribute("role") === "listitem") return el;
     el = el.parentElement;
   }
+
   return null;
 }
 
@@ -708,16 +832,21 @@ function readCardMeta(btn, isComment = false) {
     author: null,
     dateTime: null,
   };
+
   const card = findCard(btn);
+
   if (card) {
     if (card.id) meta.cardId = card.id;
     // Extract author first so we can strip it from comment text below.
     Object.assign(meta, extractAuthorAndDate(card));
+
     if (isComment) meta.comment = extractCommentText(card, meta.author);
     meta.postExcerpt = extractPostExcerpt(card, isComment);
     const feedLink = card.querySelector("a[href*='/feed/update/']");
+
     if (feedLink) meta.postHref = feedLink.getAttribute("href");
   }
+
   return meta;
 }
 
@@ -746,9 +875,11 @@ const LINK_RETRY_COUNT = 1;
 */
 async function captureCardLink(card, menuBtn, isComment) {
   if (!card) return null;
+
   if (!menuBtn) {
     menuBtn = card.querySelector("button[aria-label*='Open control menu']");
   }
+
   if (!menuBtn) return null;
   const wanted = isComment ? "copy link to comment" : "copy link to post";
 
@@ -756,46 +887,59 @@ async function captureCardLink(card, menuBtn, isComment) {
     let captured = null;
     const clipboard = navigator.clipboard;
     const originalWriteText = clipboard ? clipboard.writeText : null;
+
     if (clipboard) {
       clipboard.writeText = (text) => {
         captured = text;
+
         return Promise.resolve();
       };
     }
+
     const copyListener = (e) => {
       try {
         const text = e.clipboardData
           ? e.clipboardData.getData("text/plain")
           : null;
+
         if (text) captured = text;
       } catch {
         // ignore
       }
     };
+
     document.addEventListener("copy", copyListener);
 
     try {
       menuBtn.click();
       let option = null;
       const menuDeadline = Date.now() + LINK_MENU_TIMEOUT_MS;
+
       while (Date.now() < menuDeadline && !option) {
         const candidates = [
           ...document.querySelectorAll(
             "button, [role='menuitem'], [role='option'], a"
           ),
         ];
+
         option = candidates.find((el) => {
           if (el.offsetParent === null && el !== document.body) return false;
+
           const label = (el.innerText || el.textContent || "")
             .trim()
             .toLowerCase();
+
           return label === wanted;
         });
+
         if (!option) await sleep(LINK_POLL_INTERVAL_MS);
       }
+
       if (option) {
         option.click();
         const captureDeadline = Date.now() + LINK_CAPTURE_TIMEOUT_MS;
+
+        // oxlint-disable-next-line no-unmodified-loop-condition
         while (Date.now() < captureDeadline && !captured) {
           await sleep(LINK_POLL_INTERVAL_MS);
         }
@@ -804,6 +948,7 @@ async function captureCardLink(card, menuBtn, isComment) {
       // ignore; retry below
     } finally {
       document.removeEventListener("copy", copyListener);
+
       if (clipboard && originalWriteText)
         clipboard.writeText = originalWriteText;
     }
@@ -813,10 +958,12 @@ async function captureCardLink(card, menuBtn, isComment) {
     } catch {
       /* ignore */
     }
+
     await sleep(100);
 
     if (captured) return captured;
   }
+
   return null;
 }
 
@@ -824,18 +971,23 @@ async function collectReactionItems(seenKeys, links) {
   const seen = new Set(seenKeys || []);
   const items = [];
   const buttons = reactionButtons();
+
   for (let idx = 0; idx < buttons.length; idx++) {
     const btn = buttons[idx];
     const state = reactionState(btn);
+
     if (state.toLowerCase() === "no reaction") continue;
     const key = reactionKeyForIndex(idx);
+
     if (!key || seen.has(key)) continue;
     const meta = readCardMeta(btn, false);
     let itemHref = null;
+
     if (links) {
       const card = findCard(btn);
       itemHref = await captureCardLink(card, null, false);
     }
+
     items.push({
       key,
       cardId: meta.cardId,
@@ -849,6 +1001,7 @@ async function collectReactionItems(seenKeys, links) {
       dateTime: meta.dateTime,
     });
   }
+
   return items;
 }
 
@@ -861,24 +1014,30 @@ async function collectCommentItems(seenKeys, links) {
   const TEXT_BOX = 'span[data-testid="expandable-text-box"]';
   const items = [];
   const seen = new Set(seenKeys || []);
+
   const cards = document.querySelectorAll(
     '[componentkey^="replaceableComment_"]'
   );
+
   for (const card of cards) {
     const key = card.getAttribute("componentkey");
+
     if (!key || seen.has(key)) continue;
     seen.add(key);
 
     const update =
       card.closest('[componentkey^="update-card-focus"]') || card.parentElement;
+
     const commentsSection = card.closest(
       '[componentkey^="commentsSectionContainer"]'
     );
+
     const inComments = (el) =>
       !!commentsSection && commentsSection.contains(el);
 
     // my comment: first text box inside the comment card itself
     const commentBox = card.querySelector(TEXT_BOX);
+
     const comment = commentBox
       ? boxText(commentBox, { keepNewlines: true })
       : "";
@@ -887,6 +1046,7 @@ async function collectCommentItems(seenKeys, links) {
     const postBoxes = update
       ? Array.from(update.querySelectorAll(TEXT_BOX))
       : [];
+
     const postBox = postBoxes.find((b) => !inComments(b));
     const postText = postBox ? boxText(postBox, { keepNewlines: false }) : "";
     const postExcerpt = postText ? excerpt(postText) : null;
@@ -898,44 +1058,57 @@ async function collectCommentItems(seenKeys, links) {
     let author = null;
     let headline = null;
     let dateTime = null;
+
     if (header) {
       const ps = Array.from(header.querySelectorAll("p")).map((p) =>
         squash(p.textContent)
       );
+
       const timeIdx = ps.findIndex((t) => /^\d+\s?(s|m|h|d|w|mo|yr)\b/.test(t));
+
       if (timeIdx >= 0) dateTime = ps[timeIdx].replace(/\s*•\s*Edited$/, "");
+
       const parts = (timeIdx >= 0 ? ps.slice(0, timeIdx) : ps).filter(
         (t) => t && !/^(Visit my website|Follow|Following|Connect)$/i.test(t)
       );
+
       const firstLink = header.querySelector("a[href]");
+
       const isGroup =
         !!firstLink && /\/groups\//.test(firstLink.getAttribute("href") || "");
+
       if (isGroup) parts.shift();
       author = parts.length ? parts[0] : null;
       let i = 1;
+
       if (author && parts[i] && /^•\s*(1st|2nd|3rd\+?)/.test(parts[i])) {
         author += " " + parts[i];
         i++;
       }
+
       headline = parts[i] ? parts[i].slice(0, HEADLINE_MAX) : null;
     }
 
     // postHref: permalink outside comments
     let postHref = null;
+
     if (update) {
       const permalink = Array.from(update.querySelectorAll("a[href]"))
         .filter((a) => !inComments(a))
         .map((a) => a.getAttribute("href"))
         .find((h) => /\/feed\/update\/|\/posts\//.test(h || ""));
+
       postHref = permalink || null;
     }
 
     // itemHref: external shared link from post text box
     let itemHref = null;
+
     if (postBox) {
       const hrefs = Array.from(postBox.querySelectorAll("a"))
         .map(realHref)
         .filter((h) => h && isExternal(h));
+
       itemHref = hrefs.find((h) => /lnkd\.in\//.test(h)) || hrefs[0] || null;
     }
 
@@ -945,10 +1118,13 @@ async function collectCommentItems(seenKeys, links) {
         b.getAttribute("aria-label") || ""
       )
     );
+
     let menuHref = null;
+
     if (links) {
       menuHref = await captureCardLink(card, btn || null, true);
     }
+
     if (menuHref) itemHref = menuHref;
 
     items.push({
@@ -963,6 +1139,7 @@ async function collectCommentItems(seenKeys, links) {
       dateTime,
     });
   }
+
   return items;
 }
 
@@ -976,13 +1153,17 @@ function collectCardIds() {
 
 function collectKeys() {
   if (isCommentsPage()) return collectCommentKeys();
+
   if (isReactionsPage()) return collectReactionKeys();
+
   return [];
 }
 
 async function collectItems(seenKeys, links) {
   if (isCommentsPage()) return collectCommentItems(seenKeys, links);
+
   if (isReactionsPage()) return collectReactionItems(seenKeys, links);
+
   return [];
 }
 
@@ -1002,16 +1183,20 @@ function activityCards() {
 */
 function activityScrollTarget() {
   let node = activityCards()[0] || null;
+
   for (let i = 0; i < 20 && node; i++) {
     const cs = getComputedStyle(node);
+
     if (
       (cs.overflowY === "auto" || cs.overflowY === "scroll") &&
       node.scrollHeight > node.clientHeight + 40
     ) {
       return node;
     }
+
     node = node.parentElement;
   }
+
   return (
     document.getElementById("workspace") ||
     document.querySelector("main, [role='main']") ||
@@ -1024,10 +1209,13 @@ function activityScrollTarget() {
 // caller can log which scroller the walk relied on.
 function scrollActivityListToBottom() {
   const target = activityScrollTarget();
+
   if (!target) return { tag: null, id: null };
   target.scrollTo(0, target.scrollHeight);
   const cards = activityCards();
+
   if (cards.length) cards[cards.length - 1].scrollIntoView({ block: "end" });
+
   return { tag: target.tagName || null, id: target.id || null };
 }
 
@@ -1039,10 +1227,13 @@ function scrollActivityListToBottom() {
 */
 function cardKey(card) {
   if (isCommentsPage()) return commentKeyIn(card);
+
   if (isReactionsPage()) {
     const btn = [...card.querySelectorAll("button")].find(isReactionButton);
+
     return btn ? reactionKeyForButton(btn) : null;
   }
+
   return null;
 }
 
@@ -1062,8 +1253,10 @@ function readGrowthSignal() {
   blinded the cheapest growth clue the walk has.
 */
   let lastKey = null;
+
   for (let i = cards.length - 1; i >= 0 && lastKey == null; i--)
     lastKey = cardKey(cards[i]);
+
   return {
     scrollHeight: target ? target.scrollHeight : 0,
     count: cards.length,
@@ -1088,6 +1281,7 @@ async function deleteCommentButton(btn) {
   // find delete option in the opened menu/popover
   let deleteOption = null;
   const deadline = Date.now() + 3000;
+
   while (Date.now() < deadline && !deleteOption) {
     const candidates = [
       ...document.querySelectorAll(
@@ -1098,44 +1292,57 @@ async function deleteCommentButton(btn) {
         e.offsetParent !== null &&
         (e.innerText || "").trim().toLowerCase() === "delete"
     );
+
     deleteOption = candidates[0] || null;
+
     if (!deleteOption) await sleep(200);
   }
+
   if (!deleteOption) {
     document.body.click();
     await sleep(300);
+
     return { ok: false, skip: true, error: "no delete option" };
   }
+
   deleteOption.click();
   await sleep(800);
 
   // confirm modal
   let modalDelete = null;
   const mdeadline = Date.now() + 4000;
+
   while (Date.now() < mdeadline && !modalDelete) {
     const candidates = [...document.querySelectorAll("button")].filter(
       (b) =>
         b.offsetParent !== null &&
         (b.innerText || "").trim().toLowerCase() === "delete"
     );
+
     // prefer the one inside a dialog
     const inDialog = candidates.find((b) =>
       b.closest("[role='dialog'], [role='alertdialog']")
     );
+
     modalDelete = inDialog || candidates[candidates.length - 1] || null;
+
     if (!modalDelete) await sleep(200);
   }
+
   if (!modalDelete) {
     document.body.click();
     await sleep(300);
+
     return { ok: false, skip: true, error: "confirm failed" };
   }
+
   modalDelete.click();
   await sleep(1500);
 
   // verify the comment's replaceableComment_ container is gone or menu button gone
   const key = commentKeyForButton(btn);
   const stillThere = key ? !!document.getElementById(key) : false;
+
   if (stillThere) {
     // maybe not removed; could be rate limit
     return {
@@ -1144,6 +1351,7 @@ async function deleteCommentButton(btn) {
       error: "deletion did not complete (possible rate limit)",
     };
   }
+
   return { ok: true, key };
 }
 
@@ -1165,7 +1373,9 @@ async function deleteOneCard(cardId) {
       error: "cardId is required",
     };
   }
+
   const card = document.getElementById(cardId);
+
   if (!card) {
     return { ok: false, skip: false, cardId, error: "card not found" };
   }
@@ -1176,6 +1386,7 @@ async function deleteOneCard(cardId) {
         b.getAttribute("aria-label") || ""
       )
     );
+
     if (!btn) {
       return {
         ok: false,
@@ -1184,8 +1395,10 @@ async function deleteOneCard(cardId) {
         error: "refused: comment menu button not found in card",
       };
     }
+
     const meta = readCardMeta(btn, true);
     const res = await deleteCommentButton(btn);
+
     if (!res.ok) {
       return {
         ...res,
@@ -1200,6 +1413,7 @@ async function deleteOneCard(cardId) {
         dateTime: meta.dateTime,
       };
     }
+
     return {
       ok: true,
       cardId,
@@ -1213,6 +1427,7 @@ async function deleteOneCard(cardId) {
 
   if (isReactionsPage()) {
     const btn = [...card.querySelectorAll("button")].find(isReactionButton);
+
     if (!btn) {
       return {
         ok: false,
@@ -1221,11 +1436,13 @@ async function deleteOneCard(cardId) {
         error: "refused: no reaction button found in card",
       };
     }
+
     const meta = readCardMeta(btn, false);
     const key = reactionKeyForButton(btn);
     btn.click();
     await sleep(1500);
     const newState = reactionState(btn);
+
     if (newState.toLowerCase() !== "no reaction") {
       return {
         ok: false,
@@ -1239,6 +1456,7 @@ async function deleteOneCard(cardId) {
         dateTime: meta.dateTime,
       };
     }
+
     return {
       ok: true,
       cardId,

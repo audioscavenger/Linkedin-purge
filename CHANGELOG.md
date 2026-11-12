@@ -6,7 +6,7 @@
 
 ## Unreleased
 
-- [ ] Migrated linting from ESLint to Oxlint: added `.oxlintrc.json` with the anti-slop plugin (18 rules) and the dash (unicode dash) plugin, wired `oxlint` into `lint-staged` pre-commit and `npm run lint`/`lint:fix`; removed ESLint and its config, plugins, and `eslint.config.mjs`. Baseline: 1,372 errors (mostly `require-readable-spacing`) and 24 warnings remain to be cleaned up.
+- [ ] Migrated linting from ESLint to Oxlint: added `.oxlintrc.json` with the anti-slop plugin (18 rules) and the dash (unicode dash) plugin, wired `oxlint` into `lint-staged` pre-commit and `npm run lint`/`lint:fix`; removed ESLint and its config, plugins, and `eslint.config.mjs`. Cleaned up the lint baseline: auto-fixed 1,309 `require-readable-spacing` errors and manually resolved the remaining 50 errors (`no-runtime-typeof`, `no-array-filter-map`, `no-eval`, `no-useless-spread`, `no-useless-fallback-in-spread`) and all 25 warnings. `npm run lint` is now clean.
 
 - [ ] Added comment-run enforcement for the house two-line `//` comment rule: `npm run check` now fails when three or more consecutive comment lines are found, `npm run fix:comments` merges such runs into block comments, and unit tests cover both.
 

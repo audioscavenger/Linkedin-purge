@@ -58,6 +58,7 @@ run("lockfile in sync", () =>
 );
 
 const hooksActive = fs.existsSync(path.join(root, ".husky/pre-commit"));
+
 results.push({
   label: "pre-commit hook",
   ok: hooksActive,
@@ -78,11 +79,14 @@ const gitBranch = (() => {
 })();
 
 let clean = true;
+
 for (const r of results) {
   const mark = r.ok ? "✓" : "✗";
   console.log(`${mark}  ${r.label.padEnd(20)}  ${r.detail}`);
+
   if (!r.ok) clean = false;
 }
 
 console.log(`\ngit branch: ${gitBranch}`);
+
 process.exit(clean ? 0 : 1);

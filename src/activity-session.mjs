@@ -82,6 +82,7 @@ export class ActivitySession {
   }) {
     let browser = null;
     let context = null;
+
     try {
       if (cdp) {
         const attached = await attach(cdp);
@@ -90,6 +91,7 @@ export class ActivitySession {
       } else {
         context = await launch({ profileDir, headless, chromiumPath });
       }
+
       const page = await context.newPage();
       await inject(page, helperPath);
 
@@ -125,6 +127,7 @@ export class ActivitySession {
     });
     await this.wait(TARGET_SETTLE_MS);
     ensureLoggedIn(this.page);
+
     return this.page;
   }
 
@@ -149,6 +152,7 @@ function defaultWait(ms) {
 function activityBaseUrl(url) {
   const match = PROFILE_SLUG.exec(url || "");
   const username = match ? match[1] : "me";
+
   return `https://www.linkedin.com/in/${username}/recent-activity/`;
 }
 

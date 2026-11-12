@@ -25,6 +25,7 @@ async function testShallowEnvelope() {
       dateTime: "Sep 17",
     },
   ];
+
   const envelope = buildScanEnvelope({
     type: "likes",
     items,
@@ -34,6 +35,7 @@ async function testShallowEnvelope() {
   });
 
   const fields = Object.keys(envelope);
+
   const expectedFields = [
     "type",
     "count",
@@ -43,33 +45,43 @@ async function testShallowEnvelope() {
     "steps",
     "complete",
   ];
+
   if (fields.join(",") !== expectedFields.join(",")) {
     throw new Error(`Envelope fields changed: [${fields.join(", ")}]`);
   }
+
   if (envelope.type !== "likes")
     throw new Error(`type not preserved: ${envelope.type}`);
+
   if (envelope.count !== 2)
     throw new Error(`count expected 2, got ${envelope.count}`);
+
   if (envelope.keys.join(",") !== "reaction:1,reaction:2") {
     throw new Error(
       `keys expected [reaction:1, reaction:2], got [${envelope.keys}]`
     );
   }
+
   if (envelope.scannedAt !== "2026-10-26T07:49:00.000Z")
     throw new Error("scannedAt not preserved");
+
   if (envelope.steps !== 1)
     throw new Error(`A shallow scan is one step, got ${envelope.steps}`);
+
   if (envelope.complete !== true) throw new Error("A shallow scan is complete");
+
   for (const item of envelope.items) {
     if (item.step !== 0)
       throw new Error(
         `Shallow item ${item.key} expected step 0, got ${item.step}`
       );
+
     if (item.status !== PURGE_STATUSES.NO_OP)
       throw new Error(
         `Shallow item ${item.key} expected status no-op, got ${item.status}`
       );
   }
+
   // Pre-existing item fields survive unchanged, and the caller's items are not
   // mutated by the builder.
   if (
@@ -78,8 +90,10 @@ async function testShallowEnvelope() {
   ) {
     throw new Error("Item fields were not preserved");
   }
+
   if (items[0].step !== undefined)
     throw new Error("The builder mutated the caller's items");
+
   if (items[0].status !== undefined)
     throw new Error("The builder mutated the caller's items (status)");
 
@@ -108,6 +122,7 @@ async function testDeepPartialEnvelope() {
       step: 5,
     },
   ];
+
   const envelope = buildScanEnvelope({
     type: "likes",
     items,
@@ -118,14 +133,19 @@ async function testDeepPartialEnvelope() {
 
   if (envelope.steps !== 6)
     throw new Error(`steps expected 6, got ${envelope.steps}`);
+
   if (envelope.complete !== false)
     throw new Error("A cut-short walk must be incomplete");
+
   if (envelope.count !== 2)
     throw new Error(`count expected 2, got ${envelope.count}`);
+
   if (envelope.keys.join(",") !== "reaction:0,reaction:37")
     throw new Error(`keys wrong: [${envelope.keys}]`);
   const steps = envelope.items.map((it) => it.step).join(",");
+
   if (steps !== "0,5") throw new Error(`Per-item steps lost: [${steps}]`);
+
   for (const item of envelope.items) {
     if (item.status !== PURGE_STATUSES.NO_OP)
       throw new Error(
@@ -143,22 +163,28 @@ async function testDeepPartialEnvelope() {
 async function testStatusReset() {
   const items = [{ key: "reaction:1", status: "todo" }, { key: "reaction:2" }];
   const envelope = buildScanEnvelope({ type: "likes", items });
+
   if (envelope.items[0].status !== PURGE_STATUSES.NO_OP)
     throw new Error(`carried status not reset: ${envelope.items[0].status}`);
+
   if (envelope.items[1].status !== PURGE_STATUSES.NO_OP)
     throw new Error(
       `missing status not defaulted: ${envelope.items[1].status}`
     );
+
   if (items[0].status !== "todo")
     throw new Error("builder mutated caller item status");
+
   if (items[1].status !== undefined)
     throw new Error("builder mutated caller item (added status)");
   console.log("PASS: every item reset to no-op on fresh scan");
 }
 
 const tests = [testShallowEnvelope, testDeepPartialEnvelope, testStatusReset];
+
 async function main() {
   let failed = 0;
+
   for (const fn of tests) {
     try {
       await fn();
@@ -167,6 +193,7 @@ async function main() {
       failed++;
     }
   }
+
   const passed = tests.length - failed;
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

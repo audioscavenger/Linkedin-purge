@@ -17,17 +17,21 @@ const result = spawnSync(process.execPath, ["src/cli.mjs", "help"], {
 });
 
 const output = `${result.stdout || ""}${result.stderr || ""}`;
+
 assert.strictEqual(
   result.status,
   0,
   `expected help to exit 0, got ${result.status}; output: ${output}`
 );
+
 assert.ok(
   output.includes("--headed"),
   `expected the parameter list to show --headed, got: ${output}`
 );
+
 assert.ok(
   !output.includes("--headless"),
   `help must never show --headless, got: ${output}`
 );
+
 console.log("PASS: help screen shows --headed and never --headless");

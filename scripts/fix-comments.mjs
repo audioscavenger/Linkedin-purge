@@ -16,6 +16,7 @@ import path from "node:path";
 import * as espree from "espree";
 
 let tsParser = null;
+
 try {
   tsParser =
     (await import("@typescript-eslint/parser"))?.parse ||
@@ -28,6 +29,7 @@ try {
 }
 
 const root = path.resolve(import.meta.dirname, "..");
+
 const SCAN_DIRS = [
   "src",
   "tests",
@@ -38,6 +40,7 @@ const SCAN_DIRS = [
   "web",
   "app",
 ];
+
 const SKIP_DIRS = new Set([
   "node_modules",
   "dist",
@@ -48,8 +51,10 @@ const SKIP_DIRS = new Set([
   ".agents",
   "data",
 ]);
+
 const FILE_RE = /\.[cm]?[jt]sx?$/;
 const MIN_RUN = 3;
+
 const KEEP =
   /^\s*(?:\/|eslint|@ts-|prettier-ignore|istanbul|c8\b|v8 ignore|globals?\b|jshint|@flow|@jsx|@vitest-environment|@jest-environment|biome-ignore|#(?:end)?region)/;
 
@@ -59,16 +64,21 @@ function isHiddenDir(entry) {
 
 function parseComments(file, text) {
   const opts = { comment: true, range: true, loc: true };
+
   if (/\.[cm]?tsx?$/.test(file)) {
     if (!tsParser) throw new Error("TypeScript parser not available");
+
     return tsParser.parse(text, { ...opts, jsx: file.endsWith("x") }).comments;
   }
+
   const base = { ...opts, ecmaVersion: "latest", ecmaFeatures: { jsx: true } };
+
   const sourceType = file.endsWith(".cjs")
     ? "commonjs"
     : file.endsWith(".mjs")
       ? "module"
       : "commonjs";
+
   try {
     return espree.parse(text, { ...base, sourceType }).comments;
   } catch {
@@ -79,38 +89,47 @@ function parseComments(file, text) {
         return espree.parse(text, { ...base, sourceType: "script" }).comments;
       }
     }
+
     return espree.parse(text, { ...base, sourceType: "script" }).comments;
   }
 }
 
 function describe(text, c) {
   const snippet = text.slice(c.range[0], c.range[1]);
+
   return snippet.trim();
 }
 
 function findRuns(text, comments) {
   const runs = [];
   let cur = [];
+
   const flush = () => {
     if (cur.length >= MIN_RUN) {
       runs.push([...cur]);
     }
+
     cur = [];
   };
+
   for (const c of comments) {
     if (c.type !== "Line") {
       flush();
       continue;
     }
+
     const snippet = describe(text, c);
+
     if (KEEP.test(snippet)) {
       flush();
       continue;
     }
+
     if (cur.length === 0) {
       cur.push(c);
     } else {
       const prev = cur[cur.length - 1];
+
       if (
         c.loc.start.line === prev.loc.end.line + 1 &&
         c.range[0] - prev.range[1] <= 2
@@ -122,13 +141,16 @@ function findRuns(text, comments) {
       }
     }
   }
+
   flush();
+
   return runs;
 }
 
 function mergeCommentRunsInText(text, comments) {
   const edits = [];
   let skipped = 0;
+
   for (const run of findRuns(text, comments)) {
     const first = run[0];
     const last = run[run.length - 1];
@@ -136,37 +158,46 @@ function mergeCommentRunsInText(text, comments) {
     const end = last.range[1];
     const lines = text.slice(start, end).split(/\r?\n/);
     const indent = lines[0].match(/^\s*/)[0];
+
     const content = lines
       .map((l) => l.replace(/^\s*\/\/\s?/, "").trimEnd())
       .join(" ")
       .trim();
+
     if (!content) {
       skipped += 1;
       continue;
     }
+
     const block = `${indent}/* ${content} */`;
     edits.push({ start, end, text: block });
   }
+
   if (!edits.length) return { text, changed: false, skipped };
   let out = "";
   let pos = 0;
+
   for (const e of edits) {
     out += text.slice(pos, e.start);
     out += e.text;
     pos = e.end;
   }
+
   out += text.slice(pos);
+
   return { text: out, changed: true, skipped };
 }
 
 function assertBlocksPreserved(before, after) {
   const blkBefore = [...before.matchAll(/\/\*[\s\S]*?\*\//g)].map((m) => m[0]);
   const blkAfter = [...after.matchAll(/\/\*[\s\S]*?\*\//g)].map((m) => m[0]);
+
   if (blkBefore.length !== blkAfter.length) {
     throw new Error(
       `Block comment count changed: ${blkBefore.length} → ${blkAfter.length}`
     );
   }
+
   for (let i = 0; i < blkBefore.length; i++) {
     if (blkBefore[i] !== blkAfter[i]) {
       throw new Error("Block comment content changed unexpectedly");
@@ -177,14 +208,17 @@ function assertBlocksPreserved(before, after) {
 function fixText(file, text) {
   const comments = parseComments(file, text);
   const result = mergeCommentRunsInText(text, comments);
+
   if (result.changed) {
     assertBlocksPreserved(text, result.text);
   }
+
   return result;
 }
 
 function mergeCommentRuns(lines, file = "snippet.mjs") {
   const result = fixText(file, lines.join("\n"));
+
   return {
     lines: result.text.split("\n"),
     changed: result.changed,
@@ -193,12 +227,16 @@ function mergeCommentRuns(lines, file = "snippet.mjs") {
 
 function findJsFiles(dir) {
   const out = [];
+
   if (!fs.existsSync(dir)) return out;
+
   const entries = fs
     .readdirSync(dir, { withFileTypes: true })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .toSorted((a, b) => a.name.localeCompare(b.name));
+
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
+
     if (entry.isDirectory()) {
       if (isHiddenDir(entry) || SKIP_DIRS.has(entry.name)) continue;
       out.push(...findJsFiles(full));
@@ -206,12 +244,14 @@ function findJsFiles(dir) {
       out.push(full);
     }
   }
+
   return out;
 }
 
 function isUnderScripts(file) {
   const rel = path.relative(root, file);
   const top = rel.split(path.sep)[0];
+
   return top === "scripts";
 }
 
@@ -221,14 +261,20 @@ function collectTargets(args) {
       (f) => !isUnderScripts(f)
     );
   }
+
   const files = [];
+
   for (const arg of args) {
     const full = path.resolve(process.cwd(), arg);
+
     if (isUnderScripts(full)) continue;
+
     if (!fs.existsSync(full)) continue;
+
     if (fs.statSync(full).isDirectory()) files.push(...findJsFiles(full));
     else if (FILE_RE.test(full) && !isUnderScripts(full)) files.push(full);
   }
+
   return files;
 }
 
@@ -241,6 +287,7 @@ function fixFiles(files, { write = true } = {}) {
     try {
       const text = fs.readFileSync(file, "utf8");
       const result = fixText(file, text);
+
       if (result.changed) {
         if (write) fs.writeFileSync(file, result.text);
         changedFiles.push(file);
@@ -251,6 +298,7 @@ function fixFiles(files, { write = true } = {}) {
       errors.push({ file: path.relative(root, file), message: err.message });
     }
   }
+
   return { changedFiles, skipped, errors };
 }
 
@@ -269,16 +317,22 @@ function main(argv) {
     console.log(
       `${check ? "Would merge" : "Merged"} comment runs in ${changedFiles.length} file(s):`
     );
+
     for (const f of changedFiles) console.log(`  - ${path.relative(root, f)}`);
   }
+
   for (const s of skipped) console.log(`  - ${s.file} (${s.count})`);
+
   for (const e of errors) console.error(`ERROR ${e.file}: ${e.message}`);
 
   // A guard rail must never block a commit: in write mode (the pre-commit
   // hook) report and carry on. Only an explicit --check run fails.
   if (!check) return 0;
+
   if (errors.length > 0) return 1;
+
   if (changedFiles.length > 0) return 1;
+
   return 0;
 }
 

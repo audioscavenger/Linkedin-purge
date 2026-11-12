@@ -39,6 +39,7 @@ function itemsFor(tab) {
       },
     ];
   }
+
   return [
     {
       key: "reaction:0",
@@ -88,22 +89,26 @@ function fakePage(options = {}) {
     }),
     scrollActivityListToBottom: () => {
       scrolled = true;
+
       return options.target || { tag: "MAIN", id: "workspace" };
     },
     collectItems: (seenKeys = []) => {
       const seen = new Set(options.ignoreSeen ? [] : seenKeys);
+
       return items
         .filter((item) => !seen.has(item.key))
         .map((item) => ({ ...item }));
     },
   };
-  return { ...page, ...(options.overrides || {}) };
+
+  return { ...page, ...options.overrides };
 }
 
 // The loader tests' controllable clock: the real poll interval and growth
 // deadline are exercised, but no wall clock time is spent.
 function fakeClock() {
   let t = 0;
+
   return {
     now: () => t,
     sleep: async (ms) => {
@@ -115,6 +120,7 @@ function fakeClock() {
 
 async function check(page, options = {}) {
   const clock = fakeClock();
+
   return checkActivityTab({
     tab: options.tab || "reactions",
     page,
@@ -184,6 +190,7 @@ async function testBadTabDetection() {
   const openedWrong = await check(
     fakePage({ overrides: { isReactionsPage: () => false } })
   );
+
   const openedFailure = failureFor(openedWrong, "isReactionsPage");
   assert(
     openedFailure,
@@ -203,6 +210,7 @@ async function testBadTabDetection() {
   const otherTrue = await check(
     fakePage({ overrides: { isCommentsPage: () => true } })
   );
+
   const otherFailure = failureFor(otherTrue, "isCommentsPage");
   assert(
     otherFailure,
@@ -223,9 +231,11 @@ async function testBadTabDetection() {
 // check names readGrowthSignal and reports all three fields it saw.
 async function testDeadGrowthSignal() {
   const dead = { scrollHeight: 0, count: 0, lastKey: null };
+
   const result = await check(
     fakePage({ overrides: { readGrowthSignal: () => dead }, grownHeight: 0 })
   );
+
   const failure = failureFor(result, "readGrowthSignal");
 
   assert(
@@ -241,6 +251,7 @@ async function testDeadGrowthSignal() {
       "a positive scroll height, at least one card and a non-null last key",
     `Bad growth expectation: ${failure.expected}`
   );
+
   for (const seen of ["scrollHeight 0", "count 0", "lastKey null"]) {
     assert(
       failure.observed.includes(seen),
@@ -272,6 +283,7 @@ async function testNoPagination() {
       "the card count above 2 after at most 3 scrolls of 3000 ms each",
     `Bad pagination expectation: ${failure.expected}`
   );
+
   for (const seen of [
     "MAIN#workspace",
     "cards 2 -> 2",
@@ -293,10 +305,12 @@ async function testNoPagination() {
 async function testPaginationOnSecondScroll() {
   let scrolls = 0;
   const base = fakePage({ grownHeight: 1000, grows: false });
+
   const page = {
     ...base,
     scrollActivityListToBottom: () => {
       scrolls++;
+
       return { tag: "MAIN", id: "workspace" };
     },
     readGrowthSignal: () => ({
@@ -347,6 +361,7 @@ async function testMissingMetadata() {
       dateTime: "Sep 17",
     }, // no author
   ];
+
   const result = await check(fakePage({ items }));
   const failure = failureFor(result, "collectItems");
 
@@ -383,10 +398,12 @@ async function testMissingMetadata() {
       dateTime: "Sep 16",
     },
   ];
+
   const comments = await check(
     fakePage({ tab: "comments", items: commentItems }),
     { tab: "comments" }
   );
+
   assert(
     comments.ok,
     `Comments must not be asked for a state field; ${failureText(comments)}`
@@ -423,6 +440,7 @@ async function testDuplicateKeys() {
       dateTime: "Sep 18",
     },
   ];
+
   const result = await check(fakePage({ items }));
   const uniqueFailure = failures(result).find((r) => r.step === "unique keys");
 
@@ -479,10 +497,12 @@ async function testLeakedSeenKeys() {
 */
 async function testHungCallIsNamed() {
   const startedAt = Date.now();
+
   const result = await check(
     fakePage({ overrides: { readGrowthSignal: () => new Promise(() => {}) } }),
     { callTimeoutMs: 25 }
   );
+
   const elapsed = Date.now() - startedAt;
   const failure = failureFor(result, "readGrowthSignal");
 
@@ -521,6 +541,7 @@ async function testThrowingCallIsNamed() {
       },
     })
   );
+
   const failure = failureFor(result, "scrollActivityListToBottom");
 
   assert(
@@ -586,6 +607,7 @@ const tests = [
 
 async function main() {
   let failed = 0;
+
   for (const fn of tests) {
     try {
       await fn();
@@ -594,6 +616,7 @@ async function main() {
       failed++;
     }
   }
+
   const passed = tests.length - failed;
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

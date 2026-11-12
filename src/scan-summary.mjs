@@ -12,13 +12,17 @@ function asArray(value) {
 
 function firstRenderCountOf(result) {
   const items = asArray(result.items);
+
   return items.filter((it) => it && (it.step === 0 || it.step === "0")).length;
 }
 
 function linkCountOf(result) {
   const items = asArray(result.items);
+
   return items.filter((it) => {
-    if (!it || typeof it !== "object") return false;
+    if (!it || (it.constructor !== Object && it.constructor !== Array))
+      return false;
+
     return (
       it.itemHref != null ||
       it.postHref != null ||
@@ -30,16 +34,22 @@ function linkCountOf(result) {
 }
 
 function linksAsked(links, result) {
-  if (typeof links === "boolean") return links;
+  if (links === true || links === false) return links;
   const items = asArray(result.items);
+
   return items.some((it) => it && (it.itemHref != null || it.postHref != null));
 }
 
 function elapsedMsOf(elapsedMs) {
-  if (typeof elapsedMs === "number" && Number.isFinite(elapsedMs))
+  if (elapsedMs?.constructor === Number && Number.isFinite(elapsedMs))
     return elapsedMs;
-  if (typeof elapsedMs === "string" && /^\d+(\.\d+)?$/.test(elapsedMs.trim()))
+
+  if (
+    elapsedMs?.constructor === String &&
+    /^\d+(\.\d+)?$/.test(elapsedMs.trim())
+  )
     return Number(elapsedMs.trim());
+
   return 0;
 }
 
@@ -51,26 +61,29 @@ export function buildScanSummary({
   pagePath,
 } = {}) {
   const r =
-    result && typeof result === "object" && !Array.isArray(result)
+    result && result.constructor === Object && !Array.isArray(result)
       ? result
       : {};
 
   const items = asArray(r.items);
-  const count = typeof r.count === "number" ? r.count : items.length;
-  const steps = typeof r.steps === "number" ? r.steps : 0;
-  const complete = typeof r.complete === "boolean" ? r.complete : true;
+  const count = r.count?.constructor === Number ? r.count : items.length;
+  const steps = r.steps?.constructor === Number ? r.steps : 0;
+  const complete = r.complete?.constructor === Boolean ? r.complete : true;
   const firstRender = firstRenderCountOf(r);
   const asked = linksAsked(links, r);
   const linkCount = linkCountOf(r);
   const ms = elapsedMsOf(elapsedMs);
 
   const parts = [];
+
   if (type) parts.push(`${type}:`);
   parts.push(`${count} items (${firstRender} first render)`);
   parts.push(`${steps} steps`);
   parts.push(complete ? "complete" : "INCOMPLETE");
+
   if (asked) parts.push(`${linkCount} with links`);
   parts.push(`${ms}ms`);
+
   if (pagePath) parts.push(`-> ${pagePath}`);
 
   const bracket = [
@@ -87,8 +100,10 @@ export function buildScanSummary({
   ]
     .filter(Boolean)
     .join(" ");
+
   let text = parts.join(", ");
   text += ` [${bracket}]`;
+
   if (pagePath) text += ` (page: ${pagePath})`;
 
   return text;

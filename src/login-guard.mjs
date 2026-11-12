@@ -9,6 +9,7 @@
 */
 export function isLoggedOut(page) {
   const url = page.url();
+
   return (
     url.includes("/login") ||
     url.includes("/checkpoint") ||

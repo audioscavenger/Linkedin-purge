@@ -18,10 +18,12 @@ async function testRedirectsAreLoggedOut() {
     "https://www.linkedin.com/checkpoint/challenge/123",
     "https://www.linkedin.com/authwall?trk=gf",
   ];
+
   for (const url of urls) {
     if (!isLoggedOut(pageAt(url)))
       throw new Error(`Expected ${url} to count as logged out`);
   }
+
   console.log("PASS: login, checkpoint and authwall URLs are logged out");
 }
 
@@ -33,10 +35,12 @@ async function testRealPagesAreLoggedIn() {
     "https://www.linkedin.com/in/me/",
     "https://www.linkedin.com/feed/",
   ];
+
   for (const url of urls) {
     if (isLoggedOut(pageAt(url)))
       throw new Error(`Expected ${url} to count as still logged in`);
   }
+
   console.log("PASS: activity, profile and feed pages are logged in");
 }
 
@@ -45,9 +49,11 @@ async function testRealPagesAreLoggedIn() {
 async function testReadsUrlAtCallTime() {
   let url = "https://www.linkedin.com/feed/";
   const page = { url: () => url };
+
   if (isLoggedOut(page))
     throw new Error("Expected the first URL to be logged in");
   url = "https://www.linkedin.com/authwall?trk=gf";
+
   if (!isLoggedOut(page))
     throw new Error("Expected the guard to re-read the URL");
   console.log("PASS: the guard reads the URL at call time");
@@ -61,6 +67,7 @@ const tests = [
 
 async function main() {
   let failed = 0;
+
   for (const fn of tests) {
     try {
       await fn();
@@ -69,6 +76,7 @@ async function main() {
       failed++;
     }
   }
+
   const passed = tests.length - failed;
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

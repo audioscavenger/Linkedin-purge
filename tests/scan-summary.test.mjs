@@ -40,11 +40,13 @@ async function testPerTypeCountsLine() {
       step: 0,
     },
   ]);
+
   const text = buildScanSummary({
     type: "likes",
     result,
     pagePath: "data/selection-likes.html",
   });
+
   assert.ok(text.startsWith("likes:"), "prints the type prefix");
   assert.ok(
     /2 items \(2 first render\)/.test(text),
@@ -72,10 +74,12 @@ async function testEmptyStateWhenNoPagePath() {
       step: 0,
     },
   ]);
+
   const text = buildScanSummary({
     type: "comments",
     result,
   });
+
   assert.ok(text.startsWith("comments:"), "prints the type prefix");
   assert.ok(
     /1 items \(1 first render\)/.test(text),
@@ -106,6 +110,7 @@ async function testMultipleTypes() {
       step: 0,
     },
   ]);
+
   const comments = envelope([
     {
       key: "comment:1",
@@ -116,16 +121,19 @@ async function testMultipleTypes() {
       step: 0,
     },
   ]);
+
   const likesText = buildScanSummary({
     type: "likes",
     result: likes,
     pagePath: "data/selection-likes.html",
   });
+
   const commentsText = buildScanSummary({
     type: "comments",
     result: comments,
     pagePath: "data/selection-comments.html",
   });
+
   assert.ok(likesText.startsWith("likes:"), "likes line starts with likes");
   assert.ok(
     commentsText.startsWith("comments:"),
@@ -152,6 +160,7 @@ const tests = [
 
 async function main() {
   let failed = 0;
+
   for (const fn of tests) {
     try {
       await fn();
@@ -160,6 +169,7 @@ async function main() {
       failed++;
     }
   }
+
   const passed = tests.length - failed;
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

@@ -45,13 +45,13 @@
     ".roo/**",
     ".windsurf/**",
     "tools/oxlint/**",
-    "**/.profile-chromium/**",
-    "**/.profile/**",
     "**/.opencode/**",
     "**/node_modules/**",
     "**/dist/**",
     "**/build/**",
     "**/coverage/**",
+    ".profile-chromium/**",
+    ".profile/**",
     "data/**"
   ],
   "rules": {
@@ -134,6 +134,20 @@
     "react/react-in-jsx-scope": "off",
 
     "dash/no-unicode-dash": "error",
+
+    "no-underscore-dangle": [
+      "warn",
+      {
+        "allow": [
+          "__dirname",
+          "__lastExport",
+          "_ensureLoaded",
+          "_findItemIndex",
+          "_persistStatus",
+          "_state"
+        ]
+      }
+    ],
 
     "anti-slop/no-array-filter-map": "error",
     "anti-slop/no-chained-type-assertions": "error",

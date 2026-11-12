@@ -8,6 +8,7 @@
 
 import fs from "node:fs";
 import assert from "node:assert";
+import vm from "node:vm";
 
 const src = fs.readFileSync("src/linkedin-dom.mjs", "utf8");
 
@@ -17,7 +18,8 @@ const src = fs.readFileSync("src/linkedin-dom.mjs", "utf8");
   so the file loads fine in node with a stubbed empty window.
 */
 globalThis.window = {};
-globalThis.eval(src);
+
+vm.runInThisContext(src);
 
 const {
   extractAuthorAndDate,
@@ -149,6 +151,7 @@ function authorContainer(authorLinks, fallbacks = {}) {
     "time[datetime]": fallbacks.timeDatetime || null,
     time: fallbacks.time || null,
   };
+
   const qsa = {
     "a[href*='/in/'], a[href*='/company/']": authorLinks.map((t) =>
       fakeLink(t)
@@ -157,6 +160,7 @@ function authorContainer(authorLinks, fallbacks = {}) {
       fakeEl(t)
     ),
   };
+
   // headline selectors
   const headlineSel = [
     ".feed-shared-update-v2__actor--headline",
@@ -165,7 +169,9 @@ function authorContainer(authorLinks, fallbacks = {}) {
     "[class*='actor__headline']",
     "[class*='headline']",
   ];
+
   for (const sel of headlineSel) qs[sel] = fallbacks.headlineEl || null;
+
   return fakeEl(null, qs, qsa);
 }
 
@@ -211,6 +217,7 @@ function testCompanyAuthor() {
 
 function testFallbackMenuBtn() {
   setViewer("/in/eric-derewonko/recent-activity/likes/");
+
   // no author links, but the control-menu aria-label names the poster
   const card = authorContainer([], {
     menuBtn: fakeEl(
@@ -220,6 +227,7 @@ function testFallbackMenuBtn() {
       { "aria-label": "Open control menu for post by Zebraworks" }
     ),
   });
+
   const meta = extractAuthorAndDate(card);
   assert.strictEqual(
     meta.author,
@@ -230,6 +238,7 @@ function testFallbackMenuBtn() {
 
 function testFallbackMenuBtnRejectsViewer() {
   setViewer("/in/eric-derewonko/recent-activity/likes/");
+
   const card = authorContainer([], {
     menuBtn: fakeEl(
       "x",
@@ -238,6 +247,7 @@ function testFallbackMenuBtnRejectsViewer() {
       { "aria-label": "Open control menu for post by Eric Derewonko" }
     ),
   });
+
   const meta = extractAuthorAndDate(card);
   assert.strictEqual(meta.author, null, "fallback names viewer -> honest null");
 }
@@ -248,6 +258,7 @@ function testCommentTextFromSelector() {
   const card = fakeEl(null, {
     ".update-components-text": fakeEl("This is my comment text"),
   });
+
   assert.strictEqual(
     extractCommentText(card),
     "This is my comment text",
@@ -271,6 +282,7 @@ function testCommentTextFallbackLongestSpan() {
       ],
     }
   );
+
   assert.strictEqual(
     extractCommentText(card),
     "This is my longer comment text here",
@@ -286,6 +298,7 @@ function testCommentTextRejectsShortUI() {
       "span[dir='ltr']": [fakeEl("liked"), fakeEl("a")],
     }
   );
+
   assert.strictEqual(extractCommentText(card), null, "short UI text rejected");
 }
 
@@ -344,6 +357,7 @@ function testStripDegreeSuffix() {
 
 function testRelativeDateParsing() {
   setViewer("/in/eric-derewonko/recent-activity/likes/");
+
   // A card whose only date-like text is a relative date "1mo"
   const card = fakeEl(
     null,
@@ -356,6 +370,7 @@ function testRelativeDateParsing() {
       "span, p, div, a, time, li": [fakeEl("1mo")],
     }
   );
+
   const meta = extractAuthorAndDate(card);
   assert.strictEqual(
     meta.author,
@@ -367,6 +382,7 @@ function testRelativeDateParsing() {
 
 function testCarveHeadlineFromAuthorLink() {
   setViewer("/in/eric-derewonko/recent-activity/likes/");
+
   // A text block pairs author + degree + headline + relative date
   const card = fakeEl(
     null,
@@ -384,6 +400,7 @@ function testCarveHeadlineFromAuthorLink() {
       ],
     }
   );
+
   const meta = extractAuthorAndDate(card);
   assert.strictEqual(
     meta.headline,
@@ -406,6 +423,7 @@ function testCommentTextFromDivNoDir() {
       ],
     }
   );
+
   assert.strictEqual(
     extractCommentText(card),
     "what does it have to do with a social media job board ?",
@@ -424,12 +442,14 @@ function testRealHrefSafetyGo() {
       "aria-label": "",
     }
   );
+
   assert.strictEqual(
     realHref(a),
     "https://example.com/x",
     "safety/go unwrapped"
   );
 }
+
 function testRealHrefOpenLabel() {
   const a = fakeEl(
     "",
@@ -437,8 +457,10 @@ function testRealHrefOpenLabel() {
     {},
     { href: "#", "aria-label": "Open https://example.com/y" }
   );
+
   assert.strictEqual(realHref(a), "https://example.com/y", "Open label used");
 }
+
 function testRealHrefPassthrough() {
   const a = fakeEl(
     "",
@@ -446,6 +468,7 @@ function testRealHrefPassthrough() {
     {},
     { href: "https://example.com/z", "aria-label": "" }
   );
+
   assert.strictEqual(realHref(a), "https://example.com/z", "passthrough");
 }
 
@@ -518,6 +541,7 @@ const tests = [
 
 async function main() {
   let failed = 0;
+
   for (const fn of tests) {
     try {
       fn();
@@ -527,6 +551,7 @@ async function main() {
       failed++;
     }
   }
+
   const passed = tests.length - failed;
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

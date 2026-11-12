@@ -38,10 +38,12 @@ export async function openPage(pagePath) {
   try {
     await openerFn(pagePath);
     log(`Opened selection page: ${pagePath}`);
+
     return true;
   } catch {
     warn(`Failed to open selection page: ${pagePath}`);
     warn(`Open it manually: ${pagePath}`);
+
     return false;
   }
 }
@@ -56,6 +58,7 @@ function defaultOpenPage(pagePath) {
   const platform = process.platform;
   let file;
   let args;
+
   if (platform === "darwin") {
     file = "open";
     args = [absPath];
@@ -66,6 +69,7 @@ function defaultOpenPage(pagePath) {
     file = "xdg-open";
     args = [absPath];
   }
+
   return new Promise((resolve, reject) => {
     execFile(file, args, (error) => (error ? reject(error) : resolve()));
   });

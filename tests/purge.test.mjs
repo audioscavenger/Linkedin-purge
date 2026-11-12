@@ -23,9 +23,11 @@ class FakePageAdapter {
     if (!this.keys.includes(key)) {
       return { ok: false, skip: false, cardId: key, error: "card not found" };
     }
+
     if (this.refusals.has(key)) {
       return { ok: false, key, error: "refused" };
     }
+
     return {
       ok: true,
       cardId: key,
@@ -61,12 +63,14 @@ async function testHappyPath() {
   const page = new FakePageAdapter({
     keys: ["k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10"],
   });
+
   const confirm = new FakeConfirmAdapter(true);
 
   const runner = new PurgeRunner({
     pageAdapter: page,
     confirmAdapter: confirm,
   });
+
   const result = await runner.run({
     type: "likes",
     timeoutMs: 3600000,
@@ -87,6 +91,7 @@ async function testInputKeysFilter() {
     pageAdapter: page,
     confirmAdapter: confirm,
   });
+
   // Only k2 and k4 should be deleted (inputKeys filter)
   const result = await runner.run({
     type: "likes",
@@ -97,6 +102,7 @@ async function testInputKeysFilter() {
 
   if (result.deleted !== 2)
     throw new Error(`Expected deleted=2, got ${result.deleted}`);
+
   if (result.counts.deleted !== 2)
     throw new Error(`Expected purged=2, got ${result.counts.deleted}`);
   console.log("PASS: inputKeys filter (only k2, k4 deleted)");
@@ -107,12 +113,14 @@ async function testSelectionStopsEarly() {
   const page = new FakePageAdapter({
     keys: ["a1", "a2", "a3", "a4", "a5", "a6", "a7"],
   });
+
   const confirm = new FakeConfirmAdapter(true);
 
   const runner = new PurgeRunner({
     pageAdapter: page,
     confirmAdapter: confirm,
   });
+
   // Select only a2 and a5 from the longer history
   const result = await runner.run({
     type: "likes",
@@ -123,6 +131,7 @@ async function testSelectionStopsEarly() {
 
   if (result.deleted !== 2)
     throw new Error(`Expected deleted=2, got ${result.deleted}`);
+
   if (result.counts.deleted !== 2)
     throw new Error(`Expected purged=2, got ${result.counts.deleted}`);
   console.log(
@@ -139,6 +148,7 @@ async function testUnselectedKeepNoOp() {
     pageAdapter: page,
     confirmAdapter: confirm,
   });
+
   // Select only x2 and x4
   const result = await runner.run({
     type: "likes",
@@ -149,9 +159,11 @@ async function testUnselectedKeepNoOp() {
 
   if (result.deleted !== 2)
     throw new Error(`Expected deleted=2, got ${result.deleted}`);
+
   if (result.counts.deleted !== 2 || result.counts.noOp !== 0) {
     throw new Error(`bad counts: ${JSON.stringify(result.counts)}`);
   }
+
   console.log("PASS: unselected items keep no-op");
 }
 
@@ -161,12 +173,14 @@ async function testSelectionWritesPurgedAndFailed() {
     keys: ["s1", "s2"],
     refusals: new Set(["s2"]), // s2 will be refused
   });
+
   const confirm = new FakeConfirmAdapter(true);
 
   const runner = new PurgeRunner({
     pageAdapter: page,
     confirmAdapter: confirm,
   });
+
   const result = await runner.run({
     type: "likes",
     timeoutMs: 3600000,
@@ -176,6 +190,7 @@ async function testSelectionWritesPurgedAndFailed() {
 
   if (result.counts.deleted !== 1)
     throw new Error(`Expected purged=1, got ${result.counts.deleted}`);
+
   if (result.counts.failed !== 1)
     throw new Error(`Expected failed=1, got ${result.counts.failed}`);
   console.log(
@@ -201,6 +216,7 @@ async function testSelectionIndifferentToPageOrder() {
       pageAdapter: page,
       confirmAdapter: confirm,
     });
+
     const result = await runner.run({
       type: "likes",
       timeoutMs: 3600000,
@@ -210,11 +226,13 @@ async function testSelectionIndifferentToPageOrder() {
 
     if (result.deleted !== 2)
       throw new Error(`${label}: expected deleted=2, got ${result.deleted}`);
+
     if (result.counts.deleted !== 2)
       throw new Error(
         `${label}: expected purged=2, got ${result.counts.deleted}`
       );
   }
+
   console.log("PASS: runner indifferent to page order");
 }
 
@@ -228,6 +246,7 @@ async function testSelectionNotFoundMarkedNotFound() {
     pageAdapter: page,
     confirmAdapter: confirm,
   });
+
   // k-ghost is selected but not present on the page.
   const result = await runner.run({
     type: "likes",
@@ -243,6 +262,7 @@ async function testSelectionNotFoundMarkedNotFound() {
   ) {
     throw new Error(`bad counts: ${JSON.stringify(result.counts)}`);
   }
+
   console.log(
     "PASS: exhausted walk marks unmatched selection not-found and reports it by identity"
   );
@@ -271,6 +291,7 @@ async function testSelectionRetryRunSkipsPurgedRetriesRest() {
     keys: ["card-a", "card-b"],
     refusals: new Set(["card-b"]),
   });
+
   const confirm = new FakeConfirmAdapter(true);
   const store = new EnvelopeStore({ file });
 
@@ -280,29 +301,35 @@ async function testSelectionRetryRunSkipsPurgedRetriesRest() {
     confirmAdapter: confirm,
     envelopeStore: store,
   });
+
   const first = await runner1.run({
     type: "likes",
     batchSize: 5,
     inputKeys: ["card-a", "card-b"],
   });
+
   if (first.counts.deleted !== 1 || first.counts.failed !== 1) {
     throw new Error(`bad first-run counts: ${JSON.stringify(first.counts)}`);
   }
 
   // Second run: b no longer refuses; a is purged (skipped), b retried → purged
   page.refusals.clear();
+
   const runner2 = new PurgeRunner({
     pageAdapter: page,
     confirmAdapter: confirm,
     envelopeStore: store,
   });
+
   const second = await runner2.run({
     type: "likes",
     batchSize: 5,
     inputKeys: ["card-a", "card-b"],
   });
+
   if (second.deleted !== 1)
     throw new Error(`retry must act only on b, deleted=${second.deleted}`);
+
   if (
     second.counts.deleted !== 1 ||
     second.counts.noOp !== 1 ||
@@ -311,11 +338,14 @@ async function testSelectionRetryRunSkipsPurgedRetriesRest() {
   ) {
     throw new Error(`bad retry counts: ${JSON.stringify(second.counts)}`);
   }
+
   const marked = JSON.parse(fs.readFileSync(file, "utf8"));
   const by = Object.fromEntries(marked.items.map((i) => [i.cardId, i.status]));
+
   if (by["card-a"] !== "deleted" || by["card-b"] !== "deleted") {
     throw new Error(`envelope not both deleted: ${JSON.stringify(by)}`);
   }
+
   console.log(
     "PASS: re-run skips purged, retries failed and not-found, leaves no-op alone"
   );
@@ -349,6 +379,7 @@ async function testSelectionMarksEnvelopeAtomically() {
     confirmAdapter: confirm,
     envelopeStore: store,
   });
+
   // Selection passes only actionable identities, as the command does.
   const result = await runner.run({
     type: "likes",
@@ -358,13 +389,17 @@ async function testSelectionMarksEnvelopeAtomically() {
 
   const marked = JSON.parse(fs.readFileSync(file, "utf8"));
   const by = Object.fromEntries(marked.items.map((i) => [i.cardId, i.status]));
+
   if (by["card-1"] !== "deleted")
     throw new Error(`card-1 expected deleted on disk, got ${by["card-1"]}`);
+
   if (by["card-2"] !== "not-found")
     throw new Error(`card-2 expected not-found on disk, got ${by["card-2"]}`);
+
   if (result.counts.deleted !== 1 || result.counts.notFound !== 1) {
     throw new Error(`bad counts: ${JSON.stringify(result.counts)}`);
   }
+
   console.log(
     "PASS: selection run marks the envelope atomically (purged and not-found)"
   );

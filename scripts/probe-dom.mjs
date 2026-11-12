@@ -88,6 +88,7 @@ const MAX_CARDS = 4;
 function trimHtml(html, maxLen = 2200) {
   if (!html) return "";
   const collapsed = html.replace(/\s+/g, " ").trim();
+
   return collapsed.length > maxLen
     ? collapsed.slice(0, maxLen) + " …[trimmed]"
     : collapsed;
@@ -164,21 +165,26 @@ async function probeTab(page, target) {
     waitUntil: "domcontentloaded",
   });
   await page.waitForTimeout(FIRST_RENDER_WAIT_MS);
+
   if (isLoggedOut(page)) {
     err(`${tabName}: not logged in - run \`npm run login\` first.`);
+
     return false;
   }
 
   const cardCount = await page.evaluate(
     () => document.querySelectorAll('div[role="listitem"]').length
   );
+
   log(`${tabName}: ${cardCount} cards on first render.`);
+
   if (cardCount === 0) return false;
 
   await page
     .waitForFunction(
       () => {
         const cards = document.querySelectorAll('div[role="listitem"]');
+
         return (
           cards.length > 0 &&
           cards[0].querySelector("a[href*='/in/'], a[href*='/company/']") !==
@@ -192,22 +198,28 @@ async function probeTab(page, target) {
     });
 
   const limit = Math.min(cardCount, MAX_CARDS);
+
   for (let i = 0; i < limit; i++) {
     const info = await page.evaluate(inspectCardScript(i));
+
     if (!info) {
       err(`  card ${i + 1}: inspector returned null.`);
       continue;
     }
+
     const outer = await page.evaluate((ii) => {
       const cards = document.querySelectorAll('div[role="listitem"]');
+
       return cards[ii] ? cards[ii].outerHTML || "" : "";
     }, i);
 
     log(`\n--- Card ${i + 1}/${limit} (${tabName}) ---`);
     log(`cardId=${info.cardId}`);
     log(`menuAria=${info.menuAria}`);
+
     if (info.links.length) {
       log("LINKS:");
+
       for (const l of info.links) {
         log(`  href=${l.href}`);
         log(`    fullText="${l.text}"`);
@@ -215,27 +227,37 @@ async function probeTab(page, target) {
         log(`    classes="${l.classes}"`);
       }
     }
+
     if (info.times.length) {
       log("TIMES:");
+
       for (const t of info.times)
         log(`  datetime=${t.datetime} text="${t.text}"`);
     }
+
     if (info.textCandidates.length) {
       log("TEXT_CANDIDATES:");
+
       for (const c of info.textCandidates)
         log(`  [${c.sel}] "${c.text}" (${c.classes})`);
     }
+
     if (info.headlineCandidates.length) {
       log("HEADLINE_CANDIDATES:");
+
       for (const c of info.headlineCandidates)
         log(`  [${c.sel}] "${c.text}" (${c.classes})`);
     }
+
     if (info.textBlocks.length) {
       log("TEXT_BLOCKS:");
+
       for (const t of info.textBlocks) log(`  "${t}"`);
     }
+
     log(`OUTERHTML: ${trimHtml(outer)}`);
   }
+
   return true;
 }
 
@@ -246,11 +268,14 @@ async function main() {
 
   let profileDir = ".profile-chromium";
   let chromiumPath = null;
+
   try {
     const cfg = JSON.parse(
       fs.readFileSync(path.resolve("config.json"), "utf8")
     );
+
     if (cfg.paths && cfg.paths.profileDir) profileDir = cfg.paths.profileDir;
+
     if (cfg.paths && cfg.paths.chromiumPath)
       chromiumPath = cfg.paths.chromiumPath;
   } catch {
@@ -262,6 +287,7 @@ async function main() {
   );
 
   let context;
+
   try {
     context = await launchBrowser({ profileDir, headless, chromiumPath });
   } catch (error) {
@@ -269,6 +295,7 @@ async function main() {
       `Could not launch the browser: ${error && error.message ? error.message : error}`
     );
     process.exitCode = 1;
+
     return;
   }
 
@@ -277,12 +304,15 @@ async function main() {
     waitUntil: "domcontentloaded",
   });
   await page.waitForTimeout(3000);
+
   if (isLoggedOut(page)) {
     err("Not logged in. Run `npm run login` first.");
     await context.close();
     process.exitCode = 1;
+
     return;
   }
+
   const match = page.url().match(/linkedin\.com\/in\/([^/]+)/);
   const username = match ? match[1] : "me";
   const baseUrl = `https://www.linkedin.com/in/${username}/recent-activity/`;
@@ -290,8 +320,10 @@ async function main() {
   await injectDomHelpers(page, path.resolve("./src/linkedin-dom.mjs"));
 
   const targets = activityTargets(typeArg);
+
   for (const target of targets) {
     const ok = await probeTab(page, { ...target, baseUrl });
+
     if (!ok) break;
   }
 

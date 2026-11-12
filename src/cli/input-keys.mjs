@@ -23,19 +23,32 @@ import fs from "node:fs";
 function loadInputKeys(file) {
   const raw = fs.readFileSync(file, "utf8");
   let data;
+
   try {
     data = JSON.parse(raw);
   } catch (cause) {
     throw new Error(`Malformed JSON in ${file}: ${cause.message}`, { cause });
   }
+
   const expected =
     "a scan JSON envelope with items[].key, falling back to keys[]";
-  if (data === null || typeof data !== "object" || Array.isArray(data)) {
-    const got = Array.isArray(data) ? "a bare array" : typeof data;
+
+  if (
+    data === null ||
+    (data.constructor !== Object && data.constructor !== Array) ||
+    Array.isArray(data)
+  ) {
+    const got = Array.isArray(data)
+      ? "a bare array"
+      : data === null
+        ? "null"
+        : (data?.constructor?.name?.toLowerCase() ?? "unknown");
+
     throw new Error(
       `Invalid purge input in ${file}: expected ${expected}, got ${got}.`
     );
   }
+
   if (Array.isArray(data.items)) {
     /*
   Every entry must carry a usable key: an object with a non-empty
@@ -44,9 +57,9 @@ function loadInputKeys(file) {
 */
     for (const entry of data.items) {
       if (
-        typeof entry !== "object" ||
         entry === null ||
-        typeof entry.key !== "string" ||
+        (entry.constructor !== Object && entry.constructor !== Array) ||
+        entry.key?.constructor !== String ||
         entry.key === ""
       ) {
         throw new Error(
@@ -54,24 +67,30 @@ function loadInputKeys(file) {
         );
       }
     }
+
     if (data.items.length === 0) {
       throw emptyEnvelopeError(file);
     }
+
     return data.items.map((it) => it.key);
   }
+
   if (Array.isArray(data.keys)) {
     for (const key of data.keys) {
-      if (typeof key !== "string" || key === "") {
+      if (key?.constructor !== String || key === "") {
         throw new Error(
           `Invalid purge input in ${file}: expected ${expected} - every keys entry must be a non-empty string (keys[]).`
         );
       }
     }
+
     if (data.keys.length === 0) {
       throw emptyEnvelopeError(file);
     }
+
     return data.keys;
   }
+
   throw new Error(`Invalid purge input in ${file}: expected ${expected}.`);
 }
 

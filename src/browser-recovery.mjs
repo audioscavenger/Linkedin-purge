@@ -25,6 +25,7 @@
 */
 export function isProfileLockFailure(error) {
   const message = String(error && (error.message || error));
+
   return (
     /Target page, context or browser has been closed/.test(message) ||
     /exitCode=21/.test(message) ||
@@ -46,18 +47,24 @@ export function isProfileLockFailure(error) {
   end-of-string, whitespace, a quote, or another flag, not by a path name
   character.
 */
+function normalizeProfile(value) {
+  return String(value).toLowerCase().replace(/\\/g, "/").replace(/\/+$/, "");
+}
+
 export function matchesProfile(commandLine, profileDir) {
-  const normalize = (value) =>
-    String(value).toLowerCase().replace(/\\/g, "/").replace(/\/+$/, "");
-  const command = normalize(commandLine);
-  const dir = normalize(profileDir);
+  const command = normalizeProfile(commandLine);
+  const dir = normalizeProfile(profileDir);
+
   if (!command || !dir) return false;
   const BOUNDARY = /[^a-z0-9._\-/]/;
   let from = 0;
+
   for (;;) {
     const at = command.indexOf(dir, from);
+
     if (at < 0) return false;
     const next = command[at + dir.length];
+
     if (!next || BOUNDARY.test(next)) return true;
     from = at + dir.length + 1;
   }
@@ -75,13 +82,17 @@ export function matchesProfile(commandLine, profileDir) {
 export function classifyHolders(rows, profileDir) {
   const stragglers = [];
   const interactive = [];
+
   for (const row of rows || []) {
     if (!matchesProfile(row && row.commandLine, profileDir)) continue;
+
     const automatic = /--headless|--remote-debugging-pipe|-automation/i.test(
       row.commandLine || ""
     );
+
     (automatic ? stragglers : interactive).push(row);
   }
+
   return { stragglers, interactive };
 }
 
@@ -97,12 +108,14 @@ export function pickRecovery({ stragglers = [], interactive = [] } = {}) {
   if (stragglers.length) {
     return { action: "kill-and-retry", pids: stragglers.map((row) => row.pid) };
   }
+
   if (interactive.length) {
     return {
       action: "ask-user-close",
       pids: interactive.map((row) => row.pid),
     };
   }
+
   return { action: "retry", pids: [] };
 }
 
@@ -120,9 +133,11 @@ export function finalFailureMessage({
   profileDir,
 }) {
   let text = `The profile ${profileDir} could not be opened after the recovery attempt.`;
+
   if (killedPids.length) {
     text += ` The leftover process (PID ${killedPids.join(", ")}) was killed, but `;
   }
+
   if (interactivePids.length) {
     text +=
       `a browser window (PID ${interactivePids.join(", ")}) is still using the profile -- ` +
@@ -130,10 +145,13 @@ export function finalFailureMessage({
   } else {
     text += `close any browser that is using it and re-run the same command.`;
   }
+
   const detail = firstNonEmptyLine(
     String(originalError && (originalError.message || originalError))
   );
+
   if (detail) text += ` Last error: ${detail}`;
+
   return text;
 }
 
@@ -142,6 +160,7 @@ function firstNonEmptyLine(text) {
     .split("\n")
     .map((s) => s.trim())
     .find(Boolean);
+
   return line ? line.slice(0, 200) : null;
 }
 

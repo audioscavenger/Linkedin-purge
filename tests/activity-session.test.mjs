@@ -32,6 +32,7 @@ function fakePage({ redirect = (url) => url } = {}) {
       return page.currentUrl;
     },
   };
+
   return page;
 }
 
@@ -45,6 +46,7 @@ function fakeContext(page) {
       context.closed++;
     },
   };
+
   return context;
 }
 
@@ -55,6 +57,7 @@ function fakeBrowser() {
       browser.closed++;
     },
   };
+
   return browser;
 }
 
@@ -62,6 +65,7 @@ function fakeBrowser() {
 async function openOver(launch, options = {}) {
   const waits = [];
   const injected = [];
+
   const session = await ActivitySession.open({
     profileDir: "profile",
     headless: true,
@@ -74,6 +78,7 @@ async function openOver(launch, options = {}) {
     },
     ...options,
   });
+
   return { session, waits, injected };
 }
 
@@ -81,10 +86,13 @@ async function testDerivesBaseUrlAndSettles() {
   const page = fakePage({
     redirect: (url) => (url === PROFILE_URL ? PROFILE_PAGE : url),
   });
+
   const context = fakeContext(page);
   let launchOpts = null;
+
   const { session, waits, injected } = await openOver(async (opts) => {
     launchOpts = opts;
+
     return context;
   });
 
@@ -138,6 +146,7 @@ async function testOpenTargetParksOnTab() {
   const page = fakePage({
     redirect: (url) => (url === PROFILE_URL ? PROFILE_PAGE : url),
   });
+
   const context = fakeContext(page);
   const { session, waits } = await openOver(async () => context);
 
@@ -180,6 +189,7 @@ async function testProfileGuardThrowsAndCloses() {
         error.message.includes("npm run login"),
         "the message names the fix"
       );
+
       return true;
     }
   );
@@ -198,6 +208,7 @@ async function testTabGuardThrows() {
         ? PROFILE_PAGE
         : "https://www.linkedin.com/checkpoint",
   });
+
   const context = fakeContext(page);
   const { session } = await openOver(async () => context);
 
@@ -215,6 +226,7 @@ async function testCdpPathClosesBrowser() {
   const page = fakePage({
     redirect: (url) => (url === PROFILE_URL ? PROFILE_PAGE : url),
   });
+
   const context = fakeContext(page);
   const browser = fakeBrowser();
   let launchCalled = false;
@@ -225,10 +237,12 @@ async function testCdpPathClosesBrowser() {
     cdp: "http://localhost:9222",
     launch: async () => {
       launchCalled = true;
+
       return context;
     },
     attach: async (endpoint) => {
       attachedTo = endpoint;
+
       return { browser, context };
     },
     inject: async () => {},
@@ -260,6 +274,7 @@ async function testCloseIsIdempotent() {
   const page = fakePage({
     redirect: (url) => (url === PROFILE_URL ? PROFILE_PAGE : url),
   });
+
   const context = fakeContext(page);
   const { session } = await openOver(async () => context);
 
@@ -282,6 +297,7 @@ const tests = [
 
 async function main() {
   let failed = 0;
+
   for (const fn of tests) {
     try {
       await fn();
@@ -290,6 +306,7 @@ async function main() {
       failed++;
     }
   }
+
   const passed = tests.length - failed;
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

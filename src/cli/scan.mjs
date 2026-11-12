@@ -60,6 +60,7 @@ export async function runScan(args) {
     chromiumPath,
     cdp: cdpEndpoint,
   });
+
   try {
     for (const target of targets) {
       const t = target.type;
@@ -71,22 +72,28 @@ export async function runScan(args) {
         timing,
         onStep: (event) => log(stepLine(t, event)),
       });
+
       // Deep walks the Activity List; plain scan reads the first render only.
       const startedAt = Date.now();
+
       const result = deep
         ? await loader.collectAll()
         : await loader.readFirstRender();
+
       const elapsedMs = Date.now() - startedAt;
 
       const out = path.join(dataDir, `scan-${t}.json`);
       fs.mkdirSync(dataDir, { recursive: true });
+
       const envelope = buildScanEnvelope({
         type: t,
         items: result.items,
         steps: result.steps,
         complete: result.complete,
       });
+
       fs.writeFileSync(out, JSON.stringify(envelope, null, 2));
+
       if (!result.complete) {
         warn(
           `${t}: the walk hit the timeout after ${result.steps} steps; ` +
@@ -127,10 +134,12 @@ export async function runScan(args) {
 // the wait the step cost, plus the scroll target when there was one.
 function stepLine(type, event) {
   const target = event.target;
+
   const where =
     target && (target.id || target.tag)
       ? ` target=${target.tag || "?"}${target.id ? "#" + target.id : ""}`
       : "";
+
   return `${type} step ${event.step}: ${event.total} items (+${event.added}), waited ${event.waitedMs}ms${where}`;
 }
 

@@ -12,6 +12,7 @@ import { findCommentRuns } from "../scripts/check-comments.mjs";
     "// Third rule of the house.",
     "const b = 2;",
   ]);
+
   assert.equal(runs.length, 1, "a run of three lines is reported");
   assert.equal(runs[0].length, 3, "the reported run holds the comment lines");
 }
@@ -23,6 +24,7 @@ import { findCommentRuns } from "../scripts/check-comments.mjs";
     "// Second rule of the house.",
     "const a = 1;",
   ]);
+
   assert.equal(runs.length, 0, "a run of two lines is allowed");
 }
 

@@ -17,9 +17,11 @@ export class PurgeRunner {
    */
   async run(options = {}) {
     const inputKeys = options.inputKeys ? new Set(options.inputKeys) : null;
+
     if (inputKeys) {
       return this.runSelection({ ...options, inputKeys });
     }
+
     return this.runFull(options);
   }
 
@@ -34,6 +36,7 @@ export class PurgeRunner {
     const type = options.type || "comments";
     const timeoutMs = options.timeoutMs || 3600000;
     const maxEmptyScrolls = options.maxEmptyScrolls || 8;
+
     const inputKeys =
       options.inputKeys instanceof Set
         ? options.inputKeys
@@ -42,6 +45,7 @@ export class PurgeRunner {
     const prior = this.envelopeStore
       ? await this.envelopeStore.load(type)
       : null;
+
     const priorStatus = new Map();
 
     if (options.selectionStatusMap) {
@@ -59,14 +63,17 @@ export class PurgeRunner {
     let deleted = 0;
 
     const remaining = new Set();
+
     for (const key of inputKeys) {
       const st = priorStatus.get(key);
+
       if (isFinalStatus(st) || st === PURGE_STATUSES.NO_OP) {
         counts.noOp++;
       } else {
         remaining.add(key);
       }
     }
+
     if (remaining.size === 0) {
       return { type, deleted: 0, durationMs: Date.now() - startTime, counts };
     }
@@ -74,6 +81,7 @@ export class PurgeRunner {
     const confirmed = await this.confirmAdapter.confirm(
       `Delete ${remaining.size} ${type} items? Type YES to proceed: `
     );
+
     if (!confirmed) {
       return { type, deleted: 0, durationMs: Date.now() - startTime, counts };
     }
@@ -87,15 +95,19 @@ export class PurgeRunner {
       const cardIds = await this.pageAdapter.collectCardIds();
 
       let actedThisStep = false;
+
       for (const cardId of cardIds) {
         if (!remaining.has(cardId)) continue;
+
         if (actedThisStep && remaining.size === 0) break;
 
         const result = await this.pageAdapter.oneCardAct(cardId);
+
         const status = outcomeToStatus({
           ok: result?.ok ?? false,
           error: result?.error,
         });
+
         remaining.delete(cardId);
 
         if (status === PURGE_STATUSES.DELETED) {
@@ -117,11 +129,13 @@ export class PurgeRunner {
 
       if (!actedThisStep) {
         emptySteps++;
+
         if (emptySteps >= maxEmptySteps) {
           for (const cardId of remaining) {
             counts.notFound++;
             await this._persistStatus(cardId, PURGE_STATUSES.NOT_FOUND);
           }
+
           remaining.clear();
           break;
         }
@@ -165,18 +179,22 @@ export class PurgeRunner {
       if (timeoutMs > 0 && Date.now() - purgeStart > timeoutMs) break;
       const cardIds = await this.pageAdapter.collectCardIds();
       const newCardIds = cardIds.filter((id) => !processedLocally.has(id));
+
       if (newCardIds.length === 0) {
         emptyScrolls++;
+
         if (emptyScrolls >= maxEmptyScrolls) break;
         await this.pageAdapter.wait(1200);
         continue;
       }
+
       emptyScrolls = 0;
 
       if (!confirmed) {
         const ok = await this.confirmAdapter.confirm(
           `Delete ${newCardIds.length} ${type} items? Type YES to proceed: `
         );
+
         if (!ok) {
           return {
             type,
@@ -185,13 +203,16 @@ export class PurgeRunner {
             counts: null,
           };
         }
+
         confirmed = true;
       }
 
       let roundCount = 0;
+
       for (const cardId of newCardIds) {
         processedLocally.add(cardId);
         const result = await this.pageAdapter.oneCardAct(cardId);
+
         const status = outcomeToStatus({
           ok: result?.ok ?? false,
           error: result?.error,
@@ -205,9 +226,11 @@ export class PurgeRunner {
         }
 
         roundCount++;
+
         if (roundCount % batchSize === 0) {
           const pause =
             Math.floor(Math.random() * (batchMax - batchMin + 1)) + batchMin;
+
           await this.pageAdapter.wait(pause);
         }
       }
@@ -228,6 +251,7 @@ export class PurgeRunner {
    */
   async _persistStatus(cardId, status) {
     if (!this.envelopeStore) return;
+
     try {
       await this.envelopeStore.mark(cardId, status);
     } catch (err) {

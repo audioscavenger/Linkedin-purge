@@ -13,10 +13,9 @@ import {
 // Chromium + stealth
 import { chromium as baseChromium } from "playwright-extra";
 import stealth from "puppeteer-extra-plugin-stealth";
-baseChromium.use(stealth());
-
-// Core playwright for CDP attach (no stealth needed).
 import { chromium as coreChromium } from "playwright";
+
+baseChromium.use(stealth());
 
 export function findChromiumBinary() {
   const candidates = [
@@ -24,9 +23,11 @@ export function findChromiumBinary() {
     "C:/Program Files/Chromium/Application/chrome.exe",
     "C:/Program Files (x86)/Chromium/Application/chrome.exe",
   ];
+
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
+
   return null;
 }
 
@@ -39,6 +40,7 @@ async function defaultLaunchBrowser({
 }) {
   fs.mkdirSync(profileDir, { recursive: true });
   const exe = chromiumPath || findChromiumBinary();
+
   const opts = {
     headless,
     viewport: { width: 1280, height: 900 },
@@ -50,6 +52,7 @@ async function defaultLaunchBrowser({
       "--disable-remote-fonts",
     ],
   };
+
   if (exe) opts.executablePath = exe;
 
   try {
@@ -58,6 +61,7 @@ async function defaultLaunchBrowser({
     // Only profile-lock failures are handled here; anything else keeps its
     // full diagnostics so a different kind of breakage stays visible.
     if (!isProfileLockFailure(error)) throw error;
+
     return launchAfterRecovery({ profileDir, opts, exe });
   }
 }
@@ -108,6 +112,7 @@ async function launchAfterRecovery({ profileDir, opts }) {
   }
 
   let killedPids = [];
+
   if (recovery.pids.length) {
     // A previous run of this tool left a headless/CDP instance holding the
     // profile lock: kill it, give it a beat to release, then try again.
@@ -124,6 +129,7 @@ async function launchAfterRecovery({ profileDir, opts }) {
     );
     removeStaleLockFiles(profileDir);
   }
+
   await wait(killedPids.length ? 750 : 300);
 
   try {
@@ -160,7 +166,9 @@ function listChromeProcesses() {
     "Get-CimInstance Win32_Process | " +
     "Where-Object { $_.Name -like 'chrome*' } | " +
     "Select-Object -Property ProcessId,CommandLine | ConvertTo-Json -Compress";
+
   let raw;
+
   try {
     raw = execSync(`powershell -NoProfile -Command "${query}"`, {
       encoding: "utf8",
@@ -170,9 +178,11 @@ function listChromeProcesses() {
   } catch {
     return [];
   }
+
   try {
     const parsed = JSON.parse(raw.trim() || "null");
     const rows = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
+
     return rows
       .filter((row) => row && row.ProcessId)
       .map((row) => ({
@@ -203,11 +213,14 @@ function killProcesses(pids) {
       const detail = String(
         (error && (error.stderr || error.message)) || error
       );
+
       if (/not found/i.test(detail)) continue;
+
       const line = detail
         .split("\n")
         .map((s) => s.trim())
         .find(Boolean);
+
       warn(`Could not kill PID ${pid} (${line || "unknown error"}).`);
     }
   }
@@ -238,6 +251,7 @@ export async function connectCDP(endpoint) {
   const browser = await coreChromium.connectOverCDP(endpoint);
   const contexts = browser.contexts();
   const context = contexts.length ? contexts[0] : await browser.newContext();
+
   return { browser, context };
 }
 
@@ -250,6 +264,7 @@ export async function injectDomHelpers(page, helperPath) {
 export async function blockHeavyResources(page) {
   await page.route("**/*", (route) => {
     const type = route.request().resourceType();
+
     if (type === "image" || type === "media" || type === "font") {
       route.abort();
     } else {

@@ -29,12 +29,15 @@ async function captureHeadless(runFn, args) {
     captured = opts;
     throw new Error("test abort");
   });
+
   try {
     await runFn(args);
   } catch (e) {
     // Expected: the stub aborts at the launch line.
   }
+
   resetLaunchBrowserImpl();
+
   return captured;
 }
 

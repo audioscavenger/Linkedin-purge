@@ -8,6 +8,7 @@ import { createActivityPage } from "../src/activity-loader.mjs";
 
 // --- Config default ---------------------------------------------------------
 const cfg = loadConfig();
+
 assert.strictEqual(cfg.behavior.links, true, "behavior.links defaults to true");
 
 // --- Flag resolution: CLI source -------------------------------------------
@@ -16,6 +17,7 @@ assert.strictEqual(
   true,
   "CLI --links resolves to true"
 );
+
 assert.strictEqual(
   asBool(resolveFlag([], "links", "behavior.links", true), true),
   true,
@@ -26,9 +28,12 @@ assert.strictEqual(
 const configPath = path.resolve(process.cwd(), "config.json");
 let backup = null;
 let existed = fs.existsSync(configPath);
+
 if (existed) backup = fs.readFileSync(configPath, "utf8");
+
 try {
   let base = {};
+
   if (existed) {
     try {
       base = JSON.parse(backup);
@@ -36,13 +41,16 @@ try {
       base = {};
     }
   }
+
   if (!base.behavior) base.behavior = {};
   base.behavior.links = true;
   fs.writeFileSync(configPath, JSON.stringify(base, null, 2) + "\n");
+
   const resolved = asBool(
     resolveFlag([], "links", "behavior.links", false),
     false
   );
+
   assert.strictEqual(
     resolved,
     true,
@@ -56,14 +64,18 @@ try {
 // --- Flag resolution: built-in default source -------------------------------
 if (existed) {
   const backup2 = fs.readFileSync(configPath, "utf8");
+
   try {
     const base = JSON.parse(backup2);
+
     if (base.behavior) delete base.behavior.links;
     fs.writeFileSync(configPath, JSON.stringify(base, null, 2) + "\n");
+
     const resolved = asBool(
       resolveFlag([], "links", "behavior.links", false),
       false
     );
+
     assert.strictEqual(resolved, true, "missing config key falls back to true");
   } finally {
     fs.writeFileSync(configPath, backup2);
@@ -73,10 +85,12 @@ if (existed) {
 // --- Page seam: links option reaches collectItems ---------------------------
 function makePage() {
   const calls = [];
+
   return {
     calls,
     evaluate: (fn, ...args) => {
       calls.push({ src: fn.toString(), args });
+
       return [];
     },
   };
@@ -84,8 +98,11 @@ function makePage() {
 
 const offPage = makePage();
 const offSeam = createActivityPage(offPage);
+
 assert.strictEqual(offSeam.links, false, "page seam defaults links to false");
+
 await offSeam.readItems([]);
+
 assert.ok(
   offPage.calls.some(
     (c) =>
@@ -97,8 +114,11 @@ assert.ok(
 
 const onPage = makePage();
 const onSeam = createActivityPage(onPage, { links: true });
+
 assert.strictEqual(onSeam.links, true, "page seam stores links: true");
+
 await onSeam.readItems([]);
+
 assert.ok(
   onPage.calls.some((c) => c.src.includes("collectItems(keys, true)")),
   "with links, collectItems is called with true"
@@ -106,6 +126,7 @@ assert.ok(
 
 const boolPage = makePage();
 const boolSeam = createActivityPage(boolPage, true);
+
 assert.strictEqual(
   boolSeam.links,
   true,

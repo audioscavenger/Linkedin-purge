@@ -24,11 +24,14 @@ assert.strictEqual(
 const configPath = path.resolve(process.cwd(), "config.json");
 let backup = null;
 let existed = fs.existsSync(configPath);
+
 if (existed) backup = fs.readFileSync(configPath, "utf8");
+
 try {
   // Write behavior.headed: true into config.json and assert the CLI --headed
   // still wins when it is present (CLI > config).
   let base = {};
+
   if (existed) {
     try {
       base = JSON.parse(backup);
@@ -36,6 +39,7 @@ try {
       base = {};
     }
   }
+
   if (!base.behavior) base.behavior = {};
   base.behavior.headed = true;
   fs.writeFileSync(configPath, JSON.stringify(base, null, 2) + "\n");
@@ -57,9 +61,12 @@ try {
 // --- CLI beats a config behavior.headed: false --------------------------------
 let backup2 = null;
 let existed2 = fs.existsSync(configPath);
+
 if (existed2) backup2 = fs.readFileSync(configPath, "utf8");
+
 try {
   let base = {};
+
   if (existed2) {
     try {
       base = JSON.parse(backup2);
@@ -67,6 +74,7 @@ try {
       base = {};
     }
   }
+
   if (!base.behavior) base.behavior = {};
   base.behavior.headed = false;
   fs.writeFileSync(configPath, JSON.stringify(base, null, 2) + "\n");
@@ -88,9 +96,12 @@ try {
 // --- Legacy behavior.headless key: ignored, one deprecation line --------------
 let backup3 = null;
 let existed3 = fs.existsSync(configPath);
+
 if (existed3) backup3 = fs.readFileSync(configPath, "utf8");
+
 try {
   let base = {};
+
   if (existed3) {
     try {
       base = JSON.parse(backup3);
@@ -98,6 +109,7 @@ try {
       base = {};
     }
   }
+
   if (!base.behavior) base.behavior = {};
   // The legacy key is ignored: the value is not used.
   base.behavior.headless = true;
@@ -107,11 +119,13 @@ try {
   console.error = (...args) => {
     deprecationLines.push(args.join(" "));
   };
+
   try {
     resolveHeadless([]);
   } finally {
     console.error = originalError;
   }
+
   assert.strictEqual(
     deprecationLines.length,
     1,
@@ -136,7 +150,9 @@ try {
 // --- The config file is never rewritten by loadConfig() ----------------------
 let backup4 = null;
 let existed4 = fs.existsSync(configPath);
+
 if (existed4) backup4 = fs.readFileSync(configPath, "utf8");
+
 try {
   /*
   Write a config that carries the legacy key. resolveHeadless reads it
@@ -144,6 +160,7 @@ try {
   touch the file on disk.
 */
   let base = {};
+
   if (existed4) {
     try {
       base = JSON.parse(backup4);
@@ -151,6 +168,7 @@ try {
       base = {};
     }
   }
+
   if (!base.behavior) base.behavior = {};
   base.behavior.headless = true;
   fs.writeFileSync(configPath, JSON.stringify(base, null, 2) + "\n");

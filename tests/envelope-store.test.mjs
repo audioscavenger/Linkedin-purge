@@ -22,10 +22,12 @@ function envelope(items) {
 
 async function testLoad() {
   const dir = fs.mkdtempSync(path.join(tmp, "load-"));
+
   const data = envelope([
     { key: "reaction:1", cardId: "card-1", status: "no-op" },
     { key: "reaction:2", cardId: "card-2", status: "no-op" },
   ]);
+
   fs.writeFileSync(
     path.join(dir, "scan-likes.json"),
     JSON.stringify(data, null, 2)
@@ -43,9 +45,11 @@ async function testLoad() {
 
 async function testMarkWritesDisk() {
   const dir = fs.mkdtempSync(path.join(tmp, "mark-"));
+
   const data = envelope([
     { key: "reaction:1", cardId: "card-1", status: "no-op" },
   ]);
+
   const file = path.join(dir, "scan-likes.json");
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   const store = new EnvelopeStore({ dataDir: dir, type: "likes" });
@@ -63,10 +67,12 @@ async function testMarkWritesDisk() {
 
 async function testReloadAfterInterrupt() {
   const dir = fs.mkdtempSync(path.join(tmp, "reload-"));
+
   const data = envelope([
     { key: "reaction:1", cardId: "card-1", status: "no-op" },
     { key: "reaction:2", cardId: "card-2", status: "no-op" },
   ]);
+
   const file = path.join(dir, "scan-likes.json");
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   const store = new EnvelopeStore({ dataDir: dir, type: "likes" });
@@ -83,20 +89,24 @@ async function testReloadAfterInterrupt() {
 
 async function testUnknownIdentity() {
   const dir = fs.mkdtempSync(path.join(tmp, "unknown-"));
+
   const data = envelope([
     { key: "reaction:1", cardId: "card-1", status: "no-op" },
   ]);
+
   const file = path.join(dir, "scan-likes.json");
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   const store = new EnvelopeStore({ dataDir: dir, type: "likes" });
   await store.load();
   let threw = false;
+
   try {
     await store.mark("no-such-card", "deleted");
   } catch (e) {
     threw = true;
     assert.ok(e instanceof Error, "throws an Error");
   }
+
   assert.ok(threw, "marking an unknown identity throws");
   // The item must not have been created.
   const onDisk = JSON.parse(fs.readFileSync(file, "utf8"));
@@ -110,9 +120,11 @@ async function testUnknownIdentity() {
 
 async function testAtomicity() {
   const dir = fs.mkdtempSync(path.join(tmp, "atomic-"));
+
   const data = envelope([
     { key: "reaction:1", cardId: "card-1", status: "no-op" },
   ]);
+
   const file = path.join(dir, "scan-likes.json");
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   const store = new EnvelopeStore({ dataDir: dir, type: "likes" });
@@ -133,6 +145,7 @@ async function testAtomicity() {
 
 async function testCounts() {
   const dir = fs.mkdtempSync(path.join(tmp, "counts-"));
+
   const data = envelope([
     { key: "a", cardId: "c1", status: "deleted" },
     { key: "b", cardId: "c2", status: "failed" },
@@ -140,6 +153,7 @@ async function testCounts() {
     { key: "d", cardId: "c4", status: "todo" },
     { key: "e", cardId: "c5", status: "no-op" },
   ]);
+
   fs.writeFileSync(
     path.join(dir, "scan-likes.json"),
     JSON.stringify(data, null, 2)
@@ -169,6 +183,7 @@ const tests = [
 async function main() {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "envstore-"));
   let failed = 0;
+
   for (const fn of tests) {
     try {
       await fn();
@@ -177,12 +192,14 @@ async function main() {
       failed++;
     }
   }
+
   try {
     fs.rmSync(tmp, { recursive: true, force: true });
   } catch (e) {
     // Best effort cleanup; ignore errors.
     void e;
   }
+
   const passed = tests.length - failed;
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

@@ -35,6 +35,7 @@ async function main() {
   );
 
   let context;
+
   try {
     context = await launchBrowser({ profileDir, headless: true, chromiumPath });
   } catch (error) {
@@ -42,10 +43,12 @@ async function main() {
       `Could not launch the browser: ${error && error.message ? error.message : error}`
     );
     process.exitCode = 1;
+
     return;
   }
 
   let failed = 0;
+
   try {
     const page = await context.newPage();
     await injectDomHelpers(page, path.resolve("./src/linkedin-dom.mjs"));
@@ -55,11 +58,14 @@ async function main() {
       waitUntil: "domcontentloaded",
     });
     await page.waitForTimeout(3000);
+
     if (isLoggedOut(page)) {
       warn("Not logged in. Run `npm run login` first.");
       process.exitCode = 1;
+
       return;
     }
+
     const match = page.url().match(/linkedin\.com\/in\/([^/]+)/);
     const username = match ? match[1] : "me";
     const baseUrl = `https://www.linkedin.com/in/${username}/recent-activity/`;
@@ -68,6 +74,7 @@ async function main() {
       const tab = target.tab.replace(/\/$/, "");
       await page.goto(baseUrl + target.tab, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(FIRST_RENDER_WAIT_MS);
+
       if (isLoggedOut(page)) {
         warn(
           `${tab}: the session ended at this tab. Run \`npm run login\` and re-run.`
@@ -80,6 +87,7 @@ async function main() {
         tab,
         page: createCheckPage(page),
       });
+
       failed += report(tab, result);
     }
   } finally {
@@ -98,23 +106,30 @@ async function main() {
 // Returns the number of failed assertions.
 function report(tab, result) {
   const failures = result.results.filter((r) => !r.ok);
+
   if (!failures.length) {
     const { count, target, growth, cards, items } = result.facts;
     log(
       `${tab}: OK - ${count} cards, target ${describeTarget(target)}, ` +
         `cards ${cards.from} -> ${cards.to}, scroll height ${growth.from} -> ${growth.to}, ${items} items`
     );
+
     return 0;
   }
+
   for (const failure of failures) err(`${failure.tab}: ${failure.message}`);
+
   return failures.length;
 }
 
 function getFlag(args, name, fallback) {
   const idx = args.indexOf(`--${name}`);
+
   if (idx === -1) return fallback;
   const value = args[idx + 1];
+
   if (value === undefined || value.startsWith("--")) return true;
+
   return value;
 }
 

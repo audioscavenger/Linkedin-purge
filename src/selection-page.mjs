@@ -26,27 +26,32 @@ export function generateSelectionPage(input) {
   const isComment = type === "comments";
   const items = Array.isArray(envelope && envelope.items) ? envelope.items : [];
   const hasLinks = items.some(hasLink);
+
   // Comments carry no reaction state; drop the State column when nothing
   // has one, so the comments page carries no empty State column.
   const hasState = items.some(
     (it) => it && it.state && String(it.state).trim() !== ""
   );
+
   const rows = items
     .map((item, itemIdx) =>
       renderRow(item, hasLinks, hasState, itemIdx, isComment)
     )
     .join("\n");
+
   const embedded = JSON.stringify(envelope == null ? {} : envelope).replace(
     /</g,
     "\\u003c"
   );
+
   const distinctStates = hasState
     ? [
         ...new Set(
           items.map((it) => (it && it.state != null ? String(it.state) : ""))
         ),
-      ].sort()
+      ].toSorted()
     : [];
+
   const stateBoxes = hasState
     ? distinctStates
         .map(
@@ -55,14 +60,17 @@ export function generateSelectionPage(input) {
         )
         .join("\n")
     : "";
+
   const headCells = isComment
     ? "<th>Date</th><th>Author</th><th>Headline</th><th>Post</th><th>Comment</th>"
     : "<th>Author</th><th>Headline</th><th>Date</th><th>Post</th>";
+
   // Column widths are set once on the <colgroup> so truncation clips
   // inside the cell instead of stretching the table.
   const cols = isComment
     ? `<col class="col-checkbox"><col class="col-date"><col class="col-author"><col class="col-headline"><col class="col-text"><col class="col-text"><col class="col-status"><col class="col-link">`
     : `<col class="col-checkbox">${hasState ? '<col class="col-state">' : ""}<col class="col-author"><col class="col-headline"><col class="col-date"><col class="col-text"><col class="col-status"><col class="col-link">`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -269,11 +277,11 @@ window.SELECTION_DATA = JSON.parse(document.getElementById("selection-data").tex
       if (ok) visible.push(r);
       r.style.display = ok ? "" : "none";
     }
-    // Sort the visible rows in place.
+    // Sort the visible rows.
     var sortBy = sortEl.value;
     if (sortBy) {
       var factor = asc ? 1 : -1;
-      visible.sort(function (a, b) {
+      visible = visible.toSorted(function (a, b) {
         if (sortBy === "date") {
           return factor * cmpKey(dateKey(a.getAttribute("data-date")), dateKey(b.getAttribute("data-date")));
         }
@@ -361,25 +369,42 @@ export default generateSelectionPage;
 
 function normalizeEnvelope(input) {
   if (input == null) return { type: "likes", items: [] };
+
   if (Array.isArray(input)) return { type: "likes", items: input };
-  if (typeof input === "object") {
+
+  if (input?.constructor === Object || input?.constructor === Array) {
     if (Array.isArray(input.items)) return input;
+
     if (input.envelope && Array.isArray(input.envelope.items)) {
       return input.envelope;
     }
+
     if (input.data && Array.isArray(input.data.items)) return input.data;
-    if (input.envelope && typeof input.envelope === "object") {
+
+    if (
+      input.envelope &&
+      (input.envelope?.constructor === Object ||
+        input.envelope?.constructor === Array)
+    ) {
       return input.envelope;
     }
-    if (input.data && typeof input.data === "object") return input.data;
+
+    if (
+      input.data &&
+      (input.data?.constructor === Object || input.data?.constructor === Array)
+    )
+      return input.data;
   }
+
   return { type: "likes", items: [] };
 }
 
 function hasLink(item) {
-  if (!item || typeof item !== "object") return false;
+  if (!item || (item.constructor !== Object && item.constructor !== Array))
+    return false;
+
   return [item.itemHref, item.link, item.href, item.url, item.postHref].some(
-    (v) => typeof v === "string" && v.trim() !== ""
+    (v) => v?.constructor === String && v.trim() !== ""
   );
 }
 
@@ -391,9 +416,11 @@ function linkValue(item) {
     item.url,
     item.postHref,
   ];
+
   for (const v of candidates) {
-    if (typeof v === "string" && v.trim() !== "") return v.trim();
+    if (v?.constructor === String && v.trim() !== "") return v.trim();
   }
+
   return "";
 }
 
@@ -409,7 +436,10 @@ function linkValue(item) {
  * @returns {string} the row HTML
  */
 function renderRow(item, hasLinks, hasState, itemIdx, isComment) {
-  const it = item && typeof item === "object" ? item : {};
+  const it =
+    item && (item.constructor === Object || item.constructor === Array)
+      ? item
+      : {};
   const state = escapeHtml(it.state != null ? it.state : "");
   const stateRaw = escapeAttr(it.state != null ? String(it.state) : "");
   const author = escapeHtml(it.author != null ? it.author : "");
@@ -417,8 +447,10 @@ function renderRow(item, hasLinks, hasState, itemIdx, isComment) {
   // Headline: the author's job-title line. Blank when none was found
   // (company posts have no personal headline).
   const headline = escapeHtml(it.headline != null ? it.headline : "");
+
   const rawDate =
     it.dateTime != null ? it.dateTime : it.date != null ? it.date : "";
+
   const date = escapeHtml(rawDate);
   const dateRaw = escapeAttr(String(rawDate));
   /*
@@ -428,20 +460,26 @@ function renderRow(item, hasLinks, hasState, itemIdx, isComment) {
   */
   const postCell = `<td><span class="truncate">${escapeHtml(it.postExcerpt != null ? String(it.postExcerpt) : "")}</span></td>`;
   let commentCell = "";
+
   if (isComment) {
     commentCell = `<td><span class="truncate">${escapeHtml(it.comment != null ? String(it.comment) : "")}</span></td>`;
   }
+
   const status = escapeHtml(it.status != null ? it.status : "");
   const link = linkValue(it);
+
   const linkCell = hasLinks
     ? link
       ? `<td><a href="${escapeAttr(link)}" target="_blank" rel="noopener noreferrer">link</a></td>`
       : "<td></td>"
     : "";
+
   const stateCell = hasState ? `<td>${state}</td>` : "";
+
   const middleCells = isComment
     ? `<td>${date}</td><td><span class="truncate">${author}</span></td><td><span class="truncate">${headline}</span></td>${postCell}${commentCell}`
     : `<td><span class="truncate">${author}</span></td><td><span class="truncate">${headline}</span></td><td>${date}</td>${postCell}`;
+
   return `    <tr data-index="${itemIdx}" ${hasState ? `data-state="${stateRaw}"` : ""} data-author="${authorRaw}" data-date="${dateRaw}">
       <td><input type="checkbox" class="row-select"></td>
       ${stateCell}

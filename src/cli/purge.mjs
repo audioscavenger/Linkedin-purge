@@ -63,13 +63,16 @@ export async function runPurge(args) {
   anything todo/failed/not-found is actionable, and a selection with
   zero actionable items exits without prompting. */
   let selection = null;
+
   if (inputFile) {
     selection = loadSelection(inputFile);
     log(
       `Selection: ${selection.total} items in ${inputFile} (${selection.actionable} actionable).`
     );
+
     if (selection.actionable === 0) {
       log("Nothing actionable in the selection; exiting without prompting.");
+
       return;
     }
   }
@@ -79,14 +82,17 @@ export async function runPurge(args) {
     resolveFlag(args, "action-min", "timing.actionMin", 2000),
     2000
   );
+
   const actionMax = asInt(
     resolveFlag(args, "action-max", "timing.actionMax", 5000),
     5000
   );
+
   const batchMin = asInt(
     resolveFlag(args, "batch-min", "timing.batchMin", 30000),
     30000
   );
+
   const batchMax = asInt(
     resolveFlag(args, "batch-max", "timing.batchMax", 60000),
     60000
@@ -111,6 +117,7 @@ export async function runPurge(args) {
     chromiumPath,
     cdp: cdpEndpoint,
   });
+
   try {
     // Load input keys if --input was specified
     const inputKeys = selection ? selection.identities : null;
@@ -133,6 +140,7 @@ export async function runPurge(args) {
     };
 
     const results = [];
+
     for (const target of targets) {
       log(`=== Purging ${target.type} ===`);
       const page = await session.openTarget(target);
@@ -155,6 +163,7 @@ export async function runPurge(args) {
 
       // The runner asks its own confirmation prompt once per type.
       results.push(await runner.run({ type: target.type, ...runOptions }));
+
       /*
   Regenerate the selection page from the UPDATED envelope (the runner
   wrote statuses through envelopeStore.mark, which does atomic writes).
@@ -164,7 +173,9 @@ export async function runPurge(args) {
         const envelopeFile = inputFile
           ? path.resolve(inputFile)
           : path.resolve(dataDir, `scan-${target.type}.json`);
+
         let envelope = null;
+
         try {
           envelope = JSON.parse(fs.readFileSync(envelopeFile, "utf8"));
         } catch (readErr) {
@@ -172,6 +183,7 @@ export async function runPurge(args) {
             `Could not read updated envelope from ${envelopeFile}: ${readErr.message}`
           );
         }
+
         if (!envelope) {
           envelope = buildScanEnvelope({
             type: target.type,
@@ -180,11 +192,14 @@ export async function runPurge(args) {
             complete: true,
           });
         }
+
         const selectionHtml = generateSelectionPage(envelope);
+
         const selectionPagePath = path.join(
           dataDir,
           `selection-${target.type}.html`
         );
+
         fs.writeFileSync(selectionPagePath, selectionHtml);
         log(
           `Selection page written to: ${path.relative(process.cwd(), selectionPagePath)}`
@@ -211,6 +226,7 @@ function reportSummary(results) {
     } else if (result.deleted === 0) {
       log(`${result.type}: purge cancelled or nothing to delete.`);
     }
+
     if (result.counts) {
       // Selection runs: per-status tally appended regardless of deletions.
       const c = result.counts;
@@ -219,6 +235,7 @@ function reportSummary(results) {
       );
     }
   }
+
   if (results.length > 1) {
     const deleted = results.reduce((sum, result) => sum + result.deleted, 0);
     log(`Total: ${deleted} items deleted across ${results.length} types.`);

@@ -55,6 +55,7 @@ async function main() {
   const match = html.match(
     /<script type="application\/json" id="selection-data">([\s\S]*?)<\/script>/
   );
+
   assert.ok(match, "embedded data script present");
   const parsed = JSON.parse(match[1]);
   assert.deepStrictEqual(
@@ -100,6 +101,7 @@ async function main() {
       status: "no-op",
     },
   ]);
+
   const html2 = generateSelectionPage(noLinks);
   assert.ok(
     !html2.includes("<th>Link<span"),
@@ -110,6 +112,7 @@ async function main() {
     (html.match(/<input type="checkbox"/g) || []).length -
     (html.match(/class="state-filter"/g) || []).length -
     (html.match(/id="master-select"/g) || []).length;
+
   assert.strictEqual(
     checkboxCount,
     items.length,

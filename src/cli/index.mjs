@@ -22,6 +22,7 @@ export async function main() {
   // --help / -h is honored from any position, for any command.
   if (hasHelpFlag(args) || command === "help") {
     printHelp(KNOWN_COMMANDS.has(command) ? command : null);
+
     return;
   }
 

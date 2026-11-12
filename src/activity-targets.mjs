@@ -22,9 +22,12 @@ const ALL_TYPES = ["comments", "likes"];
 
 export function activityTargets(type) {
   const types = type === "all" ? ALL_TYPES : [type];
+
   return types.map((t) => {
     const tab = TAB_BY_TYPE[t];
+
     if (!tab) throw new Error(`Unknown type: ${t}`);
+
     return { type: t, tab };
   });
 }
