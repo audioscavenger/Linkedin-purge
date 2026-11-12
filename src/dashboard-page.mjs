@@ -7,7 +7,8 @@
     the center main layout and tables scroll vertically.
   - Sidebar tabbed navigation fixed height.
   - Column filter search boxes in the table header for Poster, Headline, Post, and Comment/Reaction.
-  - Reaction type selector dynamically listing only scanned reaction types.
+  - Reaction type selector dynamically listing only scanned reaction types (6 flavors: Like, Celebrate, Support, Love, Insightful, Funny).
+  - Uses graphical assets/reaction-*.png icons instead of text badges in the Reaction column.
   - Post text: expand/collapse toggle option + full post on hover when collapsed.
   - Headline: wrapped without truncation.
   - Dates: unified normalization (avoids fractional years like "25.1yr", cleans up relative time and dates).
@@ -86,6 +87,7 @@ function buildTabContent(items, isReactions) {
     const author = escapeHtml(it.author || "—");
     const headline = escapeHtml(it.headline || "—");
 
+    // Extract post text properly across all possible aliases
     const rawPost =
       it.postExcerpt !== undefined && it.postExcerpt !== null
         ? String(it.postExcerpt)
@@ -99,7 +101,7 @@ function buildTabContent(items, isReactions) {
     const postExcerpt = escapeHtml(rawPost);
     const date = formatDate(it.dateTime || it.date);
 
-    // Glossary Reaction types and scan-likes.json state property support
+    // Glossary Reaction types (6 flavors): Like, Celebrate, Support, Love, Insightful, Funny
     const reactionType = escapeHtml(
       it.state || it.reactionType || it.likeType || it.type || "Like"
     );
@@ -125,18 +127,19 @@ function buildTabContent(items, isReactions) {
         "</td>",
       ].join("\n");
     } else {
-      const reactionSnippet = escapeHtml(it.text || it.body || "");
+      // Use graphical assets/reaction-*.png in lieu of text badges, limited to row size
+      const reactionIcon =
+        "/assets/reaction-" + reactionType.toLowerCase() + ".png";
       textCell = [
         "<td>",
         '<div class="reaction-info-cell">',
-        '<span class="badge-reaction-type">' + reactionType + "</span>",
-        reactionSnippet
-          ? '<span class="reaction-text-snippet" title="' +
-            reactionSnippet +
-            '">' +
-            reactionSnippet +
-            "</span>"
-          : "",
+        '<img src="' +
+          reactionIcon +
+          '" class="reaction-icon" alt="' +
+          reactionType +
+          '" title="' +
+          reactionType +
+          '" />',
         "</div>",
         "</td>",
       ].join("\n");
@@ -189,9 +192,7 @@ function buildTabContent(items, isReactions) {
     : "<th>Comment (Click to Edit)</th>";
 
   let reactionTypeOptions =
-    '<option value="">All Scanned Types (' +
-    uniqueReactionTypes.size +
-    ")</option>";
+    '<option value="">All (' + uniqueReactionTypes.size + ")</option>";
 
   for (const rt of uniqueReactionTypes) {
     reactionTypeOptions +=
@@ -525,17 +526,20 @@ function generateDashboardPage(envComments, envReactions) {
     }
 
     .no-items { padding: 3rem; text-align: center; color: var(--muted); }
-    .badge-reaction-type {
-      display: inline-block;
-      padding: 0.15rem 0.4rem;
-      font-size: 0.7rem;
-      background: #e9ecef;
-      border-radius: 3px;
-      color: #495057;
-      margin-bottom: 0.2rem;
+    
+    /* Reaction icons sized strictly to row height */
+    .reaction-icon {
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
     }
-    .reaction-info-cell { display: flex; flex-direction: column; gap: 0.2rem; }
-    .reaction-text-snippet { font-size: 0.7rem; color: var(--muted); word-break: break-word; white-space: normal; }
+    .reaction-info-cell {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.25rem;
+      height: 100%;
+    }
 
     /* Click-to-edit comment spec with generous fixed dimensions */
     .comment-display-text {
