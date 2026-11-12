@@ -319,12 +319,16 @@ function createRequestHandler(dataDir) {
     }
 
     if (req.method === "POST" && pathname === "/api/shutdown") {
-      log("Shutdown endpoint called; stopping server.");
+      log("Shutdown endpoint called; stopping server and exiting process.");
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({ ok: true, message: "Server shutting down." }, null, 2)
       );
+
+      setTimeout(() => {
+        process.exit(0);
+      }, 200);
 
       return "shutdown";
     }

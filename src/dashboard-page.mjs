@@ -3,9 +3,9 @@
   LinkedIn purge dashboard. Served by src/server.mjs at GET /.
 
   Features:
-  - Sidebar tabbed navigation between Comments and Likes.
-  - Column filter search boxes in the table header for Poster, Headline, Post, and Comment/Like Type.
-  - Likes type selector supporting all 5 LinkedIn activity types (All Types, Post, Article, Comment, Reaction, Video).
+  - Sidebar tabbed navigation between Comments and Reactions (per Glossary).
+  - Column filter search boxes in the table header for Poster, Headline, Post, and Comment/Reaction Type.
+  - Reaction type selector supporting the 6 glossary reaction types (Like, Celebrate, Support, Love, Insightful, Funny).
   - Post text: expand/collapse toggle option + full post on hover when collapsed.
   - Headline: wrapped without truncation.
   - Dates: unified normalization (relative strings like "4mo" normalized cleanly).
@@ -31,7 +31,6 @@ function formatDate(dateStr) {
 
   if (!s) return "--";
 
-  // If it's already a relative LinkedIn string like "4mo", "2d", "1yr", "3w", keep it unified.
   if (/^\d+\s*(mo|d|yr|w|h|m|s)$/i.test(s) || /^\d+[a-z]+$/i.test(s)) {
     return escapeHtml(s);
   }
@@ -69,16 +68,16 @@ function formatDate(dateStr) {
 /**
  * Build one tab body (items table) from a list of envelope items.
  * @param {Array<object>} items - The envelope's items array.
- * @param {boolean} isLikes - True for the Likes tab, false for Comments.
+ * @param {boolean} isReactions - True for the Reactions tab, false for Comments.
  * @returns {string} HTML fragment for one tab body.
  */
-function buildTabContent(items, isLikes) {
+function buildTabContent(items, isReactions) {
   if (!items || items.length === 0) {
     return '<p class="no-items">No items found. Run a scan to populate.</p>';
   }
 
-  const type = isLikes ? "likes" : "comments";
-  const title = isLikes ? "Likes" : "Comments";
+  const type = isReactions ? "reactions" : "comments";
+  const title = isReactions ? "Reactions" : "Comments";
 
   const rows = items.map((it, idx) => {
     const key = escapeHtml(it.key || `${type}-${idx}`);
@@ -87,18 +86,20 @@ function buildTabContent(items, isLikes) {
     const rawPost =
       it.postExcerpt !== undefined && it.postExcerpt !== null
         ? String(it.postExcerpt)
-        : it.post || "—";
+        : it.post || it.postText || "—";
     const postExcerpt = escapeHtml(rawPost);
     const date = formatDate(it.dateTime || it.date);
 
-    // Determine exact like type (Post, Article, Comment, Reaction, Video, etc.)
-    const likeType = escapeHtml(it.likeType || it.type || "Post");
+    // Glossary Reaction types: Like, Celebrate, Support, Love, Insightful, Funny
+    const reactionType = escapeHtml(
+      it.reactionType || it.likeType || it.type || "Like"
+    );
 
     let textCell = "";
 
-    if (!isLikes) {
-      const commentText = escapeHtml(it.text || "");
-      // Click-to-edit spec: normal display span that turns into input on click, reverts on blur if unchanged.
+    if (!isReactions) {
+      // Fix: ensure comment text is read from it.text or it.comment or it.body
+      const commentText = escapeHtml(it.text || it.comment || it.body || "");
       textCell = [
         "<td>",
         '<div class="editable-comment-wrap" data-key="' + key + '">',
@@ -114,16 +115,16 @@ function buildTabContent(items, isLikes) {
         "</td>",
       ].join("\n");
     } else {
-      const likeText = escapeHtml(it.text || "");
+      const reactionSnippet = escapeHtml(it.text || it.body || "");
       textCell = [
         "<td>",
-        '<div class="like-info-cell">',
-        '<span class="badge-like-type">' + likeType + "</span>",
-        likeText
-          ? '<span class="like-text-snippet" title="' +
-            likeText +
+        '<div class="reaction-info-cell">',
+        '<span class="badge-reaction-type">' + reactionType + "</span>",
+        reactionSnippet
+          ? '<span class="reaction-text-snippet" title="' +
+            reactionSnippet +
             '">' +
-            likeText +
+            reactionSnippet +
             "</span>"
           : "",
         "</div>",
@@ -141,11 +142,13 @@ function buildTabContent(items, isLikes) {
         '" data-post="' +
         postExcerpt.toLowerCase() +
         '" data-text="' +
-        (isLikes
-          ? likeType.toLowerCase() + " " + (it.text || "").toLowerCase()
-          : escapeHtml(it.text || "").toLowerCase()) +
-        '" data-liketype="' +
-        likeType.toLowerCase() +
+        (isReactions
+          ? reactionType.toLowerCase() +
+            " " +
+            (it.text || it.body || "").toLowerCase()
+          : escapeHtml(it.text || it.comment || it.body || "").toLowerCase()) +
+        '" data-reactiontype="' +
+        reactionType.toLowerCase() +
         '">',
       '<td><input type="checkbox" class="row-select" data-key="' +
         key +
@@ -159,28 +162,31 @@ function buildTabContent(items, isLikes) {
         headline +
         "</span></td>",
       "<td>" + date + "</td>",
-      '<td class="post-cell"><div class="post-text-wrap collapsed-post" title="Hover for full post">' +
+      '<td class="post-cell"><div class="post-text-wrap collapsed-post">' +
         postExcerpt +
-        "</div></td>",
+        '<div class="post-full-tooltip">' +
+        postExcerpt +
+        "</div></div></td>",
       textCell,
       "</tr>",
     ].join("\n");
   });
 
-  const textHeader = isLikes
-    ? "<th>Like Type & Snippet</th>"
+  const textHeader = isReactions
+    ? "<th>Reaction Type & Snippet</th>"
     : "<th>Comment (Click to Edit)</th>";
 
-  const likeTypeFilterHtml = isLikes
+  const reactionTypeFilterHtml = isReactions
     ? [
-        "<label>Like Type: ",
-        '<select id="likeTypeFilter" class="filter-select">',
-        '<option value="">All Types (5)</option>',
-        '<option value="post">Post</option>',
-        '<option value="article">Article</option>',
-        '<option value="comment">Comment</option>',
-        '<option value="reaction">Reaction</option>',
-        '<option value="video">Video</option>',
+        "<label>Reaction Type: ",
+        '<select id="reactionTypeFilter" class="filter-select">',
+        '<option value="">All Types (6)</option>',
+        '<option value="like">Like</option>',
+        '<option value="celebrate">Celebrate</option>',
+        '<option value="support">Support</option>',
+        '<option value="love">Love</option>',
+        '<option value="insightful">Insightful</option>',
+        '<option value="funny">Funny</option>',
         "</select>",
         "</label>",
       ].join("")
@@ -191,7 +197,7 @@ function buildTabContent(items, isLikes) {
     '<div class="section-header">',
     '<h2 class="items-title">' + title + " (" + items.length + ")</h2>",
     '<div class="selection-controls">',
-    likeTypeFilterHtml,
+    reactionTypeFilterHtml,
     '<label><input type="checkbox" id="expandPostsCb"> Expand Posts</label>',
     "</div>",
     "</div>",
@@ -225,15 +231,15 @@ function buildTabContent(items, isLikes) {
 /**
  * Build the complete dashboard HTML page.
  * @param {object|null} envComments - Comments envelope, may be null.
- * @param {object|null} envLikes - Likes envelope, may be null.
+ * @param {object|null} envReactions - Reactions (likes) envelope, may be null.
  * @returns {string} Complete HTML document.
  */
-function generateDashboardPage(envComments, envLikes) {
+function generateDashboardPage(envComments, envReactions) {
   const commentsItems = (envComments && envComments.items) || [];
-  const likesItems = (envLikes && envLikes.items) || [];
+  const reactionsItems = (envReactions && envReactions.items) || [];
 
   const commentsHtml = buildTabContent(commentsItems, false);
-  const likesHtml = buildTabContent(likesItems, true);
+  const reactionsHtml = buildTabContent(reactionsItems, true);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -432,35 +438,39 @@ function generateDashboardPage(envComments, envLikes) {
     .headline-cell { word-break: break-word; white-space: normal; }
     .headline-text { display: block; word-wrap: break-word; }
 
-    /* Post wrap and expand spec */
+    /* Post wrap and hover tooltip spec */
+    .post-cell { position: relative; }
     .post-text-wrap {
       word-break: break-word;
       white-space: normal;
       max-height: 3.2em;
       overflow: hidden;
-      position: relative;
     }
     .post-text-wrap.expanded-post {
       max-height: none;
     }
-    .post-text-wrap.collapsed-post:hover::after {
-      content: attr(title);
+    .post-full-tooltip {
+      display: none;
       position: absolute;
-      left: 0;
+      left: 10px;
       top: 100%;
-      z-index: 10;
-      background: #333;
+      z-index: 999;
+      background: #212529;
       color: #fff;
-      padding: 0.5rem;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      width: 300px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      width: 320px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
       white-space: normal;
+      word-break: break-word;
+    }
+    .post-text-wrap.collapsed-post:hover .post-full-tooltip {
+      display: block;
     }
 
     .no-items { padding: 3rem; text-align: center; color: var(--muted); }
-    .badge-like-type {
+    .badge-reaction-type {
       display: inline-block;
       padding: 0.15rem 0.4rem;
       font-size: 0.75rem;
@@ -469,10 +479,10 @@ function generateDashboardPage(envComments, envLikes) {
       color: #495057;
       margin-bottom: 0.2rem;
     }
-    .like-info-cell { display: flex; flex-direction: column; gap: 0.2rem; }
-    .like-text-snippet { font-size: 0.75rem; color: var(--muted); word-break: break-word; white-space: normal; }
+    .reaction-info-cell { display: flex; flex-direction: column; gap: 0.2rem; }
+    .reaction-text-snippet { font-size: 0.75rem; color: var(--muted); word-break: break-word; white-space: normal; }
 
-    /* Click-to-edit comment spec */
+    /* Click-to-edit comment spec with blur/outside click revert */
     .comment-display-text {
       display: block;
       cursor: pointer;
@@ -543,7 +553,7 @@ function generateDashboardPage(envComments, envLikes) {
 <div class="toolbar">
   <div class="toolbar-group">
     <button id="scanCommentsBtn" class="btn">Scan Comments</button>
-    <button id="scanLikesBtn" class="btn">Scan Likes</button>
+    <button id="scanReactionsBtn" class="btn">Scan Reactions</button>
     <label><input type="checkbox" id="deepScanCb"> Deep Scan</label>
     <label>Limit: <input type="number" id="limitInput" value="50" min="1" max="1000"></label>
   </div>
@@ -555,15 +565,15 @@ function generateDashboardPage(envComments, envLikes) {
 <div class="main-layout">
   <nav class="sidebar">
     <button class="active" data-type="comments">Comments (<span id="countComments">${commentsItems.length}</span>)</button>
-    <button data-type="likes">Likes (<span id="countLikes">${likesItems.length}</span>)</button>
+    <button data-type="reactions">Reactions (<span id="countReactions">${reactionsItems.length}</span>)</button>
   </nav>
 
   <main class="content" id="mainContent">
     <div class="items-box active" id="items-comments">
       ${commentsHtml}
     </div>
-    <div class="items-box" id="items-likes">
-      ${likesHtml}
+    <div class="items-box" id="items-reactions">
+      ${reactionsHtml}
     </div>
   </main>
 </div>
@@ -608,17 +618,25 @@ function generateDashboardPage(envComments, envLikes) {
     icon.textContent = content.classList.contains("collapsed") ? "▲ Expand" : "▼ Collapse";
   });
 
-  // Tab navigation
+  // Tab navigation with state restoration so F5/reload keeps active tab
   var tabButtons = document.querySelectorAll(".sidebar button");
   var tabSections = document.querySelectorAll(".items-box");
 
+  function setActiveTab(type) {
+    tabButtons.forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-type") === type); });
+    tabSections.forEach(function (s) { s.classList.toggle("active", s.id === "items-" + type); });
+    try { sessionStorage.setItem("activeTab", type); } catch(_) {}
+  }
+
+  var savedTab = null;
+  try { savedTab = sessionStorage.getItem("activeTab"); } catch(_) {}
+  if (savedTab && document.getElementById("items-" + savedTab)) {
+    setActiveTab(savedTab);
+  }
+
   tabButtons.forEach(function (btn) {
     btn.addEventListener("click", function () {
-      var type = btn.getAttribute("data-type");
-      tabButtons.forEach(function (b) { b.classList.toggle("active", b === btn); });
-      tabSections.forEach(function (s) {
-        s.classList.toggle("active", s.id === "items-" + type);
-      });
+      setActiveTab(btn.getAttribute("data-type"));
     });
   });
 
@@ -666,7 +684,6 @@ function generateDashboardPage(envComments, envLikes) {
     }
   });
 
-  // Blur on input: update display text and revert visibility if value matches original
   document.addEventListener("blur", function(e) {
     if (e.target.classList.contains("comment-edit-input")) {
       var input = e.target;
@@ -687,15 +704,15 @@ function generateDashboardPage(envComments, envLikes) {
     }
   }, true);
 
-  // Column filtering and like type filtering logic
+  // Column filtering and reaction type filtering logic
   function applyFilters(section) {
     var filters = {};
     section.querySelectorAll(".col-filter").forEach(function(input) {
       filters[input.getAttribute("data-col")] = input.value.toLowerCase().trim();
     });
 
-    var likeTypeFilterEl = section.querySelector("#likeTypeFilter");
-    var likeTypeVal = likeTypeFilterEl ? likeTypeFilterEl.value.toLowerCase().trim() : "";
+    var reactionTypeFilterEl = section.querySelector("#reactionTypeFilter");
+    var reactionTypeVal = reactionTypeFilterEl ? reactionTypeFilterEl.value.toLowerCase().trim() : "";
 
     var rows = section.querySelectorAll("tbody.filterable-tbody tr");
     rows.forEach(function(row) {
@@ -703,7 +720,7 @@ function generateDashboardPage(envComments, envLikes) {
       var headline = row.getAttribute("data-headline") || "";
       var post = row.getAttribute("data-post") || "";
       var text = row.getAttribute("data-text") || "";
-      var liketype = row.getAttribute("data-liketype") || "";
+      var reactiontype = row.getAttribute("data-reactiontype") || "";
 
       var match = true;
       if (filters.poster && author.indexOf(filters.poster) === -1) match = false;
@@ -711,7 +728,7 @@ function generateDashboardPage(envComments, envLikes) {
       if (filters.post && post.indexOf(filters.post) === -1) match = false;
       if (filters.text && text.indexOf(filters.text) === -1) match = false;
 
-      if (likeTypeVal && liketype.indexOf(likeTypeVal) === -1) {
+      if (reactionTypeVal && reactiontype.indexOf(reactionTypeVal) === -1) {
         match = false;
       }
 
@@ -723,9 +740,9 @@ function generateDashboardPage(envComments, envLikes) {
     section.querySelectorAll(".col-filter").forEach(function(input) {
       input.addEventListener("input", function() { applyFilters(section); });
     });
-    var likeTypeSel = section.querySelector("#likeTypeFilter");
-    if (likeTypeSel) {
-      likeTypeSel.addEventListener("change", function() { applyFilters(section); });
+    var reactionTypeSel = section.querySelector("#reactionTypeFilter");
+    if (reactionTypeSel) {
+      reactionTypeSel.addEventListener("change", function() { applyFilters(section); });
     }
   });
 
@@ -772,7 +789,7 @@ function generateDashboardPage(envComments, envLikes) {
   }
 
   document.getElementById("scanCommentsBtn").addEventListener("click", function() { triggerScan("comments"); });
-  document.getElementById("scanLikesBtn").addEventListener("click", function() { triggerScan("likes"); });
+  document.getElementById("scanReactionsBtn").addEventListener("click", function() { triggerScan("reactions"); });
 
   // Push Updates (Batch Deletions & Comment Edits)
   document.getElementById("pushUpdatesBtn").addEventListener("click", function() {
@@ -816,23 +833,18 @@ function generateDashboardPage(envComments, envLikes) {
     });
   });
 
-  // Shutdown button
+  // Shutdown button (no confirm popup, direct termination)
   document.getElementById("shutdownBtn").addEventListener("click", function () {
-    if (!confirm("Are you sure you want to shut down the server application?")) return;
     logMessage("Sending shutdown request...");
     fetch("/api/shutdown", { method: "POST" })
       .then(function (res) { return res.json(); })
-      .then(function (data) {
-        if (data.ok) {
-          logMessage("Server shut down successfully.");
-          document.body.innerHTML =
-            '<div style="padding:4rem;text-align:center;color:var(--success)">' +
-            '<h2>Application Shut Down</h2>' +
-            '<p>The local dashboard server has stopped. You may close this tab.</p>' +
-            "</div>";
-        } else {
-          alert("Shutdown failed: " + (data.message || "unknown error"));
-        }
+      .then(function () {
+        logMessage("Server shut down successfully.");
+        document.body.innerHTML =
+          '<div style="padding:4rem;text-align:center;color:var(--success)">' +
+          '<h2>Application Shut Down</h2>' +
+          '<p>The local dashboard server has stopped and the process terminated. You may close this tab.</p>' +
+          "</div>";
       })
       .catch(function () {
         alert("Shutdown request failed.");
