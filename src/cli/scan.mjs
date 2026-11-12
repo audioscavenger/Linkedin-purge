@@ -10,10 +10,7 @@ import {
 } from "./config.mjs";
 import { ActivityLoader, createActivityPage } from "../activity-loader.mjs";
 import { buildScanEnvelope } from "../scan-envelope.mjs";
-import { buildScanSummary } from "../scan-summary.mjs";
 import { activityTargets } from "../activity-targets.mjs";
-import { openPage } from "../browser-opener.mjs";
-import { generateSelectionPage } from "../selection-page.mjs";
 import { ActivitySession } from "../activity-session.mjs";
 
 export async function runScan(args) {
@@ -80,7 +77,7 @@ export async function runScan(args) {
         ? await loader.collectAll()
         : await loader.readFirstRender();
 
-      const elapsedMs = Date.now() - startedAt;
+      const _elapsedMs = Date.now() - startedAt;
 
       const out = path.join(dataDir, `scan-${t}.json`);
       fs.mkdirSync(dataDir, { recursive: true });
@@ -101,29 +98,7 @@ export async function runScan(args) {
         );
       }
 
-      // Generate the selection page from the same envelope.
-      const selectionHtml = generateSelectionPage(envelope);
-      const selectionPagePath = path.join(dataDir, `selection-${t}.html`);
-      fs.writeFileSync(selectionPagePath, selectionHtml);
-      log(`Selection page written to: ${selectionPagePath}`);
-
-      // The summary prints the page's relative path.
-      log(
-        buildScanSummary({
-          type: t,
-          result,
-          links,
-          elapsedMs,
-          pagePath: path.relative(process.cwd(), selectionPagePath),
-        })
-      );
-
-      /*
-  Open the page in the OS default browser; best effort only.
-  Pass the plain path: the platform openers (open / xdg-open / start) take
-  a file path, not a URL, and path.resolve mangles a file:// URL on Windows.
-*/
-      await openPage(selectionPagePath);
+      log(`Scan envelope written to: ${out} (${result.items.length} items)`);
     }
   } finally {
     await session.close();
