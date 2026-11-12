@@ -3,16 +3,17 @@
   LinkedIn purge dashboard. Served by src/server.mjs at GET /.
 
   Features:
-  - Sidebar tabbed navigation between Comments and Reactions (per Glossary).
-  - Column filter search boxes in the table header for Poster, Headline, Post, and Comment/Reaction Type.
-  - Reaction type selector supporting the 6 glossary reaction types (Like, Celebrate, Support, Love, Insightful, Funny).
+  - Single-screen layout: top navbar, toolbar, and bottom activity log are fixed;
+    the center main layout and tables scroll vertically.
+  - Sidebar tabbed navigation fixed height.
+  - Column filter search boxes in the table header for Poster, Headline, Post, and Comment/Reaction.
+  - Reaction type selector dynamically listing only scanned reaction types.
   - Post text: expand/collapse toggle option + full post on hover when collapsed.
   - Headline: wrapped without truncation.
-  - Dates: unified normalization (relative strings like "4mo" normalized cleanly).
-  - Comments: click-to-edit inline section with fixed-size textarea staying consistent in dimensions.
+  - Dates: unified normalization.
+  - Comments: click-to-edit inline section with textarea sized generously.
   - Checkboxes: both sections start UNCHECKED by default.
-  - Select-all checkbox respects current active filters.
-  - Clean activity log (no heartbeat noise).
+  - Clean activity log with Cancel Scan button during active scans.
 */
 
 // Escape HTML special characters to prevent injection.
@@ -40,6 +41,7 @@ function formatDate(dateStr) {
 
   if (!isNaN(d.getTime())) {
     const now = new Date();
+
     const diffMonths =
       (now.getFullYear() - d.getFullYear()) * 12 +
       (now.getMonth() - d.getMonth());
@@ -80,16 +82,24 @@ function buildTabContent(items, isReactions) {
   const type = isReactions ? "reactions" : "comments";
   const title = isReactions ? "Reactions" : "Comments";
 
+  // Collect unique reaction types present in scanned items if reactions tab
+  const uniqueReactionTypes = new Set();
+
   const rows = items.map((it, idx) => {
     const key = escapeHtml(it.key || `${type}-${idx}`);
     const author = escapeHtml(it.author || "—");
     const headline = escapeHtml(it.headline || "—");
 
-    // Fix: extract post text properly for both comments and reactions across all property aliases
+    // Fix: extract post text properly across all possible aliases for both comments and reactions
     const rawPost =
       it.postExcerpt !== undefined && it.postExcerpt !== null
         ? String(it.postExcerpt)
-        : it.post || it.postText || it.textSnippet || it.body || "—";
+        : it.post ||
+          it.postText ||
+          it.textSnippet ||
+          it.body ||
+          it.postTitle ||
+          "—";
 
     const postExcerpt = escapeHtml(rawPost);
     const date = formatDate(it.dateTime || it.date);
@@ -98,6 +108,8 @@ function buildTabContent(items, isReactions) {
     const reactionType = escapeHtml(
       it.reactionType || it.likeType || it.type || "Like"
     );
+
+    uniqueReactionTypes.add(reactionType);
 
     let textCell = "";
 
@@ -111,7 +123,7 @@ function buildTabContent(items, isReactions) {
           "</span>",
         '<textarea class="comment-edit-input" data-key="' +
           key +
-          '" style="display:none;" rows="2">' +
+          '" style="display:none;" rows="3">' +
           commentText +
           "</textarea>",
         "</div>",
@@ -178,20 +190,28 @@ function buildTabContent(items, isReactions) {
   });
 
   const textHeader = isReactions
-    ? "<th>Reaction Type & Snippet</th>"
+    ? "<th>Reaction</th>"
     : "<th>Comment (Click to Edit)</th>";
+
+  let reactionTypeOptions =
+    '<option value="">All Scanned Types (' +
+    uniqueReactionTypes.size +
+    ")</option>";
+
+  for (const rt of uniqueReactionTypes) {
+    reactionTypeOptions +=
+      '<option value="' +
+      escapeHtml(rt.toLowerCase()) +
+      '">' +
+      escapeHtml(rt) +
+      "</option>";
+  }
 
   const reactionTypeFilterHtml = isReactions
     ? [
-        "<label>Reaction Type: ",
+        "<label>Reaction: ",
         '<select id="reactionTypeFilter" class="filter-select">',
-        '<option value="">All Types (6)</option>',
-        '<option value="like">Like</option>',
-        '<option value="celebrate">Celebrate</option>',
-        '<option value="support">Support</option>',
-        '<option value="love">Love</option>',
-        '<option value="insightful">Insightful</option>',
-        '<option value="funny">Funny</option>',
+        reactionTypeOptions,
         "</select>",
         "</label>",
       ].join("")
@@ -266,27 +286,28 @@ function generateDashboardPage(envComments, envReactions) {
 
     * { box-sizing: border-box; }
 
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
       color: var(--fg);
-      min-height: 100vh;
       display: flex;
       flex-direction: column;
-      overflow-x: hidden;
     }
 
     header {
       background: var(--card);
       border-bottom: 1px solid var(--border);
-      padding: 0.75rem 1.25rem;
+      padding: 0.5rem 1rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      width: 100%;
+      flex-shrink: 0;
     }
-    header h1 { margin: 0; font-size: 1.2rem; color: var(--accent); }
+    header h1 { margin: 0; font-size: 1.1rem; color: var(--accent); }
 
     .header-actions {
       display: flex;
@@ -295,8 +316,8 @@ function generateDashboardPage(envComments, envReactions) {
     }
 
     button, .btn {
-      padding: 0.45rem 0.9rem;
-      font-size: 0.85rem;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.8rem;
       font-weight: 500;
       background: var(--accent);
       color: #fff;
@@ -315,12 +336,13 @@ function generateDashboardPage(envComments, envReactions) {
     .toolbar {
       background: var(--card);
       border-bottom: 1px solid var(--border);
-      padding: 0.75rem 1.25rem;
+      padding: 0.5rem 1rem;
       display: flex;
       flex-wrap: wrap;
       gap: 1rem;
       align-items: center;
       justify-content: space-between;
+      flex-shrink: 0;
     }
     .toolbar-group {
       display: flex;
@@ -329,41 +351,41 @@ function generateDashboardPage(envComments, envReactions) {
       flex-wrap: wrap;
     }
     .toolbar label {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: var(--muted);
       display: flex;
       align-items: center;
       gap: 0.35rem;
     }
     .toolbar input[type="number"], .toolbar select, .filter-select {
-      padding: 0.3rem 0.5rem;
-      font-size: 0.85rem;
+      padding: 0.25rem 0.4rem;
+      font-size: 0.8rem;
       border: 1px solid var(--border);
       border-radius: 4px;
     }
     .toolbar input[type="checkbox"] { cursor: pointer; }
 
-    /* Layout Container */
+    /* Layout Container: strictly fills remaining height between header/toolbar and activity log */
     .main-layout {
       display: flex;
       flex: 1;
-      margin: 1rem;
+      margin: 0.75rem 1rem;
       gap: 1rem;
-      min-height: 400px;
-      max-width: 100%;
+      min-height: 0;
+      overflow: hidden;
     }
 
     .sidebar {
-      width: 220px;
+      width: 200px;
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 0.75rem;
+      padding: 0.5rem;
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.4rem;
       flex-shrink: 0;
-      height: fit-content;
+      height: 100%;
     }
     .sidebar button {
       width: 100%;
@@ -371,8 +393,9 @@ function generateDashboardPage(envComments, envReactions) {
       background: transparent;
       color: var(--fg);
       border: 1px solid transparent;
-      padding: 0.6rem 0.8rem;
+      padding: 0.5rem 0.7rem;
       border-radius: 4px;
+      font-size: 0.85rem;
     }
     .sidebar button:hover { background: #e9ecef; }
     .sidebar button.active {
@@ -385,28 +408,35 @@ function generateDashboardPage(envComments, envReactions) {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 1.25rem;
-      overflow-x: auto;
-      max-width: calc(100% - 240px);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      height: 100%;
+      overflow: hidden;
     }
 
-    .items-box { display: none; }
-    .items-box.active { display: block; }
+    .items-box { display: none; flex-direction: column; height: 100%; min-height: 0; }
+    .items-box.active { display: flex; }
 
     .section-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.5rem;
       flex-wrap: wrap;
       gap: 0.5rem;
+      flex-shrink: 0;
     }
-    .items-title { margin: 0; font-size: 1rem; color: var(--fg); }
-    .selection-controls { display: flex; gap: 1rem; align-items: center; font-size: 0.85rem; color: var(--muted); }
+    .items-title { margin: 0; font-size: 0.95rem; color: var(--fg); }
+    .selection-controls { display: flex; gap: 1rem; align-items: center; font-size: 0.8rem; color: var(--muted); }
 
     .items-table-wrap {
-      width: 100%;
-      overflow-x: auto;
+      flex: 1;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      min-height: 0;
     }
     table {
       width: 100%;
@@ -415,17 +445,17 @@ function generateDashboardPage(envComments, envReactions) {
     }
     th, td {
       border: 1px solid var(--border);
-      padding: 0.5rem;
-      font-size: 0.8rem;
+      padding: 0.4rem 0.5rem;
+      font-size: 0.75rem;
       text-align: left;
       vertical-align: top;
     }
-    th { background: #f8f9fa; position: sticky; top: 0; z-index: 2; }
-    .filter-row th { background: #f1f3f5; padding: 0.3rem 0.4rem; }
+    th { background: #f8f9fa; position: sticky; top: 0; z-index: 5; }
+    .filter-row th { background: #f1f3f5; padding: 0.2rem 0.3rem; top: 29px; }
     .col-filter {
       width: 100%;
-      padding: 0.2rem 0.4rem;
-      font-size: 0.75rem;
+      padding: 0.15rem 0.3rem;
+      font-size: 0.7rem;
       border: 1px solid var(--border);
       border-radius: 3px;
     }
@@ -448,7 +478,7 @@ function generateDashboardPage(envComments, envReactions) {
     .post-text-wrap {
       word-break: break-word;
       white-space: normal;
-      max-height: 3.2em;
+      max-height: 2.8em;
       overflow: hidden;
     }
     .post-text-wrap.expanded-post {
@@ -462,10 +492,10 @@ function generateDashboardPage(envComments, envReactions) {
       z-index: 999;
       background: #212529;
       color: #fff;
-      padding: 0.75rem;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      width: 320px;
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      width: 300px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
       white-space: normal;
       word-break: break-word;
@@ -478,33 +508,33 @@ function generateDashboardPage(envComments, envReactions) {
     .badge-reaction-type {
       display: inline-block;
       padding: 0.15rem 0.4rem;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       background: #e9ecef;
       border-radius: 3px;
       color: #495057;
       margin-bottom: 0.2rem;
     }
     .reaction-info-cell { display: flex; flex-direction: column; gap: 0.2rem; }
-    .reaction-text-snippet { font-size: 0.75rem; color: var(--muted); word-break: break-word; white-space: normal; }
+    .reaction-text-snippet { font-size: 0.7rem; color: var(--muted); word-break: break-word; white-space: normal; }
 
-    /* Click-to-edit comment spec with fixed-size textarea staying consistent in dimensions */
+    /* Click-to-edit comment spec with generous fixed dimensions */
     .comment-display-text {
       display: block;
       cursor: pointer;
-      padding: 0.3rem;
+      padding: 0.25rem;
       border-radius: 3px;
       word-break: break-word;
       white-space: normal;
-      min-height: 40px;
+      min-height: 45px;
     }
     .comment-display-text:hover {
       background: #f1f3f5;
     }
     .comment-edit-input {
       width: 100%;
-      min-height: 50px;
+      min-height: 60px;
       padding: 0.3rem 0.5rem;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       border: 1px solid var(--danger);
       border-radius: 3px;
       color: var(--danger);
@@ -517,29 +547,30 @@ function generateDashboardPage(envComments, envReactions) {
     .log-drawer {
       background: var(--card);
       border-top: 1px solid var(--border);
-      margin: 0 1rem 1rem;
+      margin: 0 1rem 0.75rem;
       border-radius: 6px;
       border: 1px solid var(--border);
+      flex-shrink: 0;
     }
     .log-drawer-header {
-      padding: 0.5rem 1rem;
+      padding: 0.4rem 0.75rem;
       background: #f8f9fa;
       cursor: pointer;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       font-weight: 600;
       border-top-left-radius: 6px;
       border-top-right-radius: 6px;
     }
     .log-content {
-      padding: 0.75rem 1rem;
+      padding: 0.5rem 0.75rem;
       font-family: monospace;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       background: #1e1e1e;
       color: #d4d4d4;
-      max-height: 180px;
+      max-height: 120px;
       overflow-y: auto;
       border-bottom-left-radius: 6px;
       border-bottom-right-radius: 6px;
@@ -562,6 +593,7 @@ function generateDashboardPage(envComments, envReactions) {
   <div class="toolbar-group">
     <button id="scanCommentsBtn" class="btn">Scan Comments</button>
     <button id="scanReactionsBtn" class="btn">Scan Reactions</button>
+    <button id="cancelScanBtn" class="btn secondary" style="display:none;">Cancel Current Scan</button>
     <label><input type="checkbox" id="deepScanCb"> Deep Scan</label>
     <label>Limit: <input type="number" id="limitInput" value="50" min="1" max="1000"></label>
   </div>
@@ -595,6 +627,8 @@ function generateDashboardPage(envComments, envReactions) {
 </div>
 
 <script>
+  var scanActive = false;
+
   // Append message to log console (suppress heartbeat "purge stream alive" noise)
   function logMessage(msg) {
     if (msg && msg.indexOf("purge stream alive") !== -1) return;
@@ -677,7 +711,6 @@ function generateDashboardPage(envComments, envReactions) {
       return;
     }
 
-    // Click outside comment editor: revert if unchanged
     if (!e.target.closest(".editable-comment-wrap")) {
       document.querySelectorAll(".comment-edit-input").forEach(function(textarea) {
         if (textarea.style.display !== "none") {
@@ -736,7 +769,7 @@ function generateDashboardPage(envComments, envReactions) {
       if (filters.post && post.indexOf(filters.post) === -1) match = false;
       if (filters.text && text.indexOf(filters.text) === -1) match = false;
 
-      if (reactionTypeVal && reactiontype.indexOf(reactionTypeVal) === -1) {
+      if (reactionTypeVal && reactiontype !== reactionTypeVal) {
         match = false;
       }
 
@@ -770,11 +803,15 @@ function generateDashboardPage(envComments, envReactions) {
     }
   });
 
-  // Scan triggers
+  // Scan triggers (no temporary browser window opening)
   function triggerScan(type) {
+    if (scanActive) return;
+    scanActive = true;
+    document.getElementById("cancelScanBtn").style.display = "inline-block";
     var deep = document.getElementById("deepScanCb").checked;
     var limit = document.getElementById("limitInput").value;
     logMessage("Starting scan for " + type + " (deep: " + deep + ", limit: " + limit + ")...");
+    
     fetch("/api/scan/" + type, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -782,15 +819,28 @@ function generateDashboardPage(envComments, envReactions) {
     })
     .then(function(res) { return res.json(); })
     .then(function(data) {
+      scanActive = false;
+      document.getElementById("cancelScanBtn").style.display = "none";
       if (data.ok) {
-        logMessage("Scan completed for " + type + ". Reloading page...");
-        setTimeout(function() { window.location.reload(); }, 1000);
+        logMessage("Scan completed for " + type + ". Refreshing dashboard data...");
+        // Fetch updated envelope via API and refresh table dynamically without full reload
+        fetch("/api/envelope/" + type)
+          .then(function(r) { return r.json(); })
+          .then(function(env) {
+            logMessage("Loaded updated envelope for " + type + " (" + (env.items ? env.items.length : 0) + " items). Reloading page to render.");
+            window.location.reload();
+          })
+          .catch(function() {
+            window.location.reload();
+          });
       } else {
         logMessage("Scan failed: " + (data.error || "unknown error"));
         alert("Scan failed: " + (data.error || "unknown error"));
       }
     })
     .catch(function(err) {
+      scanActive = false;
+      document.getElementById("cancelScanBtn").style.display = "none";
       logMessage("Scan request error: " + err.message);
       alert("Scan request failed.");
     });
@@ -799,12 +849,17 @@ function generateDashboardPage(envComments, envReactions) {
   document.getElementById("scanCommentsBtn").addEventListener("click", function() { triggerScan("comments"); });
   document.getElementById("scanReactionsBtn").addEventListener("click", function() { triggerScan("reactions"); });
 
+  document.getElementById("cancelScanBtn").addEventListener("click", function() {
+    fetch("/api/scan/cancel", { method: "POST" })
+      .then(function() {
+        scanActive = false;
+        document.getElementById("cancelScanBtn").style.display = "none";
+        logMessage("Scan cancellation requested.");
+      });
+  });
+
   // Push Updates (Batch Deletions & Comment Edits)
   document.getElementById("pushUpdatesBtn").addEventListener("click", function() {
-    if (!confirm("Are you sure you want to push updates (execute deletions and comment replacements)?")) {
-      return;
-    }
-
     var deletions = [];
     document.querySelectorAll(".row-select:checked").forEach(function(cb) {
       deletions.push(cb.getAttribute("data-key"));
