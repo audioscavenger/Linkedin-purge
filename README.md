@@ -89,15 +89,6 @@ what you left alone.
 npm run purge -- --type likes
 ```
 
-## Progress
-
-npm run status
-
-````
-
-reports per-type status counts (deleted, failed, not-found, todo, no-op)
-from the scan envelope, and says "no scan yet" when a type has no envelope.
-
 ## What a scan covers
 
 Plain `scan` collects the first render only: about 20 cards per tab, of which 18
