@@ -2,9 +2,9 @@
   End-to-end fixture test: run the in-page extractor against the saved
   anonymized reactions page and compare to the expected output.
 
-  The expectation file lives under data/, which is gitignored, so a fresh
-  clone does not carry it. When it is absent the test SKIPS loudly instead
-  of passing vacuously: a fixture run that compares nothing proves nothing.
+  The expectation is committed next to the page it describes, so the pair
+  travels with the repo. When it is absent the test SKIPS loudly instead of
+  passing vacuously: a fixture run that compares nothing proves nothing.
 */
 import fs from "node:fs";
 import path from "node:path";
@@ -18,7 +18,7 @@ const html = fs.readFileSync(
   "utf8"
 );
 
-const expectedPath = path.join(root, "data", "parser-reactions-202611.json");
+const expectedPath = path.join(root, "tests", "reactions-expected-202611.json");
 
 if (!fs.existsSync(expectedPath)) {
   console.log(
