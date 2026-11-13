@@ -2,14 +2,13 @@
 
 ## Bugs
 
-- `postExcerpt` is null on every reaction in `data/scan-likes.json`. The extractor is not the whole story: both fixtures still reproduce 16/18 reaction post excerpts from the November 7 saved pages, and `collectReactionItems` reads the card metadata before the link capture runs, so `links` is not the cause either. The live scan (November 12) postdates those pages, which points at LinkedIn markup drift in the post-body element. Confirm with a live `scripts/probe-dom.mjs` run before rewriting the selectors in `extractPostExcerpt`.
-
 ## Ideas
 
 ## Unreleased
 
 - [x] The Dashboard `Limit` control now caps a scan: `scan` reads `--limit` through `resolveRunOptions` and the Activity Loader caps the first render and the deep walk, trimming an overshooting batch to the exact count. A cap that is reached ends the run complete rather than incomplete. The dashboard's default is 0 (no cap), and `0` no longer collapses to 50. The server log reports the limit it was sent.
 - [x] README now describes the dashboard as the review-first flow and the scan envelope as the CLI output. The old text claimed a scan opens a selection page, which the CLI no longer does.
+- [x] Reaction `postExcerpt` now reads the post body. `extractPostExcerpt` reads `data-testid="expandable-text-box"` first, which is stable across LinkedIn's class-name obfuscation, and keeps the old `p.gvyles` class as a fallback for older pages. A live scan of 19 reactions now fills 15 post excerpts; the 4 empty ones are a post whose body is only the "👇" emoji or a post with no body text.
 
 ## Released
 

@@ -697,11 +697,14 @@ function extractPostExcerpt(card, isComment = false) {
 
   if (!isComment) {
     /*
-    LinkedIn obfuscates class names per deploy. In the current DOM the like
-    post body lives in a <p> carrying a class that contains 'gvyles'; keep
-    this selector as a stopgap and fall back to content-based extraction
-    below when LinkedIn changes its markup.
+    LinkedIn obfuscates class names per deploy, but the post body keeps a
+    stable data-testid. The 2026-11 DOM put the body in a span carrying
+    data-testid="expandable-text-box"; older saved pages carried it in a
+    p.gvyles. Read the stable test id first, keep the class selector as a
+    fallback for older pages, and fall back to content-based extraction
+    below when neither matches.
 */
+    selectors.unshift("[data-testid='expandable-text-box']");
     selectors.push("p.gvyles", "[class*='gvyles']");
   }
 
