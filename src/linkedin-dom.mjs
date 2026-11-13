@@ -569,14 +569,18 @@ function boxText(box, opts) {
 }
 
 function extractCommentText(card, author) {
-  // LinkedIn wraps the comment body in a span with data-testid="expandable-text-box".
-  // When a card has exactly one such box, use it directly.
+  /*
+  LinkedIn wraps the comment body in a span with data-testid="expandable-text-box".
+  A comments card can carry more than one box: the post the comment was written
+  on, plus the viewer's own comment. The viewer's comment is the last box, so
+  read the last one. A single-box card keeps the old path.
+*/
   const boxes = [
     ...card.querySelectorAll('[data-testid="expandable-text-box"]'),
   ];
 
-  if (boxes.length === 1) {
-    const text = cleanText(boxes[0].textContent, 280);
+  if (boxes.length > 0) {
+    const text = cleanText(boxes[boxes.length - 1].textContent, 280);
 
     if (text) return stripAuthorPrefixesFromText(text, author);
   }

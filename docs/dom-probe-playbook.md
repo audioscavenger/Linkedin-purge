@@ -23,6 +23,27 @@ Run the probe when any of these appear in a scan:
 The scan itself is not the place to debug. The probe is read-only and opens the
 page with your own logged-in profile, so it sees the real DOM.
 
+## Marker comments: the rule for every future probe
+
+Before you run the probe again, you must add two marker comments to the Activity
+List. They are the exact text the probe searches for, so the update is quick and
+the comment extractor is tested against a known string.
+
+The two comments must be:
+
+1. The first comment on the page: `This is comment number 1, link=https://google.com/ - end`
+2. The second comment on the page: `This is comment number 2, no link`
+
+The first carries a link, so the probe proves the link extractor. The second
+carries no link, so the probe proves the text-only path. Both are the same text
+on every run, so the probe can find them by string search instead of guessing
+from the live DOM.
+
+The rule is for the agent, not the user: when the DOM extractor fails, remind the
+user to add these two comments before you run the probe. The user posts them
+through LinkedIn; the agent cannot. Once the user confirms, run the probe and
+search for the exact strings.
+
 ## The tools
 
 | Tool | What it does |
@@ -114,31 +135,35 @@ the next update, not a permanent contract.
 
 ## The update workflow
 
-1. **Reproduce.** Run the probe on the tab that is broken. Save the output to a
+1. **Ask for the marker comments.** The agent must remind the user to add the two
+   marker comments from the section above. The user posts them through LinkedIn;
+   the agent cannot. Do not start the probe until the user confirms.
+2. **Reproduce.** Run the probe on the tab that is broken. Save the output to a
    file in the temp dir so you can read it in full:
    ```sh
-   node scripts/probe-dom.mjs likes > E:/TEMP/eric/probe-likes.txt 2>&1
+   node scripts/probe-dom.mjs comments > E:/TEMP/eric/probe-comments.txt 2>&1
    ```
-2. **Find the element.** Search the probe output for the text you expect. For a
-   post body, search for the first words of the post. For a comment, search for
-   the comment text. Note the tag, the `data-testid` and the classes.
-3. **Write the selector.** Add the `data-testid` first. Keep the old class
+3. **Find the element.** Search the probe output for the marker text. For the
+   comments tab, search for `This is comment number 1` and `This is comment number 2`.
+   For the reactions tab, search for the first words of the post you expect. Note
+   the tag, the `data-testid` and the classes.
+4. **Write the selector.** Add the `data-testid` first. Keep the old class
    selector as a fallback. Update the comment that names the deploy the selector
    came from.
-4. **Run the fixtures.** The saved pages are the regression net:
+5. **Run the fixtures.** The saved pages are the regression net:
    ```sh
    node tests/fixture-reactions.test.mjs
    node tests/fixture-comments.test.mjs
    ```
    They must pass 18/18 and 20/20. A mismatch names the item, the field and the
    expected value.
-5. **Run the health check.** `npm run health` covers the syntax check, the unit
+6. **Run the health check.** `npm run health` covers the syntax check, the unit
    tests, the lockfile and the pre-commit hook.
-6. **Update the fixture.** If the saved page no longer matches the new selector,
+7. **Update the fixture.** If the saved page no longer matches the new selector,
    the fixture is the stale one. Re-run the probe against the live page, save the
    new page, and update the expectation next to it. The fixture is the contract:
    it is the page plus the expected output, and the pair travels together.
-7. **Update the date.** The probe scripts carry a `LAST VERIFIED WORKING` date.
+8. **Update the date.** The probe scripts carry a `LAST VERIFIED WORKING` date.
    Change it when you re-run the probe against the live DOM.
 
 ## The fixture contract

@@ -9,7 +9,7 @@
 - [x] The Dashboard `Limit` control now caps a scan: `scan` reads `--limit` through `resolveRunOptions` and the Activity Loader caps the first render and the deep walk, trimming an overshooting batch to the exact count. A cap that is reached ends the run complete rather than incomplete. The dashboard's default is 0 (no cap), and `0` no longer collapses to 50. The server log reports the limit it was sent.
 - [x] README now describes the dashboard as the review-first flow and the scan envelope as the CLI output. The old text claimed a scan opens a selection page, which the CLI no longer does.
 - [x] Reaction `postExcerpt` now reads the post body. `extractPostExcerpt` reads `data-testid="expandable-text-box"` first, which is stable across LinkedIn's class-name obfuscation, and keeps the old `p.gvyles` class as a fallback for older pages. A live scan of 19 reactions now fills 15 post excerpts; the 4 empty ones are a post whose body is only the "👇" emoji or a post with no body text.
-- [x] Added `docs/dom-probe-playbook.md`: how to re-run the DOM probe when LinkedIn changes its markup, the selector order (data-testid first, class fallback, content last), the November 2026 findings, the fixture update workflow, and the gotchas.
+- [x] Added `docs/dom-probe-playbook.md`: how to re-run the DOM probe when LinkedIn changes its markup, the selector order (data-testid first, class fallback, content last), the November 2026 findings, the fixture update workflow, and the gotchas. The playbook's rule for every future probe: the agent must remind the user to add two marker comments first, "This is comment number 1, link=https://google.com/ - end" and "This is comment number 2, no link", so the probe searches for exact text instead of guessing.
 
 ## Released
 
