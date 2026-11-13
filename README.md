@@ -2,8 +2,8 @@
 
 Purge your own LinkedIn comments and reactions (likes) using a real browser
 (Playwright) with randomized pacing and review-first selection: scan once,
-review what the scan found on one page, pick the items to delete, export them,
-and purge exactly that selection.
+review what the scan found in the live dashboard, pick the items to delete, and
+purge exactly that selection.
 
 ## Setup (bundled Chromium)
 
@@ -59,6 +59,13 @@ npm run purge -- --cdp http://localhost:9222
 npm run dashboard
 ```
 
+The dashboard opens in your default browser. It is the review-first front end:
+it shows one row per scanned item (checkbox, reaction state, author, date,
+comment text or post excerpt, and link), and it runs the scan and the purge
+itself. Tick the items to delete, edit a comment inline, and push the updates.
+The scan buttons run in the background and the dashboard reloads the envelope
+when the scan finishes.
+
 ```sh
 # Count items without deleting (first render only)
 npm run scan -- --type comments
@@ -69,13 +76,9 @@ npm run scan -- --type likes --deep
 npm run scan -- --type all --deep
 ```
 
-Every scan writes `data/scan-<type>.json` (the scan envelope) and then writes and
-opens `data/selection-<type>.html` in your default browser: one page per item
-type, with one row per item (checkbox, reaction state, author, date, comment
-text or post excerpt, status, and - since links are captured by default - a link column).
-Review it, tick the items to delete, and click **Export** to download
-`data/selection-<type>.json`, which holds only the ticked items at
-`status: todo`. Then purge exactly that selection:
+Every scan writes `data/scan-<type>.json` (the scan envelope); the dashboard
+loads that file. A targeted CLI purge can also consume it. The CLI still writes
+a selection page when you pass `--input`, which is the legacy path:
 
 ```sh
 # Purge only the ticked items from the exported selection
@@ -85,9 +88,9 @@ npm run purge -- --input data/selection-likes.json
 `purge --input` walks the Activity List, matches cards by their Card Identity,
 acts on every selected item that is not already purged, and stops as soon as
 every selected item is final (purged, failed, or not-found). It writes each
-item's status into the scan envelope as it goes, then regenerates the page and
-opens it, so you can see on the same page what was purged, what failed, and
-what you left alone.
+item's status into the scan envelope as it goes, then regenerates the selection
+page and opens it, so you can see what was purged, what failed, and what you
+left alone.
 
 ```sh
 # Full purge (legacy): act on every item on the page

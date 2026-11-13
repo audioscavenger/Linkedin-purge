@@ -9,6 +9,7 @@
 ## Unreleased
 
 - [x] The Dashboard `Limit` control now caps a scan: `scan` reads `--limit` through `resolveRunOptions` and the Activity Loader caps the first render and the deep walk, trimming an overshooting batch to the exact count. A cap that is reached ends the run complete rather than incomplete. The dashboard's default is 0 (no cap), and `0` no longer collapses to 50. The server log reports the limit it was sent.
+- [x] README now describes the dashboard as the review-first flow and the scan envelope as the CLI output. The old text claimed a scan opens a selection page, which the CLI no longer does.
 
 ## Released
 
