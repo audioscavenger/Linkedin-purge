@@ -250,7 +250,7 @@ function buildTabContent(items, isReactions) {
     "<table>",
     "<thead>",
     "<tr>",
-    '<th style="width:30px;"><input type="checkbox" class="select-all-cb" data-target="' +
+    '<th><input type="checkbox" class="select-all-cb" data-target="' +
       type +
       '" /></th>',
     "<th>Poster</th><th>Headline</th><th>Date</th><th>Post</th>" + textHeader,
@@ -505,12 +505,20 @@ function generateDashboardPage(envComments, envReactions) {
       border-radius: 3px;
     }
 
-    th:nth-child(1), td:nth-child(1) { width: 36px; text-align: center; }
+    /* Column widths: the checkbox column is the 13px checkbox plus its 8px
+       margin on each side; the Date column is 3%; the Reaction column is the
+       22px icon plus 8px padding on each side. */
+    th:nth-child(1), td:nth-child(1) { width: calc(13px + 1rem); text-align: center; }
     th:nth-child(2), td:nth-child(2) { width: 18%; }
     th:nth-child(3), td:nth-child(3) { width: 22%; }
-    th:nth-child(4), td:nth-child(4) { width: 10%; }
+    th:nth-child(4), td:nth-child(4) { width: 3%; }
     th:nth-child(5), td:nth-child(5) { width: 26%; }
     th:nth-child(6), td:nth-child(6) { width: 18%; }
+    /* The Reaction column is the 6th column of the Reactions tab only; the
+       Comments tab keeps its 6th column wide for the comment editor. */
+    #items-reactions th:nth-child(6), #items-reactions td:nth-child(6) {
+      width: calc(22px + 1rem);
+    }
 
     .truncate { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
     
