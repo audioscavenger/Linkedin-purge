@@ -693,16 +693,27 @@ function generateDashboardPage(envComments, envReactions) {
     consoleEl.scrollTop = consoleEl.scrollHeight;
   }
 
-  // SSE Event Source Connection
+  // SSE Event Source Connection. The event source is closed on shutdown so
+  // the browser stops retrying a dead port; without this the tab keeps
+  // opening sockets and the OS shows SYN_SENT rows for the exited server.
+  var es = null;
+  var shuttingDown = false;
   if (window.EventSource) {
-    var es = new EventSource("/api/purge/stream");
+    es = new EventSource("/api/purge/stream");
     es.addEventListener("hello", function(e) {
       try { var data = JSON.parse(e.data); logMessage("Connected: " + data.message); } catch(_){ logMessage("Connected to SSE stream."); }
     });
     es.addEventListener("progress", function(e) {
       try { var data = JSON.parse(e.data); if (data.message && data.message.indexOf("purge stream alive") === -1) { logMessage("Progress: " + data.message); } } catch(_){}
     });
+    es.addEventListener("shutdown", function() {
+      shuttingDown = true;
+      try { es.close(); } catch(_) {}
+    });
     es.onerror = function() {
+      // After shutdown the server is gone, so a retry is expected and must not
+      // be reported as a lost connection.
+      if (shuttingDown) return;
       logMessage("SSE connection lost. Reconnecting...");
     };
   }
@@ -990,6 +1001,10 @@ function generateDashboardPage(envComments, envReactions) {
   // Shutdown button (no confirm popup, direct termination)
   document.getElementById("shutdownBtn").addEventListener("click", function () {
     logMessage("Sending shutdown request...");
+    // Close the SSE stream first so the browser does not keep reconnecting
+    // after the server process exits.
+    shuttingDown = true;
+    if (es) { try { es.close(); } catch(_) {} }
     fetch("/api/shutdown", { method: "POST" })
       .then(function (res) { return res.json(); })
       .then(function () {

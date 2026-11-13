@@ -39,4 +39,17 @@ assert.ok(
   "Reaction column width should be scoped to the Reactions tab"
 );
 
+// 4. The shutdown handler closes the EventSource so the browser stops
+//    retrying the dead port. Without this the tab keeps opening sockets and
+//    netstat shows SYN_SENT rows for the exited server.
+assert.ok(
+  html.includes("es.close()"),
+  "Shutdown handler should close the EventSource"
+);
+
+assert.ok(
+  html.includes("shuttingDown"),
+  "Shutdown handler should suppress the reconnect log"
+);
+
 console.log("dashboard-page.test.js passed successfully!");

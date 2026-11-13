@@ -391,6 +391,21 @@ function createRequestHandler(dataDir) {
     if (req.method === "POST" && pathname === "/api/shutdown") {
       log("Shutdown endpoint called; stopping server and exiting process.");
 
+      // Tell every SSE client the server is going away, then close the
+      // responses. Without this the browser keeps the stream open and retries
+      // the dead port, leaving SYN_SENT rows behind.
+      broadcast("shutdown", { message: "Server shutting down" });
+
+      for (const client of sseClients) {
+        try {
+          client.end();
+        } catch {
+          // Ignore already-closed responses.
+        }
+      }
+
+      sseClients.clear();
+
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({ ok: true, message: "Server shutting down." }, null, 2)
