@@ -297,6 +297,13 @@ Both scripts are read-only: no clicks, no deletions, no scroll. Each carries a
 `LAST VERIFIED WORKING` date in its header — when scan metadata breaks, re-run
 the probe against the live DOM and re-verify that date.
 
+The full playbook is in `docs/dom-probe-playbook.md`: the selector order, the
+November 2026 findings, the fixture update workflow and the gotchas. Its rule
+for every probe: before you run it, add the two marker comments to the Activity
+List, `This is comment number 1, link=https://google.com/ - end` and
+`This is comment number 2, no link`, so the probe searches for exact text instead
+of guessing.
+
 The repo includes a Husky pre-commit hook that automatically runs lint-staged
 (ESLint + Prettier) before every commit. If it's not active after cloning, run
 `npx husky install`.
