@@ -79,6 +79,7 @@ Quick pointer to the main modules in this repo. Read this first when onboarding 
 | `scripts/check-all.mjs` | Recursive `node --check` across `src/` and `tests/` |
 | `scripts/selection-page-browser-check.mjs` | Opens a generated selection page headless and asserts the table renders from embedded data, filters/sort/master-select behave, and Export downloads the expected envelope; not part of `check` or `health` |
 | `scripts/probe-dom.mjs` | DOM probe: launches headed with your logged-in profile, opens the comments or reactions tab (first page only, no scroll), dumps per-card links/times/text candidates/headline candidates/text blocks so exact author/headline/date/text selectors can be written for `src/linkedin-dom.mjs`. One script for both tabs via a type argument. Carries a `LAST VERIFIED WORKING` date — LinkedIn markup obfuscates per deploy. |
+| `docs/dom-probe-playbook.md` | How to re-run the DOM probe when LinkedIn changes its markup: the selector order (data-testid first, class fallback, content last), the 2026-11 findings, the fixture update workflow, and the gotchas. |
 | `scripts/dump-card.mjs` | Dumps full outerHTML of one comment card to `/tmp/card-outer.html` plus every text node with tag and classes, for discovering comment text/date/headline selectors. Read-only, no scroll. |
 | `data/scan-<type>.json` | Scan envelope, written by shallow and deep scans alike; now the only state, carrying per-item Purge Status |
 | `data/selection-<type>.html` | Selection page written and opened after each scan, with the envelope embedded inline |
