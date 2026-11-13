@@ -642,7 +642,7 @@ function generateDashboardPage(envComments, envReactions) {
     <button id="scanCommentsBtn" class="scan-btn btn">Scan Comments</button>
     <button id="scanReactionsBtn" class="scan-btn btn">Scan Reactions</button>
     <label><input type="checkbox" id="deepScanCb"> Deep Scan</label>
-    <label>Limit: <input type="number" id="limitInput" value="50" min="1" max="1000"></label>
+    <label title="Maximum items to collect. 0 means no cap.">Limit: <input type="number" id="limitInput" value="0" min="0" max="5000"></label>
   </div>
   <div class="toolbar-group">
     <button id="pushUpdatesBtn" class="btn" style="background: var(--success);">Push Updates (Delete & Edit)</button>
@@ -898,15 +898,22 @@ function generateDashboardPage(envComments, envReactions) {
     setScanButtonState(type, true);
 
     var deep = document.getElementById("deepScanCb").checked;
-    var limit = document.getElementById("limitInput").value;
-    logMessage("Starting scan for " + type + " (deep: " + deep + ", limit: " + limit + ")...");
+    var limitNum = parseInt(document.getElementById("limitInput").value, 10);
+
+    // 0 means no cap, so it must survive exactly as 0 rather than fall back.
+    if (isNaN(limitNum) || limitNum < 0) limitNum = 0;
+
+    logMessage(
+      "Starting scan for " + type + " (deep: " + deep +
+      ", limit: " + (limitNum === 0 ? "none" : limitNum) + ")..."
+    );
 
     var backendType = type === "reactions" ? "likes" : type;
 
     fetch("/api/scan/" + backendType, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deep: deep, limit: parseInt(limit, 10) || 50 })
+      body: JSON.stringify({ deep: deep, limit: limitNum })
     })
     .then(function(res) { return res.json(); })
     .then(function(data) {

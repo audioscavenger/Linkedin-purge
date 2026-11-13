@@ -163,13 +163,14 @@ function page(keys) {
   }));
 }
 
-function loaderFor(fakePage, timing) {
+function loaderFor(fakePage, timing, maxItems = 0) {
   const clock = fakeClock();
   const events = [];
 
   const loader = new ActivityLoader({
     page: fakePage,
     timing,
+    maxItems,
     onStep: (event) => events.push(event),
     now: clock.now,
     sleep: clock.sleep,
@@ -609,6 +610,121 @@ async function testFirstRenderOperation() {
   );
 }
 
+// --limit caps the shallow scan: the first render is sliced to the cap, and the
+// step event reports what survived rather than the whole page.
+async function testLimitCapsFirstRender() {
+  const fake = new FakeActivityPage({
+    pages: [page(["a", "b", "c", "d", "e"])],
+    growsOnSteps: [],
+  });
+
+  const { loader, events } = loaderFor(fake, FAST_TIMING, 3);
+
+  const result = await loader.readFirstRender();
+
+  if (result.items.length !== 3)
+    throw new Error(`Cap 3 must return 3 items, got ${result.items.length}`);
+
+  const keys = result.items.map((it) => it.key).join(",");
+
+  if (keys !== "a,b,c")
+    throw new Error(`Cap keeps first-seen order, got ${keys}`);
+
+  if (events[0].total !== 3 || events[0].added !== 3) {
+    throw new Error(
+      `Step 0 must report the capped total: ${JSON.stringify(events[0])}`
+    );
+  }
+
+  console.log("PASS: limit caps the first render and its step event");
+}
+
+// --limit ends a deep walk at the cap and calls it complete: the cap was
+// honoured, so the walk is not incomplete in the sense the envelope means.
+async function testLimitStopsWalk() {
+  const fake = new FakeActivityPage({
+    pages: [
+      page(["a", "b"]),
+      page(["a", "b", "c", "d"]),
+      page(["a", "b", "c", "d", "e", "f"]),
+    ],
+    growsOnSteps: [1, 2],
+  });
+
+  const { loader } = loaderFor(fake, FAST_TIMING, 4);
+
+  const result = await loader.collectAll();
+
+  if (result.items.length !== 4)
+    throw new Error(`Cap 4 must return 4 items, got ${result.items.length}`);
+
+  if (result.complete !== true)
+    throw new Error(
+      "Reaching the cap is a request met, not an incomplete walk"
+    );
+
+  if (fake.scrolls > 1) {
+    throw new Error(
+      `The walk must stop once the cap is met, it scrolled ${fake.scrolls} times`
+    );
+  }
+
+  console.log("PASS: limit stops the deep walk at the cap and completes");
+}
+
+// A batch that overshoots the cap is trimmed to exactly the cap, so a limit of
+// 3 never hands back 6.
+async function testLimitTrimsOvershoot() {
+  const fake = new FakeActivityPage({
+    pages: [page(["a", "b"]), page(["a", "b", "c", "d", "e", "f", "g"])],
+    growsOnSteps: [1],
+  });
+
+  const { loader, events } = loaderFor(fake, FAST_TIMING, 3);
+
+  const result = await loader.collectAll();
+
+  if (result.items.length !== 3)
+    throw new Error(
+      `Overshoot must be trimmed to 3, got ${result.items.length}`
+    );
+
+  const keys = result.items.map((it) => it.key).join(",");
+
+  if (keys !== "a,b,c")
+    throw new Error(`Trimmed walk keeps first-seen order, got ${keys}`);
+
+  const lastEvent = events[events.length - 1];
+
+  if (lastEvent.total !== 3) {
+    throw new Error(
+      `The trimmed step event must report 3, got ${lastEvent.total}`
+    );
+  }
+
+  console.log("PASS: limit trims an overshooting batch to exactly the cap");
+}
+
+// A cap of 0 is the documented "no cap": the walk keeps its old behaviour.
+async function testZeroLimitIsNoCap() {
+  const fake = new FakeActivityPage({
+    pages: [page(["a", "b"]), page(["a", "b", "c"])],
+    growsOnSteps: [1],
+  });
+
+  const { loader } = loaderFor(fake, { ...FAST_TIMING, maxEmptyScrolls: 1 }, 0);
+
+  const result = await loader.collectAll();
+
+  if (result.items.length !== 3) {
+    throw new Error(
+      `Cap 0 means no cap, expected 3 items, got ${result.items.length}`
+    );
+  }
+
+  console.log("PASS: limit 0 means no cap");
+}
+
 const tests = [
   testGrowsThenIdles,
   testTimeoutCutoff,
@@ -619,6 +735,10 @@ const tests = [
   testAbsentTimeoutUsesDefault,
   testLateBatchIsReconciled,
   testFirstRenderOperation,
+  testLimitCapsFirstRender,
+  testLimitStopsWalk,
+  testLimitTrimsOvershoot,
+  testZeroLimitIsNoCap,
 ];
 
 async function main() {

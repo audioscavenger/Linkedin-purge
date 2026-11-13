@@ -2,12 +2,13 @@
 
 ## Bugs
 
-- Dashboard `Limit` input does nothing: `scan` never reads a `--limit` flag, so the value is sent and ignored. Either wire the option through `resolveRunOptions` and the Activity Loader, or remove the control.
 - `postExcerpt` is null on every reaction in `data/scan-likes.json`. The extractor is not the whole story: both fixtures still reproduce 16/18 reaction post excerpts from the November 7 saved pages, and `collectReactionItems` reads the card metadata before the link capture runs, so `links` is not the cause either. The live scan (November 12) postdates those pages, which points at LinkedIn markup drift in the post-body element. Confirm with a live `scripts/probe-dom.mjs` run before rewriting the selectors in `extractPostExcerpt`.
 
 ## Ideas
 
 ## Unreleased
+
+- [x] The Dashboard `Limit` control now caps a scan: `scan` reads `--limit` through `resolveRunOptions` and the Activity Loader caps the first render and the deep walk, trimming an overshooting batch to the exact count. A cap that is reached ends the run complete rather than incomplete. The dashboard's default is 0 (no cap), and `0` no longer collapses to 50. The server log reports the limit it was sent.
 
 ## Released
 

@@ -34,6 +34,7 @@ export async function runScan(args) {
     headless,
     cdpEndpoint,
     timing,
+    limit,
   } = resolveRunOptions(args);
 
   const deep = asBool(resolveFlag(args, "deep", "behavior.deepScan", false));
@@ -67,8 +68,11 @@ export async function runScan(args) {
       const loader = new ActivityLoader({
         page: createActivityPage(page, { links }),
         timing,
+        maxItems: limit,
         onStep: (event) => log(stepLine(t, event)),
       });
+
+      if (limit > 0) log(`${t}: capped at ${limit} items (--limit)`);
 
       // Deep walks the Activity List; plain scan reads the first render only.
       const startedAt = Date.now();

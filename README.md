@@ -135,7 +135,7 @@ The following command-line parameters are accepted:
 - `--type` - Type of items to process: `comments`, `likes`, or `all` (default)
 - `--deep` - Walk the whole Activity List instead of collecting the first render (default: false; `behavior.deepScan` in `config.json`). Applies to a scan, or to an automated purge without `--input` (crawl-to-purge). Dropped silently when `--input` is present.
 - `itemHref` is captured for every item in the scan (it is no longer an opt-in link step): each Purge Item carries a direct link to the item itself, so purge can target individual items without crawling the page first.
-- `--limit` - Automation-only: stop after deleting n items per type (0 = unlimited). Only used when purging without `--input`; purge crawls the page and purges up to `limit` items, no scan needed. With `--input`, `--input` always wins and `--limit` only caps how many marked-todo items are purged. `--limit` applies per Activity type, not as a sum across both (`--limit 25 --type all` purges up to 25 comments and up to 25 reactions).
+- `--limit` - Stop after n items per type (0 = unlimited, the default). A scan collects up to `limit` items and a purge deletes up to `limit` items; both stop at the cap and report the run as complete. With `--input`, `--input` always wins and `--limit` only caps how many marked-todo items are purged. `--limit` applies per Activity type, not as a sum across both (`--limit 25 --type all` scans up to 25 comments and up to 25 reactions).
 - `--profile-dir` - Chromium profile directory path
 - `--data-dir` - Data directory for scan envelopes and selection pages (default: data)
 - `--chromium-path` - Path to Chromium binary

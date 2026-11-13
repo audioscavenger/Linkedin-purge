@@ -54,12 +54,14 @@ export class ActivityLoader {
   constructor({
     page,
     timing = {},
+    maxItems = 0,
     onStep = null,
     now = Date.now,
     sleep = defaultSleep,
   }) {
     this.page = page;
     this.timing = timing || {};
+    this.maxItemsOption = maxItems;
     this.onStep = onStep;
     this.now = now;
     this.sleep = sleep;
@@ -85,6 +87,39 @@ export class ActivityLoader {
     const value = numberOr(this.timing.timeout, DEFAULT_TIMEOUT_MS);
 
     return value === 0 ? Number.POSITIVE_INFINITY : value;
+  }
+
+  /*
+  Maximum items to collect (behavior.limit / --limit). 0 means no cap, the
+  same convention timeoutMs uses. A cap is a request, not a failure, so a walk
+  that reaches it ends complete rather than incomplete.
+*/
+  get maxItems() {
+    return numberOr(this.maxItemsOption, 0);
+  }
+
+  // True when a cap is set and the walk already holds that many items.
+  limitReached(items) {
+    return this.maxItems > 0 && items.length >= this.maxItems;
+  }
+
+  /*
+  Trim a walk back to the cap and rebuild the seen-key set from what survives,
+  so the two never disagree. A load step can overshoot the cap by a whole
+  batch; without the trim a limit of 50 could return 60. Returns how many items
+  were removed.
+*/
+  applyLimit(items, seenKeys) {
+    if (this.maxItems <= 0 || items.length <= this.maxItems) return 0;
+
+    const removed = items.length - this.maxItems;
+
+    items.length = this.maxItems;
+    seenKeys.clear();
+
+    for (const item of items) seenKeys.add(item.key);
+
+    return removed;
   }
 
   // Read the items currently in the page. The seen keys are handed to the
@@ -128,7 +163,9 @@ export class ActivityLoader {
   step-0 event.
 */
   async readFirstRender() {
-    const items = (await this.readItems([])) || [];
+    const read = (await this.readItems([])) || [];
+    const items = this.maxItems > 0 ? read.slice(0, this.maxItems) : read;
+
     this.emitStep({
       step: 0,
       total: items.length,
@@ -156,6 +193,8 @@ export class ActivityLoader {
     mergeItems(items, seenKeys, first.items, 0);
     let steps = first.steps;
 
+    if (this.limitReached(items)) return { items, steps, complete: true };
+
     while (idle < this.idleLimit) {
       const remaining = this.timeoutMs - (this.now() - startedAt);
 
@@ -175,16 +214,23 @@ export class ActivityLoader {
   way was productive after all.
 */
       const freshItems = await this.readItems([...seenKeys]);
+      const countBefore = items.length;
       const added = mergeItems(items, seenKeys, freshItems, step);
+      const trimmed = this.applyLimit(items, seenKeys);
       idle = result.grew || added > 0 ? 0 : idle + 1;
       steps++;
       this.emitStep({
         step,
         total: items.length,
-        added,
+        added: items.length - countBefore,
         waitedMs: result.waitedMs,
         target: result.target,
       });
+
+      // A cap that cut this batch short ends the walk: further steps would be
+      // collected only to be trimmed away.
+      if (trimmed > 0 || this.limitReached(items))
+        return { items, steps, complete: true };
 
       if (this.now() - startedAt >= this.timeoutMs)
         return { items, steps, complete: false };

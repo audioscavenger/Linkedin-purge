@@ -181,6 +181,13 @@ export function resolveRunOptions(args) {
   const cdpEndpoint = getFlag(args, "cdp", null);
   const timing = loadConfig().timing || {};
 
+  /*
+  Item cap, resolved once for both commands: --limit > behavior.limit > 0
+  (no cap). purge uses it to bound how many items it deletes; scan uses it to
+  bound how many it collects.
+  */
+  const limit = asInt(resolveFlag(args, "limit", "behavior.limit", 0), 0);
+
   return {
     profileDir,
     dataDir,
@@ -189,6 +196,7 @@ export function resolveRunOptions(args) {
     headless,
     cdpEndpoint,
     timing,
+    limit,
   };
 }
 

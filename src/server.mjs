@@ -297,8 +297,9 @@ function createRequestHandler(dataDir) {
         // ignore parse error
       }
 
+      /* 0 is the "no cap" convention, so it must not be logged as 50. */
       log(
-        `Dashboard triggered scan for "${type}" (deep: ${!!opts.deep}, limit: ${opts.limit || 50})...`
+        `Dashboard triggered scan for "${type}" (deep: ${!!opts.deep}, limit: ${opts.limit || 0})...`
       );
       broadcast("progress", {
         ts: new Date().toISOString(),

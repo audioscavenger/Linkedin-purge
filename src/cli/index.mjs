@@ -72,7 +72,8 @@ Parameters:
   --data-dir <dir>                Directory for reports/checkpoints    (default: data)
   --chromium-path <path>          Path to the Chromium binary
   --cdp <endpoint>                Attach to a running Chromium (e.g. http://localhost:9222)
-  --limit <n>                     Stop after n deletions               (default: 0 = unlimited)
+  --limit <n>                     Stop after n items (deleted by purge,
+                                  collected by scan)                   (default: 0 = unlimited)
   --action-min <ms>               Min per-action delay                 (default: 2000)
   --action-max <ms>               Max per-action delay                 (default: 5000)
   --batch-min <ms>                Min batch pause                      (default: 30000)
